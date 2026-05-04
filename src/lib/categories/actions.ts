@@ -98,6 +98,43 @@ export async function updateCategoryAction(input: CategoryUpdateInput): Promise<
   return { ok: true };
 }
 
+/**
+ * Apply a new sibling order. The orderedIds array must contain every category
+ * with the given parentId (siblings within the same level only).
+ */
+export async function reorderCategoriesAction(input: {
+  parentId: string | null;
+  orderedIds: string[];
+}): Promise<ActionResult> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "catalog:manage");
+
+  if (!Array.isArray(input.orderedIds) || input.orderedIds.length === 0) {
+    return { ok: false, error: "Lege volgorde" };
+  }
+
+  const cats = await db.category.findMany({
+    where: {
+      id: { in: input.orderedIds },
+      organizationId: ctx.organization.id,
+      parentId: input.parentId ?? null,
+    },
+    select: { id: true },
+  });
+  if (cats.length !== input.orderedIds.length) {
+    return { ok: false, error: "Onbekende categorie in volgorde" };
+  }
+
+  await db.$transaction(
+    input.orderedIds.map((id, idx) =>
+      db.category.update({ where: { id }, data: { sortOrder: idx } }),
+    ),
+  );
+
+  revalidatePath("/dashboard/categories");
+  return { ok: true };
+}
+
 export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
