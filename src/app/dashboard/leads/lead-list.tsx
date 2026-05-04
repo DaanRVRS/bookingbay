@@ -6,10 +6,12 @@ import Link from "next/link";
 import {
   CheckCircle2,
   Clock,
+  Globe,
   Mail,
   MoreHorizontal,
   Phone,
   RotateCcw,
+  Shield,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { markLeadHandledAction, deleteLeadAction } from "@/lib/leads/dashboard-actions";
+import { blockLeadSenderAction } from "@/lib/leads/blocklist-actions";
 
 interface Lead {
   id: string;
@@ -239,6 +242,38 @@ function LeadCard({ lead }: { lead: Lead }) {
                     Markeer afgehandeld
                   </>
                 )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  startTransition(async () => {
+                    const res = await blockLeadSenderAction(lead.id, "email");
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    toast.success("Adres geblokkeerd");
+                    router.refresh();
+                  });
+                }}
+              >
+                <Shield className="size-4" />
+                Blokkeer dit adres
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  startTransition(async () => {
+                    const res = await blockLeadSenderAction(lead.id, "domain");
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    toast.success("Domein geblokkeerd");
+                    router.refresh();
+                  });
+                }}
+              >
+                <Globe className="size-4" />
+                Blokkeer hele domein
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="text-destructive">
                 <Trash2 className="size-4" />

@@ -9,6 +9,9 @@ export const leadSchema = z.object({
   message: z.string().min(5, "Bericht te kort").max(2000),
   startAt: z.string().optional().or(z.literal("")),
   endAt: z.string().optional().or(z.literal("")),
+  // Honeypot: hidden field. Real users leave it empty, bots fill it in.
+  // The server silently fakes a success response when this is set.
+  website: z.string().max(200).optional().or(z.literal("")),
 });
 
 export type LeadInput = z.infer<typeof leadSchema>;

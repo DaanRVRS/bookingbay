@@ -108,6 +108,7 @@ model Organization {
   bookings    Booking[]
   customers   Customer[]
   leads       Lead[]
+  leadBlocks  LeadBlock[]
   auditLogs   AuditLog[]
 
   createdAt DateTime @default(now())
@@ -292,6 +293,21 @@ model Lead {
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+model LeadBlock {
+  id             String   @id @default(cuid())
+  organizationId String
+  // Either a full address ("noreply@example.com") or a domain prefixed with
+  // an @ symbol ("@example.com"). All-lowercase.
+  pattern        String
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, pattern])
+  @@index([organizationId])
 }
 
 // ----------------------------------------------------------------------------

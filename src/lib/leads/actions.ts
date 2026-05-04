@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { sendEmail, emailLayout } from "@/lib/email";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { leadSchema, type LeadInput } from "./schemas";
+import { isEmailBlocked } from "./blocklist";
 
 export async function createLeadAction(input: LeadInput): Promise<ActionResult> {
   const parsed = leadSchema.safeParse(input);
@@ -16,11 +17,21 @@ export async function createLeadAction(input: LeadInput): Promise<ActionResult> 
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fields };
   }
 
+  // Honeypot trip — silently fake success so bots don't learn it's blocked
+  if (parsed.data.website && parsed.data.website.trim().length > 0) {
+    return { ok: true };
+  }
+
   const org = await db.organization.findUnique({
     where: { id: parsed.data.organizationId },
     select: { id: true, name: true, slug: true, contactEmail: true },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
+
+  // Per-org blocklist (specific address or @domain). Silent fake-success.
+  if (await isEmailBlocked(org.id, parsed.data.email)) {
+    return { ok: true };
+  }
 
   let itemRef: { id: string; name: string } | null = null;
   if (parsed.data.itemId) {

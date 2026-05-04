@@ -1,4 +1,5 @@
-import { Inbox } from "lucide-react";
+import Link from "next/link";
+import { Inbox, Shield } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
@@ -49,6 +50,15 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         <PageHeader
           title="Leads"
           description="Aanvragen die binnenkomen via je publieke klantsite. Mark als afgehandeld zodra je gereageerd hebt."
+          action={
+            <Link
+              href="/dashboard/leads/blocklist"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium hover:bg-accent"
+            >
+              <Shield className="size-4" />
+              Blocklist
+            </Link>
+          }
         />
 
         <div className="mt-6">

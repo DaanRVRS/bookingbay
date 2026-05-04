@@ -40,6 +40,7 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
         : "",
       startAt: "",
       endAt: "",
+      website: "",
     },
   });
 
@@ -90,6 +91,28 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
           <p className="font-medium">{preselectedItem.name}</p>
         </div>
       )}
+
+      {/* Honeypot — visually hidden, off-screen, untabbable, autocomplete=off */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
+        <label>
+          Website (laat leeg)
+          <input
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            {...register("website")}
+          />
+        </label>
+      </div>
 
       <FormField
         label="Je naam"
