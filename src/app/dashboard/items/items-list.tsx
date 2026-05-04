@@ -1,0 +1,174 @@
+"use client";
+
+import { useTransition } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, Package, ImageIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+
+interface Item {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  category: string;
+  pricePerDay: string | null;
+  pricePerHour: string | null;
+  quantity: number;
+  isActive: boolean;
+}
+
+export function ItemsList({
+  items,
+  categories,
+  currentCategory,
+  currentSearch,
+  currentStatus,
+}: {
+  items: Item[];
+  categories: { id: string; name: string }[];
+  currentCategory?: string;
+  currentSearch?: string;
+  currentStatus?: string;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
+
+  const update = (key: string, value: string | null | undefined) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (!value || value === "__all__") sp.delete(key);
+    else sp.set(key, value);
+    startTransition(() => {
+      router.replace(`/dashboard/items?${sp.toString()}`);
+    });
+  };
+
+  return (
+    <>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Zoek op naam of beschrijving"
+            defaultValue={currentSearch ?? ""}
+            onChange={(e) => update("q", e.target.value || undefined)}
+            className="pl-9"
+          />
+        </div>
+        <Select
+          value={currentCategory ?? "__all__"}
+          onValueChange={(v) => update("cat", v)}
+        >
+          <SelectTrigger className="sm:w-52">
+            <SelectValue placeholder="Alle categorieën" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Alle categorieën</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={currentStatus ?? "__all__"}
+          onValueChange={(v) => update("status", v)}
+        >
+          <SelectTrigger className="sm:w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Alle</SelectItem>
+            <SelectItem value="active">Actief</SelectItem>
+            <SelectItem value="inactive">Inactief</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          Geen items gevonden met deze filters.
+        </p>
+      ) : (
+        <div className={`mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${pending ? "opacity-60" : ""}`}>
+          {items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/dashboard/items/${item.id}`}
+              className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-sm"
+            >
+              <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                {item.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="size-full object-cover transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="grid size-full place-items-center text-muted-foreground">
+                    <ImageIcon className="size-8 opacity-40" />
+                  </div>
+                )}
+                {!item.isActive && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute top-2 right-2"
+                  >
+                    Inactief
+                  </Badge>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-2 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="truncate text-sm font-semibold">{item.name}</h3>
+                  {item.quantity > 1 && (
+                    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {item.quantity}×
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  <Package className="mr-1 inline size-3" />
+                  {item.category}
+                </p>
+                <div className="mt-auto flex items-baseline gap-3 text-xs">
+                  {item.pricePerDay && (
+                    <span>
+                      <span className="font-semibold text-foreground tabular-nums">
+                        € {Number(item.pricePerDay).toFixed(2)}
+                      </span>{" "}
+                      <span className="text-muted-foreground">/ dag</span>
+                    </span>
+                  )}
+                  {!item.pricePerDay && item.pricePerHour && (
+                    <span>
+                      <span className="font-semibold text-foreground tabular-nums">
+                        € {Number(item.pricePerHour).toFixed(2)}
+                      </span>{" "}
+                      <span className="text-muted-foreground">/ uur</span>
+                    </span>
+                  )}
+                  {!item.pricePerDay && !item.pricePerHour && (
+                    <span className="text-muted-foreground">Geen prijs ingesteld</span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

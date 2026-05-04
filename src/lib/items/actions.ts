@@ -1,0 +1,134 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { requireOrg } from "@/lib/auth/session";
+import { assertCan } from "@/lib/auth/permissions";
+import {
+  itemCreateSchema,
+  itemUpdateSchema,
+  type ItemCreateInput,
+  type ItemUpdateInput,
+} from "./schemas";
+import type { ActionResult } from "@/lib/auth/schemas";
+
+function fieldErrors(error: z.ZodError): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const i of error.issues) {
+    const path = i.path.join(".");
+    if (!out[path]) out[path] = i.message;
+  }
+  return out;
+}
+
+async function assertCategoryInOrg(categoryId: string, orgId: string) {
+  const cat = await db.category.findFirst({
+    where: { id: categoryId, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!cat) throw new Error("Categorie niet gevonden");
+}
+
+export async function createItemAction(
+  input: ItemCreateInput,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "catalog:manage");
+
+  const parsed = itemCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
+  }
+
+  try {
+    await assertCategoryInOrg(parsed.data.categoryId, ctx.organization.id);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Categorie ongeldig" };
+  }
+
+  const created = await db.item.create({
+    data: {
+      organizationId: ctx.organization.id,
+      categoryId: parsed.data.categoryId,
+      name: parsed.data.name,
+      description: parsed.data.description || null,
+      imageUrl: parsed.data.imageUrl || null,
+      pricePerHour: parsed.data.pricePerHour,
+      pricePerDay: parsed.data.pricePerDay,
+      pricePerWeek: parsed.data.pricePerWeek,
+      deposit: parsed.data.deposit,
+      quantity: parsed.data.quantity,
+      isActive: parsed.data.isActive,
+    },
+    select: { id: true },
+  });
+
+  revalidatePath("/dashboard/items");
+  revalidatePath("/dashboard");
+  return { ok: true, data: { id: created.id } };
+}
+
+export async function updateItemAction(input: ItemUpdateInput): Promise<ActionResult> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "catalog:manage");
+
+  const parsed = itemUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
+  }
+
+  const existing = await db.item.findFirst({
+    where: { id: parsed.data.id, organizationId: ctx.organization.id },
+  });
+  if (!existing) return { ok: false, error: "Niet gevonden" };
+
+  try {
+    await assertCategoryInOrg(parsed.data.categoryId, ctx.organization.id);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Categorie ongeldig" };
+  }
+
+  await db.item.update({
+    where: { id: parsed.data.id },
+    data: {
+      categoryId: parsed.data.categoryId,
+      name: parsed.data.name,
+      description: parsed.data.description || null,
+      imageUrl: parsed.data.imageUrl || null,
+      pricePerHour: parsed.data.pricePerHour,
+      pricePerDay: parsed.data.pricePerDay,
+      pricePerWeek: parsed.data.pricePerWeek,
+      deposit: parsed.data.deposit,
+      quantity: parsed.data.quantity,
+      isActive: parsed.data.isActive,
+    },
+  });
+
+  revalidatePath("/dashboard/items");
+  revalidatePath(`/dashboard/items/${parsed.data.id}`);
+  return { ok: true };
+}
+
+export async function deleteItemAction(id: string): Promise<ActionResult> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "catalog:manage");
+
+  const existing = await db.item.findFirst({
+    where: { id, organizationId: ctx.organization.id },
+    include: { _count: { select: { bookings: true } } },
+  });
+  if (!existing) return { ok: false, error: "Niet gevonden" };
+
+  if (existing._count.bookings > 0) {
+    // Soft-deactivate instead of deleting when bookings exist
+    await db.item.update({ where: { id }, data: { isActive: false } });
+    revalidatePath("/dashboard/items");
+    return { ok: true };
+  }
+
+  await db.item.delete({ where: { id } });
+  revalidatePath("/dashboard/items");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
