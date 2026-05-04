@@ -10,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -187,9 +186,9 @@ function MemberRow({
             <MoreHorizontal className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel className="text-[11px] tracking-wide text-muted-foreground uppercase">
+            <p className="px-2 pt-1 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               Rol wijzigen
-            </DropdownMenuLabel>
+            </p>
             {ROLES.map((r) => {
               if (r === "OWNER" && currentRole !== "OWNER") return null;
               return (

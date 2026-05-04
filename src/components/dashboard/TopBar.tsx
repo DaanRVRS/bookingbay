@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Logo } from "@/components/marketing/Logo";
 import {
   Sheet,
@@ -58,15 +58,7 @@ export function TopBar({
 
         <div className="ml-2 hidden flex-1 md:block">{children}</div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            aria-label="Zoeken"
-            className="hidden size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent sm:flex"
-          >
-            <Search className="size-4" />
-          </button>
-          {rightSlot}
-        </div>
+        <div className="ml-auto flex items-center gap-2">{rightSlot}</div>
       </div>
     </header>
   );

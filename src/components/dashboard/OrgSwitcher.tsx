@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -62,9 +61,9 @@ export function OrgSwitcher({ active, activeRole, memberships }: Props) {
         <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel className="text-[11px] tracking-wide text-muted-foreground uppercase">
+        <p className="px-2 pt-1 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           Werkruimtes
-        </DropdownMenuLabel>
+        </p>
         {memberships.map((m) => {
           const isActive = m.organization.id === active.id;
           return (

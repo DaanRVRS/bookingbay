@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -36,10 +35,10 @@ export function UserMenu({ user }: Props) {
         {initials}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
+        <div className="px-2 py-1.5">
           <p className="truncate text-sm font-medium">{user.name ?? "Gebruiker"}</p>
           <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-        </DropdownMenuLabel>
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/dashboard/settings/profile")}>
           <User className="size-4" />
