@@ -61,18 +61,26 @@ jobs:
             pnpm build
 
             echo "==> Reloading pm2"
-            if pm2 describe bookingbay > /dev/null 2>&1; then
-              pm2 reload bookingbay --update-env
-            else
-              pm2 start ecosystem.config.cjs
-            fi
+            # Force a clean (re)start to pick up ecosystem.config.cjs changes
+            pm2 delete bookingbay > /dev/null 2>&1 || true
+            pm2 start ecosystem.config.cjs --update-env
             pm2 save
 
-            echo "==> Health check"
-            sleep 3
-            curl --fail --silent --show-error \
-              -H "Host: bookingbay.178-104-86-251.nip.io" \
-              http://localhost/api/health
-            echo ""
+            echo "==> Health check (retry up to 30s)"
+            for i in $(seq 1 15); do
+              sleep 2
+              if curl --fail --silent --show-error \
+                  -H "Host: bookingbay.178-104-86-251.nip.io" \
+                  http://localhost/api/health > /tmp/health.json; then
+                echo "OK on attempt $i:"
+                cat /tmp/health.json
+                echo ""
+                echo "==> Deploy complete"
+                exit 0
+              fi
+              echo "  attempt $i failed, retrying..."
+            done
 
-            echo "==> Deploy complete"
+            echo "ERROR: health check did not succeed within 30s"
+            pm2 logs bookingbay --lines 30 --nostream
+            exit 1

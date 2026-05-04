@@ -3,8 +3,9 @@ module.exports = {
     {
       name: "bookingbay",
       cwd: "/var/www/bookingbay",
-      script: "node_modules/.bin/next",
+      script: "node_modules/next/dist/bin/next",
       args: "start -p 3001",
+      interpreter: "node",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
