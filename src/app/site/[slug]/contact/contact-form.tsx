@@ -9,7 +9,8 @@ import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { createLeadAction, leadSchema, type LeadInput } from "@/lib/leads/actions";
+import { createLeadAction } from "@/lib/leads/actions";
+import { leadSchema, type LeadInput } from "@/lib/leads/schemas";
 
 interface Props {
   organizationId: string;

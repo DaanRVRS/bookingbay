@@ -13,11 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/auth/FormField";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
-import {
-  siteCustomizerSchema,
-  updateSiteAction,
-  type SiteCustomizerInput,
-} from "@/lib/orgs/site-actions";
+import { updateSiteAction } from "@/lib/orgs/site-actions";
+import { siteCustomizerSchema, type SiteCustomizerInput } from "@/lib/orgs/site-schemas";
 
 type FormValues = z.input<typeof siteCustomizerSchema>;
 
