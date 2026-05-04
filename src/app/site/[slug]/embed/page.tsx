@@ -1,49 +1,79 @@
 import Link from "next/link";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
+import { getOrgBySlug, getTenantCatalog, searchTenantItems } from "@/lib/tenants/queries";
+import { TenantSearch } from "@/components/tenants/TenantSearch";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
-export default async function EmbedHomePage({ params }: PageProps) {
+export default async function EmbedHomePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { q = "" } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const categories = await getTenantCatalog(org.id);
   const accent = org.primaryColor ?? "#ef5934";
+  const trimmed = q.trim();
 
-  const allItems = categories.flatMap((c) => [
-    ...c.items.map((i) => ({ ...i, categoryName: c.name })),
-    ...c.children.flatMap((sub) =>
-      sub.items.map((i) => ({ ...i, categoryName: `${c.name} · ${sub.name}` })),
-    ),
-  ]);
+  let allItems: {
+    id: string;
+    name: string;
+    description: string | null;
+    imageUrl: string | null;
+    pricePerHour: import("@prisma/client").Prisma.Decimal | null;
+    pricePerDay: import("@prisma/client").Prisma.Decimal | null;
+    pricePerWeek: import("@prisma/client").Prisma.Decimal | null;
+    categoryName: string;
+  }[];
 
-  if (allItems.length === 0) {
-    return (
-      <div className="px-4 py-8 sm:px-6">
+  if (trimmed) {
+    const matches = await searchTenantItems(org.id, trimmed);
+    allItems = matches.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      imageUrl: m.imageUrl,
+      pricePerHour: m.pricePerHour,
+      pricePerDay: m.pricePerDay,
+      pricePerWeek: m.pricePerWeek,
+      categoryName: m.category.name,
+    }));
+  } else {
+    const categories = await getTenantCatalog(org.id);
+    allItems = categories.flatMap((c) => [
+      ...c.items.map((i) => ({ ...i, categoryName: c.name })),
+      ...c.children.flatMap((sub) =>
+        sub.items.map((i) => ({ ...i, categoryName: `${c.name} · ${sub.name}` })),
+      ),
+    ]);
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6">
+      <div className="mb-5">
+        <TenantSearch basePath="/embed" accent={accent} initialQuery={q} />
+      </div>
+
+      {allItems.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Het aanbod wordt nog samengesteld.
+            {trimmed
+              ? `Niets gevonden voor "${trimmed}".`
+              : "Het aanbod wordt nog samengesteld."}
           </p>
           <Link
-            href={`/embed/contact`}
+            href="/embed/contact"
             className="mt-4 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
             style={{ background: accent }}
           >
             Contact opnemen
           </Link>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-4 py-6 sm:px-6">
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {allItems.map((item) => (
           <Link
             key={item.id}
@@ -81,7 +111,8 @@ export default async function EmbedHomePage({ params }: PageProps) {
             </div>
           </Link>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

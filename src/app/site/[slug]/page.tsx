@@ -1,31 +1,59 @@
 import Link from "next/link";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
+import { getOrgBySlug, getTenantCatalog, searchTenantItems } from "@/lib/tenants/queries";
+import { TenantSearch } from "@/components/tenants/TenantSearch";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
-export default async function TenantHomePage({ params }: PageProps) {
+export default async function TenantHomePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { q = "" } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const categories = await getTenantCatalog(org.id);
   const accent = org.primaryColor ?? "#ef5934";
+  const trimmed = q.trim();
 
-  // Flatten all items across categories for "all items" listing
-  const allItems = categories.flatMap((c) => [
-    ...c.items.map((i) => ({ ...i, categoryName: c.name })),
-    ...c.children.flatMap((sub) =>
-      sub.items.map((i) => ({ ...i, categoryName: `${c.name} · ${sub.name}` })),
-    ),
-  ]);
+  // Build the item list — either filtered (search) or grouped from the catalog
+  let visibleItems: {
+    id: string;
+    name: string;
+    description: string | null;
+    imageUrl: string | null;
+    pricePerHour: import("@prisma/client").Prisma.Decimal | null;
+    pricePerDay: import("@prisma/client").Prisma.Decimal | null;
+    pricePerWeek: import("@prisma/client").Prisma.Decimal | null;
+    categoryName: string;
+  }[];
+
+  if (trimmed) {
+    const matches = await searchTenantItems(org.id, trimmed);
+    visibleItems = matches.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      imageUrl: m.imageUrl,
+      pricePerHour: m.pricePerHour,
+      pricePerDay: m.pricePerDay,
+      pricePerWeek: m.pricePerWeek,
+      categoryName: m.category.name,
+    }));
+  } else {
+    const categories = await getTenantCatalog(org.id);
+    visibleItems = categories.flatMap((c) => [
+      ...c.items.map((i) => ({ ...i, categoryName: c.name })),
+      ...c.children.flatMap((sub) =>
+        sub.items.map((i) => ({ ...i, categoryName: `${c.name} · ${sub.name}` })),
+      ),
+    ]);
+  }
 
   const heroTitle = org.heroTitle ?? org.name;
-  const heroSubtitle =
-    org.heroSubtitle ?? `Online reserveren bij ${org.name}.`;
+  const heroSubtitle = org.heroSubtitle ?? `Online reserveren bij ${org.name}.`;
 
   return (
     <>
@@ -79,20 +107,26 @@ export default async function TenantHomePage({ params }: PageProps) {
       {/* Catalog */}
       <section id="aanbod" className="py-14 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-8">
-            <p className="text-sm font-medium" style={{ color: accent }}>
-              Aanbod
-            </p>
-            <h2 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Wat we voor je hebben
-            </h2>
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium" style={{ color: accent }}>
+                Aanbod
+              </p>
+              <h2 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {trimmed ? `Resultaten voor "${trimmed}"` : "Wat we voor je hebben"}
+              </h2>
+            </div>
+            <div className="w-full sm:max-w-xs">
+              <TenantSearch basePath="/" accent={accent} initialQuery={q} />
+            </div>
           </div>
 
-          {allItems.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
               <p className="text-sm text-muted-foreground">
-                Het aanbod wordt nog samengesteld. Stuur ondertussen gerust een aanvraag — we
-                helpen je graag.
+                {trimmed
+                  ? `Niets gevonden voor "${trimmed}". Probeer een andere zoekterm of stuur een aanvraag.`
+                  : "Het aanbod wordt nog samengesteld. Stuur ondertussen gerust een aanvraag — we helpen je graag."}
               </p>
               <Link
                 href="/contact"
@@ -104,7 +138,7 @@ export default async function TenantHomePage({ params }: PageProps) {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {allItems.map((item) => (
+              {visibleItems.map((item) => (
                 <Link
                   key={item.id}
                   href={`/item/${item.id}`}

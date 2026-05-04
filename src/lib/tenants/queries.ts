@@ -63,6 +63,25 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
   });
 });
 
+export const searchTenantItems = cache(async (organizationId: string, query: string) => {
+  const q = query.trim();
+  if (!q) return [];
+  return db.item.findMany({
+    where: {
+      organizationId,
+      isActive: true,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { category: { name: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+    include: { category: { select: { name: true, parentId: true } } },
+    orderBy: { name: "asc" },
+    take: 60,
+  });
+});
+
 export const getTenantItem = cache(async (organizationId: string, itemId: string) => {
   return db.item.findFirst({
     where: { id: itemId, organizationId, isActive: true },

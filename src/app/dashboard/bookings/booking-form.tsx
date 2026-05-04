@@ -177,6 +177,20 @@ export function BookingForm({
     return null;
   };
 
+  // On first render, if we have an item + time range but no price yet
+  // (typical when navigating in from a lead), compute and pre-fill the
+  // suggested price. The user can still edit it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (existing) return;
+    const current = watch("totalPrice");
+    if (current && Number(current) > 0) return;
+    const sug = computeSuggestion();
+    if (sug != null) {
+      setValue("totalPrice", sug, { shouldValidate: false });
+    }
+  }, [selectedItem?.id, startAt, endAt]);
+
   // Live availability check (debounced)
   useEffect(() => {
     if (!itemId || !startAt || !endAt || status === "CANCELED") {

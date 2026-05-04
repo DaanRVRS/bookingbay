@@ -44,13 +44,28 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
   if (items.length === 0) redirect("/dashboard/items/new");
 
-  // If we got a lead's email, try to match an existing customer by email.
+  // If we got a lead's email, try to match an existing customer by email,
+  // otherwise auto-create one from the lead's contact details.
   let resolvedCustomerId = params.customer;
+  let customerList = customers;
   if (!resolvedCustomerId && params.leadEmail) {
-    const match = customers.find(
-      (c) => c.email && c.email.toLowerCase() === params.leadEmail!.toLowerCase(),
-    );
-    if (match) resolvedCustomerId = match.id;
+    const lowerEmail = params.leadEmail.toLowerCase();
+    const match = customers.find((c) => c.email?.toLowerCase() === lowerEmail);
+    if (match) {
+      resolvedCustomerId = match.id;
+    } else if (params.leadName && params.leadName.trim().length > 0) {
+      const created = await db.customer.create({
+        data: {
+          organizationId: ctx.organization.id,
+          name: params.leadName.trim(),
+          email: lowerEmail,
+          phone: params.leadPhone?.trim() || null,
+        },
+        select: { id: true, name: true, email: true },
+      });
+      resolvedCustomerId = created.id;
+      customerList = [...customers, created];
+    }
   }
 
   return (
@@ -71,20 +86,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
               pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
             }))}
-            customers={customers.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
+            customers={customerList.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
             defaultItemId={params.item}
             defaultCustomerId={resolvedCustomerId}
             defaultStartAt={params.start}
             defaultEndAt={params.end}
-            quickAddCustomer={
-              params.leadEmail && !resolvedCustomerId
-                ? {
-                    name: params.leadName ?? "",
-                    email: params.leadEmail,
-                    phone: params.leadPhone ?? "",
-                  }
-                : undefined
-            }
           />
         </div>
       </div>
