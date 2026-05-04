@@ -28,6 +28,10 @@ const envSchema = z.object({
   // Optional overrides — fall back to NEXTAUTH_URL / its host
   APP_URL: z.string().url().optional(),
   ROOT_DOMAIN: z.string().optional(),
+  // Suffix below which tenant subdomains live. For prod (nip.io) this is
+  // the same as the admin host (admin = bookingbay.<ip>.nip.io, tenants
+  // = <slug>.bookingbay.<ip>.nip.io). For dev: lvh.me:3001.
+  TENANT_DOMAIN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -51,10 +55,12 @@ if (!rootDomain) {
 
 // Resolve the actual sender address — EMAIL_FROM > RESEND_FROM > default
 const emailFrom = data.EMAIL_FROM || data.RESEND_FROM || "BookingBay <noreply@example.com>";
+const tenantDomain = data.TENANT_DOMAIN || rootDomain;
 
 export const env = {
   ...data,
   APP_URL: baseUrl,
   ROOT_DOMAIN: rootDomain,
+  TENANT_DOMAIN: tenantDomain,
   EMAIL_FROM: emailFrom,
 };
