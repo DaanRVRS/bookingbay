@@ -30,6 +30,7 @@ import { z } from "zod";
 import { itemCreateSchema, type ItemCreateInput } from "@/lib/items/schemas";
 import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/items/actions";
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
+import { ImageUploader } from "@/components/dashboard/ImageUploader";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
@@ -82,6 +83,7 @@ export function ItemForm({ categories, existing }: Props) {
 
   const categoryId = watch("categoryId");
   const isActive = watch("isActive");
+  const imageUrl = watch("imageUrl") ?? null;
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -176,6 +178,19 @@ export function ItemForm({ categories, existing }: Props) {
               <p className="text-xs font-medium text-destructive">{errors.categoryId.message}</p>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold">Afbeelding</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Wordt op de klantsite gebruikt en in je catalogus-overzicht.
+        </p>
+        <div className="mt-4">
+          <ImageUploader
+            value={typeof imageUrl === "string" && imageUrl ? imageUrl : null}
+            onChange={(url) => setValue("imageUrl", url ?? "", { shouldValidate: false })}
+          />
         </div>
       </div>
 

@@ -48,6 +48,9 @@ next-env.d.ts
 /prisma/*.db
 /prisma/*.db-journal
 
+# uploaded images (served from disk at runtime)
+/public/uploads/
+
 # IDE
 .idea/
 .vscode/
