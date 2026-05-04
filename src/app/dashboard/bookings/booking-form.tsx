@@ -218,7 +218,11 @@ export function BookingForm({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>Item</Label>
-            <Select value={itemId} onValueChange={(v) => v && setValue("itemId", v, { shouldValidate: true })}>
+            <Select
+              items={items.map((i) => ({ value: i.id, label: i.name }))}
+              value={itemId}
+              onValueChange={(v) => v && setValue("itemId", v, { shouldValidate: true })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Kies een item" />
               </SelectTrigger>
@@ -257,6 +261,7 @@ export function BookingForm({
               />
             </div>
             <Select
+              items={customers.map((c) => ({ value: c.id, label: c.name }))}
               value={customerId || undefined}
               onValueChange={(v) => v && setValue("customerId", v, { shouldValidate: true })}
             >
@@ -307,6 +312,7 @@ export function BookingForm({
           <div className="flex flex-col gap-1.5">
             <Label>Status</Label>
             <Select
+              items={bookingStatusValues.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
               value={status}
               onValueChange={(v) => v && setValue("status", v as BookingCreateInput["status"])}
             >

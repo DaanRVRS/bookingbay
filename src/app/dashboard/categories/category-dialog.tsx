@@ -166,9 +166,13 @@ function CategoryForm({
         <div className="flex flex-col gap-1.5">
           <Label>Bovenliggende categorie</Label>
           <Select
+            items={[
+              { value: "__none__", label: "Geen — top-level categorie" },
+              ...validParents.map((c) => ({ value: c.id, label: c.name })),
+            ]}
             value={parentId ?? "__none__"}
             onValueChange={(v) =>
-              setValue("parentId", v === "__none__" ? null : v, { shouldValidate: false })
+              setValue("parentId", !v || v === "__none__" ? null : v, { shouldValidate: false })
             }
           >
             <SelectTrigger>

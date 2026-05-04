@@ -29,6 +29,7 @@ import {
 import { z } from "zod";
 import { itemCreateSchema, type ItemCreateInput } from "@/lib/items/schemas";
 import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/items/actions";
+import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
@@ -137,8 +138,26 @@ export function ItemForm({ categories, existing }: Props) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>Categorie</Label>
+            <div className="flex items-center justify-between">
+              <Label>Categorie</Label>
+              <CategoryDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    + Nieuwe categorie
+                  </button>
+                }
+                categories={categories.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  parentId: c.parentId,
+                }))}
+              />
+            </div>
             <Select
+              items={categories.map((c) => ({ value: c.id, label: c.name }))}
               value={categoryId}
               onValueChange={(v) => v && setValue("categoryId", v, { shouldValidate: true })}
             >

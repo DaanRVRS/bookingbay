@@ -52,7 +52,14 @@ export function BookingList({
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Select value={currentStatus ?? "__all__"} onValueChange={onStatusChange}>
+        <Select
+          items={[
+            { value: "__all__", label: "Alle statussen" },
+            ...bookingStatusValues.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+          ]}
+          value={currentStatus ?? "__all__"}
+          onValueChange={onStatusChange}
+        >
           <SelectTrigger className="sm:w-52">
             <SelectValue placeholder="Alle statussen" />
           </SelectTrigger>

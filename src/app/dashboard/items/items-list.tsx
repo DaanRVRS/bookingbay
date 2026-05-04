@@ -66,6 +66,10 @@ export function ItemsList({
           />
         </div>
         <Select
+          items={[
+            { value: "__all__", label: "Alle categorieën" },
+            ...categories.map((c) => ({ value: c.id, label: c.name })),
+          ]}
           value={currentCategory ?? "__all__"}
           onValueChange={(v) => update("cat", v)}
         >
@@ -82,6 +86,11 @@ export function ItemsList({
           </SelectContent>
         </Select>
         <Select
+          items={[
+            { value: "__all__", label: "Alle" },
+            { value: "active", label: "Actief" },
+            { value: "inactive", label: "Inactief" },
+          ]}
           value={currentStatus ?? "__all__"}
           onValueChange={(v) => update("status", v)}
         >
