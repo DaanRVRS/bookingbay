@@ -54,6 +54,7 @@ export async function createCategoryAction(
       organizationId: ctx.organization.id,
       name: parsed.data.name,
       description: parsed.data.description || null,
+      imageUrl: parsed.data.imageUrl || null,
       parentId: parsed.data.parentId ?? null,
       sortOrder: (last?.sortOrder ?? -1) + 1,
     },
@@ -88,6 +89,7 @@ export async function updateCategoryAction(input: CategoryUpdateInput): Promise<
     data: {
       name: parsed.data.name,
       description: parsed.data.description || null,
+      imageUrl: parsed.data.imageUrl || null,
       parentId: parsed.data.parentId ?? null,
     },
   });

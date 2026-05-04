@@ -175,6 +175,7 @@ model Category {
   parentId       String?
   name           String
   description    String?
+  imageUrl       String?
   sortOrder      Int     @default(0)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

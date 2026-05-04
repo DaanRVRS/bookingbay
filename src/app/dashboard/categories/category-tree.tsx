@@ -26,6 +26,7 @@ interface Cat {
   id: string;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   parentId: string | null;
   itemCount: number;
   childCount: number;
@@ -83,9 +84,18 @@ function CategoryRow({
           <span className="size-6" aria-hidden />
         )}
 
-        <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
-          <Package className="size-4" />
-        </span>
+        {cat.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cat.imageUrl}
+            alt=""
+            className="size-9 shrink-0 rounded-md object-cover"
+          />
+        ) : (
+          <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <Package className="size-4" />
+          </span>
+        )}
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{cat.name}</p>
@@ -159,6 +169,7 @@ function CategoryActions({ cat, categories }: { cat: Cat; categories: Cat[] }) {
           id: cat.id,
           name: cat.name,
           description: cat.description ?? "",
+          imageUrl: cat.imageUrl,
           parentId: cat.parentId,
         }}
         categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))}

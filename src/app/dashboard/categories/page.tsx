@@ -40,6 +40,7 @@ export default async function CategoriesPage() {
               id: c.id,
               name: c.name,
               description: c.description,
+              imageUrl: c.imageUrl,
               parentId: c.parentId,
               itemCount: c._count.items,
               childCount: c._count.children,

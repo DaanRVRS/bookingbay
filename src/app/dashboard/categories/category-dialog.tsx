@@ -28,11 +28,13 @@ import {
 } from "@/components/ui/select";
 import { categoryCreateSchema, type CategoryCreateInput } from "@/lib/categories/schemas";
 import { createCategoryAction, updateCategoryAction } from "@/lib/categories/actions";
+import { ImageUploader } from "@/components/dashboard/ImageUploader";
 
 interface Existing {
   id: string;
   name: string;
   description: string;
+  imageUrl: string | null;
   parentId: string | null;
 }
 
@@ -105,11 +107,13 @@ function CategoryForm({
     defaultValues: {
       name: existing?.name ?? "",
       description: existing?.description ?? "",
+      imageUrl: existing?.imageUrl ?? "",
       parentId: existing?.parentId ?? defaultParentId ?? null,
     },
   });
 
   const parentId = watch("parentId");
+  const imageUrl = watch("imageUrl") ?? "";
 
   // Filter out self + descendants when editing
   const validParents = categories.filter((c) => {
@@ -160,6 +164,13 @@ function CategoryForm({
           placeholder="Korte omschrijving voor je team"
           rows={3}
           {...register("description")}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Afbeelding (optioneel)</Label>
+        <ImageUploader
+          value={imageUrl || null}
+          onChange={(url) => setValue("imageUrl", url ?? "", { shouldValidate: false })}
         />
       </div>
       {validParents.length > 0 && (

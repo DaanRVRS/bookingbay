@@ -15,7 +15,9 @@ export const itemCreateSchema = z.object({
   name: z.string().min(1, "Naam is verplicht").max(120, "Te lang"),
   description: z.string().max(2000).optional().or(z.literal("")),
   categoryId: z.string().min(1, "Kies een categorie"),
-  imageUrl: z.string().url().optional().or(z.literal("")).nullable(),
+  // Accepts both absolute URLs (https://…) and relative server paths
+  // like /api/uploads/<orgId>/<file>.webp returned by uploadItemImageAction.
+  imageUrl: z.string().max(2048).optional().or(z.literal("")).nullable(),
   pricePerHour: decimal,
   pricePerDay: decimal,
   pricePerWeek: decimal,
