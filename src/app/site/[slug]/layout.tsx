@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Geist } from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { planLimits } from "@/lib/plans";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
@@ -84,15 +85,17 @@ export default async function TenantLayout({
               {[org.contactEmail, org.contactPhone].filter(Boolean).join(" · ")}
             </p>
           </div>
-          <p className="text-xs">
-            Powered by{" "}
-            <a
-              href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
-              className="text-foreground hover:underline"
-            >
-              BookingBay
-            </a>
-          </p>
+          {planLimits(org.plan).alwaysShowPoweredBy && (
+            <p className="text-xs">
+              Powered by{" "}
+              <a
+                href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
+                className="text-foreground hover:underline"
+              >
+                BookingBay
+              </a>
+            </p>
+          )}
         </div>
       </footer>
     </div>

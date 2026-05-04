@@ -18,6 +18,7 @@ import {
   type RemoveMemberInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { planLimits } from "@/lib/plans";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -42,6 +43,29 @@ export async function inviteMemberAction(input: InviteInput): Promise<ActionResu
   }
 
   const email = parsed.data.email.toLowerCase();
+
+  // Plan limit on number of members (incl. open invitations as future members)
+  const orgPlan = await db.organization.findUnique({
+    where: { id: ctx.organization.id },
+    select: { plan: true },
+  });
+  if (orgPlan) {
+    const limit = planLimits(orgPlan.plan);
+    if (Number.isFinite(limit.maxMembers)) {
+      const [memberCount, pendingInvites] = await Promise.all([
+        db.membership.count({ where: { organizationId: ctx.organization.id } }),
+        db.invitation.count({
+          where: { organizationId: ctx.organization.id, acceptedAt: null },
+        }),
+      ]);
+      if (memberCount + pendingInvites >= limit.maxMembers) {
+        return {
+          ok: false,
+          error: `Je ${limit.label}-plan staat ${limit.maxMembers} leden toe (incl. open uitnodigingen). Upgrade om meer te kunnen uitnodigen.`,
+        };
+      }
+    }
+  }
 
   // Already a member?
   const existingUser = await db.user.findUnique({ where: { email } });

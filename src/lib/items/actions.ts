@@ -12,6 +12,7 @@ import {
   type ItemUpdateInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { planLimits } from "@/lib/plans";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -45,6 +46,26 @@ export async function createItemAction(
     await assertCategoryInOrg(parsed.data.categoryId, ctx.organization.id);
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Categorie ongeldig" };
+  }
+
+  // Plan limit on number of active items
+  const orgPlan = await db.organization.findUnique({
+    where: { id: ctx.organization.id },
+    select: { plan: true },
+  });
+  if (orgPlan) {
+    const limit = planLimits(orgPlan.plan);
+    if (Number.isFinite(limit.maxItems)) {
+      const count = await db.item.count({
+        where: { organizationId: ctx.organization.id, isActive: true },
+      });
+      if (count >= limit.maxItems) {
+        return {
+          ok: false,
+          error: `Je ${limit.label}-plan bevat ${limit.maxItems} items. Upgrade om meer toe te voegen.`,
+        };
+      }
+    }
   }
 
   const created = await db.item.create({
