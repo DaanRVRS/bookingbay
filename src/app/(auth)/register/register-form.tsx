@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -13,6 +13,8 @@ import { registerSchema, type RegisterInput } from "@/lib/auth/schemas";
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledEmail = searchParams.get("email") ?? "";
   const [pending, startTransition] = useTransition();
 
   const {
@@ -22,7 +24,7 @@ export function RegisterForm() {
     setError,
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "" },
+    defaultValues: { name: "", email: prefilledEmail, password: "" },
   });
 
   const onSubmit = handleSubmit((values) => {

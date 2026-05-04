@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,8 +13,17 @@ import { Separator } from "@/components/ui/separator";
 import { loginAction, magicLinkAction } from "@/lib/auth/actions";
 import { loginSchema, type LoginInput } from "@/lib/auth/schemas";
 
+function safeNext(next: string | null | undefined): string {
+  if (!next) return "/dashboard";
+  // Only allow internal paths to prevent open-redirect
+  if (!next.startsWith("/") || next.startsWith("//")) return "/dashboard";
+  return next;
+}
+
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get("next"));
   const [pending, startTransition] = useTransition();
   const [magicPending, setMagicPending] = useState(false);
 
@@ -42,7 +51,7 @@ export function LoginForm() {
         return;
       }
       toast.success("Welkom terug");
-      router.replace("/dashboard");
+      router.replace(next);
       router.refresh();
     });
   });

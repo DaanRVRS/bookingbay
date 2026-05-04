@@ -10,6 +10,7 @@ import {
   Package,
   Settings,
   Users,
+  UserCog,
   Globe,
   HomeIcon,
   type LucideIcon,
@@ -39,6 +40,7 @@ const catalog: NavItem[] = [
 
 const settings: NavItem[] = [
   { href: "/dashboard/site", label: "Klantsite", icon: Globe },
+  { href: "/dashboard/team", label: "Team", icon: UserCog },
   { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
 ];
 
