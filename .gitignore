@@ -31,7 +31,11 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +43,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma
+/prisma/*.db
+/prisma/*.db-journal
+
+# IDE
+.idea/
+.vscode/
+
+# logs
+logs/
+*.log
+
+# test artifacts
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/

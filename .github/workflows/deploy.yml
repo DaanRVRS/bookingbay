@@ -1,0 +1,78 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/var/www/bookingbay
+            ENV_FILE=/etc/bookingbay/.env.production
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "ERROR: $APP_DIR is not a git repo. Clone it first:"
+              echo "  cd $APP_DIR && git clone https://github.com/DaanRVRS/bookingbay.git ."
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            echo "==> Pulling latest from origin/main"
+            git fetch --quiet origin main
+            git reset --hard origin/main
+
+            echo "==> Symlinking production env"
+            ln -sf "$ENV_FILE" "$APP_DIR/.env.production"
+
+            echo "==> Loading env for build commands"
+            set -a
+            # shellcheck disable=SC1090
+            . "$ENV_FILE"
+            set +a
+
+            echo "==> Installing dependencies"
+            pnpm install --frozen-lockfile
+
+            echo "==> Running database migrations"
+            pnpm prisma migrate deploy
+
+            echo "==> Generating Prisma client"
+            pnpm prisma generate
+
+            echo "==> Building Next.js app"
+            pnpm build
+
+            echo "==> Reloading pm2"
+            if pm2 describe bookingbay > /dev/null 2>&1; then
+              pm2 reload bookingbay --update-env
+            else
+              pm2 start ecosystem.config.cjs
+            fi
+            pm2 save
+
+            echo "==> Health check"
+            sleep 3
+            curl --fail --silent --show-error \
+              -H "Host: bookingbay.178-104-86-251.nip.io" \
+              http://localhost/api/health
+            echo ""
+
+            echo "==> Deploy complete"

@@ -1,65 +1,111 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-[var(--border)]">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--primary)] text-sm font-bold text-[var(--primary-foreground)]">
+              B
+            </span>
+            BookingBay
+          </Link>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link
+              href="/login"
+              className="px-3 py-1.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Inloggen
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-md bg-[var(--primary)] px-4 py-1.5 text-[var(--primary-foreground)] hover:opacity-90"
             >
-              Learning
-            </a>{" "}
-            center.
+              Probeer gratis
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        <section className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+          <div className="max-w-3xl">
+            <p className="mb-4 text-sm font-medium tracking-wide text-[var(--primary)] uppercase">
+              Verhuur-administratie zonder gedoe
+            </p>
+            <h1 className="text-5xl leading-tight font-semibold tracking-tight text-balance sm:text-6xl">
+              Eén plek voor je <span className="text-[var(--primary)]">planning</span>, je{" "}
+              <span className="text-[var(--primary)]">klanten</span>, en je{" "}
+              <span className="text-[var(--primary)]">boekingssite</span>.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg text-[var(--muted-foreground)]">
+              BookingBay is gebouwd voor verhuurbedrijven die nog met papier of Excel werken —
+              boten, fietsen, auto&apos;s, gereedschap, party-verhuur, je kiest het zelf. Eén plan,
+              één dashboard, en een eigen klantgerichte website.
+            </p>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/register"
+                className="inline-flex h-12 items-center justify-center rounded-md bg-[var(--primary)] px-6 font-medium text-[var(--primary-foreground)] hover:opacity-90"
+              >
+                Start je 14-daagse trial
+              </Link>
+              <Link
+                href="#features"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-[var(--border)] px-6 font-medium hover:bg-[var(--accent)]"
+              >
+                Hoe het werkt
+              </Link>
+            </div>
+            <p className="mt-4 text-sm text-[var(--muted-foreground)]">
+              Geen creditcard nodig · Nederlandstalig · Gehost in Europa
+            </p>
+          </div>
+        </section>
+
+        <section
+          id="features"
+          className="border-t border-[var(--border)] bg-[var(--muted)]/40 py-24"
+        >
+          <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-3">
+            {[
+              {
+                title: "Universeel toepasbaar",
+                body: "Definieer zelf je categorieën — boten, fietsen, gereedschap, golfkarren. Wat je verhuurt bepaal jij.",
+              },
+              {
+                title: "Planning zonder dubbel-boekingen",
+                body: "Kalender per item met automatische conflictdetectie. Niet meer in Excel zoeken of iets nog vrij is.",
+              },
+              {
+                title: "Eigen boekingssite",
+                body: "Elke organisatie krijgt een klantgerichte website met eigen kleuren, logo en items.",
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6"
+              >
+                <h3 className="mb-2 text-lg font-semibold">{f.title}</h3>
+                <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-[var(--border)] py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-sm text-[var(--muted-foreground)] sm:flex-row">
+          <p>© {new Date().getFullYear()} BookingBay</p>
+          <p>
+            Gebouwd in Nederland ·{" "}
+            <Link href="/api/health" className="hover:text-[var(--foreground)]">
+              status
+            </Link>
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </footer>
     </div>
   );
 }

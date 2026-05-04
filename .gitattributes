@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Force LF on shell + CI files (Linux-only execution)
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+
+# Lock files: don't normalize
+pnpm-lock.yaml -text

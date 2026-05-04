@@ -1,0 +1,12 @@
+node_modules
+.next
+.next-types
+.vercel
+build
+out
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+prisma/migrations
+public

@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Auth.js v5 + Prisma adapter
+// https://authjs.dev/getting-started/adapters/prisma
+// ----------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+
+  accounts          Account[]
+  sessions          Session[]
+  memberships       Membership[]
+  invitationsSent   Invitation[]    @relation("InvitedBy")
+  bookingsCreated   Booking[]       @relation("BookingCreatedBy")
+  passwordResets    PasswordReset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expires   DateTime
+  usedAt    DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ----------------------------------------------------------------------------
+// Multi-tenant core
+// ----------------------------------------------------------------------------
+
+model Organization {
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  customDomain String? @unique
+  industry     String?
+
+  logoUrl          String?
+  primaryColor     String?
+  heroTitle        String?
+  heroSubtitle     String?
+  aboutText        String?
+  contactEmail     String?
+  contactPhone     String?
+  itemDisplayStyle ItemDisplayStyle @default(GRID)
+
+  plan               Plan      @default(STARTER)
+  subscriptionId     String?
+  subscriptionStatus String?
+  trialEndsAt        DateTime?
+
+  memberships Membership[]
+  invitations Invitation[]
+  categories  Category[]
+  items       Item[]
+  bookings    Booking[]
+  customers   Customer[]
+  leads       Lead[]
+  auditLogs   AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  BUSINESS
+  ENTERPRISE
+}
+
+enum ItemDisplayStyle {
+  GRID
+  LIST
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role         @default(VIEWER)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           Role         @default(VIEWER)
+  token          String       @unique
+  expires        DateTime
+  acceptedAt     DateTime?
+  invitedById    String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User         @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, email])
+  @@index([token])
+}
+
+// ----------------------------------------------------------------------------
+// Catalog
+// ----------------------------------------------------------------------------
+
+model Category {
+  id             String  @id @default(cuid())
+  organizationId String
+  parentId       String?
+  name           String
+  description    String?
+  sortOrder      Int     @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Category?    @relation("Subcategories", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Category[]   @relation("Subcategories")
+  items        Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([parentId])
+}
+
+model Item {
+  id             String  @id @default(cuid())
+  organizationId String
+  categoryId     String
+  name           String
+  description    String?
+  imageUrl       String?
+
+  pricePerHour Decimal? @db.Decimal(10, 2)
+  pricePerDay  Decimal? @db.Decimal(10, 2)
+  pricePerWeek Decimal? @db.Decimal(10, 2)
+  deposit      Decimal? @db.Decimal(10, 2)
+
+  quantity Int     @default(1)
+  isActive Boolean @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category     @relation(fields: [categoryId], references: [id])
+  bookings     Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([categoryId])
+}
+
+// ----------------------------------------------------------------------------
+// CRM + bookings
+// ----------------------------------------------------------------------------
+
+model Customer {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  notes          String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, email])
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  organizationId String
+  itemId         String
+  customerId     String
+  startAt        DateTime
+  endAt          DateTime
+  status         BookingStatus @default(CONFIRMED)
+  totalPrice     Decimal       @db.Decimal(10, 2)
+  notes          String?
+  createdById    String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id])
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  createdBy    User         @relation("BookingCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, startAt])
+  @@index([itemId, startAt, endAt])
+  @@index([customerId])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+// ----------------------------------------------------------------------------
+// Tenant-site lead capture (MVP: contact form, no online payment)
+// ----------------------------------------------------------------------------
+
+model Lead {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String
+  phone          String?
+  message        String
+  itemId         String?
+  startAt        DateTime?
+  endAt          DateTime?
+  handledAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Audit log (lightweight)
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  resource       String
+  resourceId     String?
+  metadata       Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}
