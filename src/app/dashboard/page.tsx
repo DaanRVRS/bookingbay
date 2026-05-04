@@ -1,67 +1,245 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { logoutAction } from "@/lib/auth/actions";
-import { auth } from "@/lib/auth";
+import { ArrowRight, CheckCircle2, Globe, Layers, Package, Users } from "lucide-react";
+import { requireOrg } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Overzicht" };
 
-export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+export default async function DashboardOverviewPage() {
+  const ctx = await requireOrg();
+  const orgId = ctx.organization.id;
 
-  if (!session.user.emailVerified) {
-    return (
-      <div className="mx-auto max-w-md py-20 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Bevestig je e-mail</h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          We hebben een verificatie-link gestuurd naar{" "}
-          <span className="font-medium text-foreground">{session.user.email}</span>. Klik 'm aan om
-          door te gaan.
-        </p>
-        <form action={logoutAction} className="mt-6">
-          <button
-            type="submit"
-            className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Uitloggen
-          </button>
-        </form>
-      </div>
-    );
-  }
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+  const [
+    bookingsToday,
+    bookingsThisWeek,
+    itemCount,
+    customerCount,
+    categoryCount,
+    upcoming,
+  ] = await Promise.all([
+    db.booking.count({
+      where: {
+        organizationId: orgId,
+        startAt: { gte: todayStart, lte: todayEnd },
+        status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+      },
+    }),
+    db.booking.count({
+      where: {
+        organizationId: orgId,
+        startAt: { gte: weekStart, lte: weekEnd },
+      },
+    }),
+    db.item.count({ where: { organizationId: orgId, isActive: true } }),
+    db.customer.count({ where: { organizationId: orgId } }),
+    db.category.count({ where: { organizationId: orgId } }),
+    db.booking.findMany({
+      where: {
+        organizationId: orgId,
+        startAt: { gte: now, lte: addDays(now, 7) },
+        status: { in: ["CONFIRMED", "PENDING"] },
+      },
+      include: { item: { select: { name: true } }, customer: { select: { name: true } } },
+      orderBy: { startAt: "asc" },
+      take: 5,
+    }),
+  ]);
+
+  const isEmpty = itemCount === 0 && bookingsThisWeek === 0;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
-      <div className="flex items-center justify-between border-b border-border pb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Hi {session.user.name?.split(" ")[0] ?? session.user.email}, welkom bij BookingBay.
-          </p>
+    <div className="px-4 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted-foreground">Overzicht</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Welkom terug, {ctx.user.name?.split(" ")[0] ?? "daar"}
+          </h1>
         </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
-          >
-            Uitloggen
-          </button>
-        </form>
-      </div>
 
-      <div className="mt-10 rounded-xl border border-dashed border-border bg-muted/20 p-10 text-center">
-        <p className="text-sm font-medium text-muted-foreground">
-          Volgende stap — onboarding wizard om je organisatie aan te maken.
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Onboarding + categorieën + items komen in de volgende build.
+        {isEmpty ? (
+          <EmptyState orgName={ctx.organization.name} />
+        ) : (
+          <>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi
+                label="Vandaag"
+                value={bookingsToday}
+                hint="lopende boekingen"
+                icon={CheckCircle2}
+              />
+              <Kpi label="Deze week" value={bookingsThisWeek} hint="totaal boekingen" icon={CheckCircle2} />
+              <Kpi label="Catalogus" value={itemCount} hint="actieve items" icon={Package} />
+              <Kpi label="Klanten" value={customerCount} hint="totaal" icon={Users} />
+            </div>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
+                <div className="flex items-center justify-between pb-4">
+                  <h2 className="text-base font-semibold">Komende boekingen</h2>
+                  <Link
+                    href="/dashboard/bookings"
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    Alle boekingen <ArrowRight className="size-3" />
+                  </Link>
+                </div>
+                {upcoming.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
+                    Geen geplande boekingen voor de komende 7 dagen.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {upcoming.map((b) => (
+                      <li key={b.id} className="flex items-center justify-between py-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{b.item.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{b.customer.name}</p>
+                        </div>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {b.startAt.toLocaleString("nl-NL", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <SecondaryStats categoryCount={categoryCount} slug={ctx.organization.slug} />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <p className="text-xs font-medium tracking-wide uppercase">{label}</p>
+        <Icon className="size-4" />
+      </div>
+      <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+function SecondaryStats({ categoryCount, slug }: { categoryCount: number; slug: string }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Klantsite
         </p>
         <Link
-          href="/"
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-lg border border-border bg-card px-5 text-sm font-medium hover:bg-accent"
+          href={`https://${slug}.bookingbay.nl`}
+          target="_blank"
+          className="mt-2 flex items-center gap-2 text-sm font-medium hover:underline"
         >
-          Terug naar home
+          <Globe className="size-4 text-muted-foreground" />
+          {slug}.bookingbay.nl
         </Link>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Beschikbaar zodra je publieke site live gaat (M2).
+        </p>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Catalogus
+        </p>
+        <p className="mt-2 flex items-center gap-2 text-sm font-medium">
+          <Layers className="size-4 text-muted-foreground" />
+          {categoryCount} {categoryCount === 1 ? "categorie" : "categorieën"}
+        </p>
+        <Link
+          href="/dashboard/categories"
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          Beheren <ArrowRight className="size-3" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ orgName }: { orgName: string }) {
+  const steps = [
+    {
+      title: "Voeg je eerste items toe",
+      body: "Boten, fietsen, gereedschap — wat je ook verhuurt.",
+      href: "/dashboard/items",
+      icon: Package,
+    },
+    {
+      title: "Maak een klant aan",
+      body: "Snel-add tijdens elke boeking, of importeer vanuit Excel.",
+      href: "/dashboard/customers",
+      icon: Users,
+    },
+    {
+      title: "Boek je eerste reservering",
+      body: "Drag-and-drop in de planning of via 'Nieuwe boeking'.",
+      href: "/dashboard/bookings",
+      icon: CheckCircle2,
+    },
+  ];
+
+  return (
+    <div className="mt-8">
+      <div className="rounded-2xl border border-dashed border-border bg-card p-8">
+        <div className="max-w-xl">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {orgName} is leeg — laten we 'm vullen
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Drie korte stapjes en je werkruimte is operationeel.
+          </p>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {steps.map((s, i) => (
+            <Link
+              key={s.href}
+              href={s.href}
+              className="group relative flex flex-col rounded-xl border border-border bg-background p-5 transition-colors hover:bg-accent"
+            >
+              <span className="absolute top-3 right-3 grid size-6 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                {i + 1}
+              </span>
+              <s.icon className="size-5 text-primary" />
+              <h3 className="mt-3 text-sm font-semibold">{s.title}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{s.body}</p>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                Aan de slag <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
