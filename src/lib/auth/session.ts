@@ -27,7 +27,18 @@ export const getCurrentUser = cache(async () => {
 
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    // The auth() session may still resolve from the JWT cookie even if
+    // the DB row was deleted (e.g. after a TRUNCATE). Naively redirecting
+    // to /login lets the proxy bounce back to /dashboard because the JWT
+    // still says "logged in" → infinite loop. Hop through /api/sign-out
+    // first so the route handler can actually clear the cookies.
+    const session = await auth();
+    if (session?.user) {
+      redirect("/api/sign-out?next=/login");
+    }
+    redirect("/login");
+  }
   return user;
 }
 
@@ -101,7 +112,20 @@ export const getActiveOrg = cache(async (): Promise<ActiveOrgContext | null> => 
 
 export async function requireOrg(): Promise<ActiveOrgContext> {
   const ctx = await getActiveOrg();
-  if (!ctx) redirect("/onboarding");
+  if (!ctx) {
+    // Missing context can mean (a) no user in DB but session is still
+    // alive — clear cookies first, or (b) user exists but has no
+    // membership yet — send them to onboarding.
+    const user = await getCurrentUser();
+    if (!user) {
+      const session = await auth();
+      if (session?.user) {
+        redirect("/api/sign-out?next=/login");
+      }
+      redirect("/login");
+    }
+    redirect("/onboarding");
+  }
   if (!ctx.user.emailVerified) redirect("/check-email?context=verify");
   return ctx;
 }
