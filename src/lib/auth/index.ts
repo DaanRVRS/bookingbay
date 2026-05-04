@@ -1,0 +1,107 @@
+import NextAuth, { type DefaultSession } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Resend from "next-auth/providers/resend";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import { sendEmail, emailLayout, btn } from "@/lib/email";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      emailVerified: Date | null;
+    } & DefaultSession["user"];
+  }
+  interface User {
+    emailVerified?: Date | null;
+  }
+}
+
+const credentialsSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8),
+});
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: PrismaAdapter(db),
+  trustHost: env.AUTH_TRUST_HOST === "true" || env.AUTH_TRUST_HOST === "1",
+  secret: env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+    verifyRequest: "/check-email",
+    error: "/login",
+  },
+  providers: [
+    Credentials({
+      id: "credentials",
+      name: "Email + wachtwoord",
+      credentials: {
+        email: { label: "E-mail", type: "email" },
+        password: { label: "Wachtwoord", type: "password" },
+      },
+      async authorize(creds) {
+        const parsed = credentialsSchema.safeParse(creds);
+        if (!parsed.success) return null;
+
+        const user = await db.user.findUnique({ where: { email: parsed.data.email } });
+        if (!user || !user.passwordHash) return null;
+
+        const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+        if (!ok) return null;
+
+        // Allow login but force verification flow if email not verified.
+        // The middleware/dashboard layout should redirect unverified users to /verify-email.
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          emailVerified: user.emailVerified,
+        };
+      },
+    }),
+    Resend({
+      apiKey: env.RESEND_API_KEY || "no-op",
+      from: env.RESEND_FROM,
+      sendVerificationRequest: async ({ identifier, url }) => {
+        await sendEmail({
+          to: identifier,
+          subject: "Inloggen bij BookingBay",
+          html: emailLayout(`
+            <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Inloggen bij BookingBay</h1>
+            <p style="margin:0 0 24px 0">Klik op de knop hieronder om in te loggen. De link verloopt na 10 minuten.</p>
+            <p style="margin:0 0 24px 0">${btn(url, "Inloggen")}</p>
+            <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;word-break:break-all">
+              Werkt de knop niet? Plak deze link in je browser:<br>
+              <span style="color:#1a2238">${url}</span>
+            </p>
+          `),
+          text: `Klik om in te loggen: ${url}\n\nDe link verloopt na 10 minuten.`,
+        });
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.uid = user.id;
+        token.emailVerified = user.emailVerified ?? null;
+      }
+      if (trigger === "update" && session?.emailVerified !== undefined) {
+        token.emailVerified = session.emailVerified;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.uid as string) ?? token.sub ?? "";
+        session.user.emailVerified = (token.emailVerified as Date | null) ?? null;
+      }
+      return session;
+    },
+  },
+});

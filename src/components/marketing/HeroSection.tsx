@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { DashboardMockup } from "./DashboardMockup";
 
 export function HeroSection() {
@@ -20,21 +20,11 @@ export function HeroSection() {
       <div className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6 sm:pt-20 sm:pb-28">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-12">
           <div>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur"
-            >
-              <Sparkles className="size-3.5 text-primary" />
-              <span>Nieuw — Eigen klantsite per organisatie</span>
-            </motion.div>
-
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05, duration: 0.6, ease: "easeOut" }}
-              className="mt-5 text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.6rem]"
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.6rem]"
             >
               Verhuur.<br />
               <span className="bg-gradient-to-r from-primary via-[oklch(0.62_0.2_22)] to-[oklch(0.55_0.18_350)] bg-clip-text text-transparent">
