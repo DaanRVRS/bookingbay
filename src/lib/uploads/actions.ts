@@ -68,6 +68,9 @@ export async function uploadItemImageAction(formData: FormData): Promise<UploadR
     return { ok: false, error: "Kon afbeelding niet opslaan" };
   }
 
-  const url = `/uploads/${ctx.organization.id}/${filename}`;
+  // Served via the Route Handler at /api/uploads — guarantees runtime
+  // serving even when Next.js doesn't pick up files added to public/
+  // after the build.
+  const url = `/api/uploads/${ctx.organization.id}/${filename}`;
   return { ok: true, url };
 }

@@ -31,7 +31,6 @@ function isPassThroughPath(path: string): boolean {
   return (
     path.startsWith("/_next/") ||
     path.startsWith("/api/") ||
-    path.startsWith("/uploads/") ||
     path === "/favicon.ico" ||
     path === "/robots.txt"
   );
@@ -40,6 +39,14 @@ function isPassThroughPath(path: string): boolean {
 export default auth((req: NextRequest) => {
   const host = req.headers.get("host") ?? "";
   const path = req.nextUrl.pathname;
+
+  // Backwards-compat: route old /uploads/<...> URLs to the runtime
+  // file-streaming Route Handler. New uploads use /api/uploads/ directly.
+  if (path.startsWith("/uploads/")) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/api${path}`;
+    return NextResponse.rewrite(url);
+  }
 
   if (isPassThroughPath(path)) return NextResponse.next();
   if (path.startsWith("/site/")) return NextResponse.next();
