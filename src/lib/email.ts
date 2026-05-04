@@ -1,7 +1,6 @@
+import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 import { env } from "@/lib/env";
-
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 export interface SendEmailOptions {
   to: string;
@@ -11,27 +10,79 @@ export interface SendEmailOptions {
   from?: string;
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<void> {
-  const from = options.from ?? env.RESEND_FROM;
+type Provider = "smtp" | "resend" | "console";
 
-  if (!resend) {
-    console.log(
-      [
-        "",
-        "─────────────── EMAIL (console fallback) ───────────────",
-        `From:    ${from}`,
-        `To:      ${options.to}`,
-        `Subject: ${options.subject}`,
-        "─────────────────────────────────────────────────────────",
-        options.text ?? options.html.replace(/<[^>]+>/g, ""),
-        "─────────────────────────────────────────────────────────",
-        "",
-      ].join("\n"),
-    );
+function pickProvider(): Provider {
+  if (env.SMTP_HOST && env.SMTP_USER) return "smtp";
+  if (env.RESEND_API_KEY) return "resend";
+  return "console";
+}
+
+let cachedTransporter: Transporter | null = null;
+function getTransporter(): Transporter {
+  if (cachedTransporter) return cachedTransporter;
+  const secure =
+    env.SMTP_SECURE === "true" || env.SMTP_SECURE === "1" || env.SMTP_PORT === 465;
+  cachedTransporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure,
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+  });
+  return cachedTransporter;
+}
+
+let cachedResend: Resend | null = null;
+function getResend(): Resend {
+  if (!cachedResend) cachedResend = new Resend(env.RESEND_API_KEY);
+  return cachedResend;
+}
+
+function logToConsole(options: SendEmailOptions, from: string) {
+  console.log(
+    [
+      "",
+      "─────────────── EMAIL (console fallback) ───────────────",
+      `From:    ${from}`,
+      `To:      ${options.to}`,
+      `Subject: ${options.subject}`,
+      "─────────────────────────────────────────────────────────",
+      options.text ?? options.html.replace(/<[^>]+>/g, ""),
+      "─────────────────────────────────────────────────────────",
+      "",
+    ].join("\n"),
+  );
+}
+
+export async function sendEmail(options: SendEmailOptions): Promise<void> {
+  const from = options.from ?? env.EMAIL_FROM;
+  const provider = pickProvider();
+
+  if (provider === "console") {
+    logToConsole(options, from);
     return;
   }
 
-  const result = await resend.emails.send({
+  if (provider === "smtp") {
+    try {
+      await getTransporter().sendMail({
+        from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+      return;
+    } catch (err) {
+      console.error("SMTP send failed:", err);
+      throw new Error(
+        `Email send failed via SMTP: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  // Resend
+  const result = await getResend().emails.send({
     from,
     to: options.to,
     subject: options.subject,
