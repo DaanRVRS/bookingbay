@@ -371,13 +371,19 @@ export function BookingForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.push("/dashboard/bookings")}>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.push("/dashboard/bookings")}
+          className="w-full sm:w-auto"
+        >
           Annuleren
         </Button>
         <Button
           type="submit"
           disabled={pending || availability.state === "conflict"}
+          className="w-full sm:w-auto"
         >
           {pending && <Loader2 className="size-4 animate-spin" />}
           {existing ? "Opslaan" : "Boeking aanmaken"}

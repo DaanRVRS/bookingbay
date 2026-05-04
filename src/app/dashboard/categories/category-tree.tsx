@@ -66,8 +66,8 @@ function CategoryRow({
   return (
     <li>
       <div
-        className="flex items-center gap-3 px-4 py-3 sm:px-5"
-        style={{ paddingLeft: `${1 + depth * 1.5}rem` }}
+        className="flex items-center gap-2 py-3 pr-3 sm:gap-3 sm:pr-5"
+        style={{ paddingLeft: `${0.75 + Math.min(depth, 4) * 1}rem` }}
       >
         {children.length > 0 ? (
           <button

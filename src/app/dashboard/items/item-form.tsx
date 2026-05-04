@@ -233,25 +233,30 @@ export function ItemForm({ categories, existing }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         {existing ? (
           <Button
             type="button"
             variant="outline"
             onClick={() => setDeleteOpen(true)}
-            className="text-destructive hover:bg-destructive/10"
+            className="w-full text-destructive hover:bg-destructive/10 sm:w-auto"
           >
             <Trash2 className="size-4" />
             Verwijderen
           </Button>
         ) : (
-          <span />
+          <span className="hidden sm:block" />
         )}
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => router.push("/dashboard/items")}>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/dashboard/items")}
+            className="w-full sm:w-auto"
+          >
             Annuleren
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full sm:w-auto">
             {pending && <Loader2 className="size-4 animate-spin" />}
             {existing ? "Opslaan" : "Item toevoegen"}
           </Button>

@@ -27,7 +27,7 @@ export function PageHeader({
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="shrink-0 [&>a]:w-full [&>button]:w-full sm:[&>a]:w-auto sm:[&>button]:w-auto">{action}</div>}
     </div>
   );
 }
