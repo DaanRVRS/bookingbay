@@ -11,8 +11,9 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional().default(""),
   RESEND_FROM: z.string().optional().default("BookingBay <noreply@example.com>"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.string().url().optional().default("http://app.lvh.me:3001"),
-  ROOT_DOMAIN: z.string().optional().default("lvh.me:3001"),
+  // Optional overrides — fall back to NEXTAUTH_URL / its host
+  APP_URL: z.string().url().optional(),
+  ROOT_DOMAIN: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -21,4 +22,21 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables");
 }
 
-export const env = parsed.data;
+const data = parsed.data;
+const baseUrl = (data.APP_URL ?? data.NEXTAUTH_URL).replace(/\/$/, "");
+
+let rootDomain = data.ROOT_DOMAIN;
+if (!rootDomain) {
+  try {
+    const u = new URL(baseUrl);
+    rootDomain = u.host;
+  } catch {
+    rootDomain = "lvh.me:3001";
+  }
+}
+
+export const env = {
+  ...data,
+  APP_URL: baseUrl,
+  ROOT_DOMAIN: rootDomain,
+};
