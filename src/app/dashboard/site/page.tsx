@@ -3,6 +3,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { SiteCustomizerForm } from "./site-customizer-form";
+import { EmbedSnippet } from "./embed-snippet";
 
 export const metadata = { title: "Klantsite" };
 
@@ -71,6 +72,13 @@ export default async function SitePage() {
               itemDisplayStyle: org.itemDisplayStyle,
             }}
             orgName={org.name}
+          />
+        </div>
+
+        <div className="mt-6">
+          <EmbedSnippet
+            slug={org.slug}
+            baseUrl={`${protocol}://${adminHost}`}
           />
         </div>
       </div>
