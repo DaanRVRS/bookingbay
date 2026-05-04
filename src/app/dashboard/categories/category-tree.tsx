@@ -138,12 +138,12 @@ function CategoryActions({ cat, categories }: { cat: Cat; categories: Cat[] }) {
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             Bewerken
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => setDeleteOpen(true)}
+            onClick={() => setDeleteOpen(true)}
             className="text-destructive"
           >
             <Trash2 className="size-4" />

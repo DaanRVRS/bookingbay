@@ -66,6 +66,9 @@ interface Props {
   existing?: Existing;
   defaultItemId?: string;
   defaultCustomerId?: string;
+  defaultStartAt?: string;
+  defaultEndAt?: string;
+  quickAddCustomer?: { name: string; email: string; phone: string };
 }
 
 function toLocalIsoNoTz(date: Date): string {
@@ -87,12 +90,22 @@ function defaultEnd(): string {
   return toLocalIsoNoTz(d);
 }
 
+function tryParseLocalIso(s: string | undefined): string | null {
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return toLocalIsoNoTz(d);
+}
+
 export function BookingForm({
   items,
   customers: initialCustomers,
   existing,
   defaultItemId,
   defaultCustomerId,
+  defaultStartAt,
+  defaultEndAt,
+  quickAddCustomer,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -115,8 +128,12 @@ export function BookingForm({
     defaultValues: {
       itemId: existing?.itemId ?? defaultItemId ?? items[0]?.id ?? "",
       customerId: existing?.customerId ?? defaultCustomerId ?? "",
-      startAt: existing ? toLocalIsoNoTz(new Date(existing.startAt)) : defaultStart(),
-      endAt: existing ? toLocalIsoNoTz(new Date(existing.endAt)) : defaultEnd(),
+      startAt: existing
+        ? toLocalIsoNoTz(new Date(existing.startAt))
+        : (tryParseLocalIso(defaultStartAt) ?? defaultStart()),
+      endAt: existing
+        ? toLocalIsoNoTz(new Date(existing.endAt))
+        : (tryParseLocalIso(defaultEndAt) ?? defaultEnd()),
       status: existing?.status ?? "CONFIRMED",
       totalPrice: existing?.totalPrice ?? 0,
       notes: existing?.notes ?? "",
@@ -229,10 +246,7 @@ export function BookingForm({
               <SelectContent>
                 {items.map((i) => (
                   <SelectItem key={i.id} value={i.id}>
-                    <span className="flex flex-col items-start">
-                      <span className="text-sm">{i.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{i.categoryName}</span>
-                    </span>
+                    {i.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -272,9 +286,6 @@ export function BookingForm({
                 {customers.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
-                    {c.email && (
-                      <span className="ml-2 text-[10px] text-muted-foreground">{c.email}</span>
-                    )}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -41,11 +41,11 @@ export function UserMenu({ user }: Props) {
           <p className="truncate text-xs text-muted-foreground">{user.email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => router.push("/dashboard/settings/profile")}>
+        <DropdownMenuItem onClick={() => router.push("/dashboard/settings/profile")}>
           <User className="size-4" />
           Profiel
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => router.push("/dashboard/settings")}>
+        <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
           <Settings className="size-4" />
           Instellingen
         </DropdownMenuItem>

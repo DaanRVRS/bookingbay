@@ -214,12 +214,20 @@ function LeadCard({ lead }: { lead: Lead }) {
             <DropdownMenuContent align="end" className="w-44">
               {lead.itemId && (
                 <DropdownMenuItem
-                  onSelect={() => router.push(`/dashboard/bookings/new?item=${lead.itemId}`)}
+                  onClick={() => {
+                    const params = new URLSearchParams({ item: lead.itemId! });
+                    if (lead.startAt) params.set("start", lead.startAt);
+                    if (lead.endAt) params.set("end", lead.endAt);
+                    if (lead.email) params.set("leadEmail", lead.email);
+                    if (lead.name) params.set("leadName", lead.name);
+                    if (lead.phone) params.set("leadPhone", lead.phone);
+                    router.push(`/dashboard/bookings/new?${params.toString()}`);
+                  }}
                 >
                   Boek dit item
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onSelect={onToggle}>
+              <DropdownMenuItem onClick={onToggle}>
                 {isHandled ? (
                   <>
                     <RotateCcw className="size-4" />
@@ -232,7 +240,7 @@ function LeadCard({ lead }: { lead: Lead }) {
                   </>
                 )}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-destructive">
+              <DropdownMenuItem onClick={() => setDeleteOpen(true)} className="text-destructive">
                 <Trash2 className="size-4" />
                 Verwijderen
               </DropdownMenuItem>

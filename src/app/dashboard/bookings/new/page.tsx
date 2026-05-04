@@ -7,7 +7,15 @@ import { BookingForm } from "../booking-form";
 export const metadata = { title: "Nieuwe boeking" };
 
 interface PageProps {
-  searchParams: Promise<{ item?: string; customer?: string }>;
+  searchParams: Promise<{
+    item?: string;
+    customer?: string;
+    start?: string;
+    end?: string;
+    leadEmail?: string;
+    leadName?: string;
+    leadPhone?: string;
+  }>;
 }
 
 export default async function NewBookingPage({ searchParams }: PageProps) {
@@ -36,6 +44,15 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
   if (items.length === 0) redirect("/dashboard/items/new");
 
+  // If we got a lead's email, try to match an existing customer by email.
+  let resolvedCustomerId = params.customer;
+  if (!resolvedCustomerId && params.leadEmail) {
+    const match = customers.find(
+      (c) => c.email && c.email.toLowerCase() === params.leadEmail!.toLowerCase(),
+    );
+    if (match) resolvedCustomerId = match.id;
+  }
+
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-2xl">
@@ -56,7 +73,18 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             }))}
             customers={customers.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
             defaultItemId={params.item}
-            defaultCustomerId={params.customer}
+            defaultCustomerId={resolvedCustomerId}
+            defaultStartAt={params.start}
+            defaultEndAt={params.end}
+            quickAddCustomer={
+              params.leadEmail && !resolvedCustomerId
+                ? {
+                    name: params.leadName ?? "",
+                    email: params.leadEmail,
+                    phone: params.leadPhone ?? "",
+                  }
+                : undefined
+            }
           />
         </div>
       </div>

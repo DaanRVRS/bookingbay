@@ -70,7 +70,7 @@ export function OrgSwitcher({ active, activeRole, memberships }: Props) {
           return (
             <DropdownMenuItem
               key={m.id}
-              onSelect={() => onSwitch(m.organization.id)}
+              onClick={() => onSwitch(m.organization.id)}
               className="flex items-center gap-2"
             >
               <span className="grid size-6 place-items-center rounded-md bg-primary/10 text-primary text-[10px] font-semibold uppercase">
@@ -88,7 +88,7 @@ export function OrgSwitcher({ active, activeRole, memberships }: Props) {
         })}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => router.push("/onboarding")}
+          onClick={() => router.push("/onboarding")}
           className="flex items-center gap-2 text-muted-foreground"
         >
           <span className="grid size-6 place-items-center rounded-md border border-dashed border-border">

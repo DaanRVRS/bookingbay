@@ -195,7 +195,7 @@ function MemberRow({
               return (
                 <DropdownMenuItem
                   key={r}
-                  onSelect={() => onChangeRole(r)}
+                  onClick={() => onChangeRole(r)}
                   className={r === member.role ? "bg-accent" : ""}
                 >
                   {ROLE_LABELS[r]}
@@ -205,7 +205,7 @@ function MemberRow({
             })}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => setRemoveOpen(true)}
+              onClick={() => setRemoveOpen(true)}
               className="text-destructive"
             >
               <Trash2 className="size-4" />
