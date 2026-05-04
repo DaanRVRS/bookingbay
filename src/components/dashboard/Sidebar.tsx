@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
+  Inbox,
   Layers,
   Package,
   Settings,
@@ -27,6 +28,7 @@ const primary: NavItem[] = [
   { href: "/dashboard", label: "Overzicht", icon: HomeIcon, match: (p) => p === "/dashboard" },
   { href: "/dashboard/calendar", label: "Planning", icon: Calendar },
   { href: "/dashboard/bookings", label: "Boekingen", icon: CheckCircle2 },
+  { href: "/dashboard/leads", label: "Leads", icon: Inbox },
   { href: "/dashboard/customers", label: "Klanten", icon: Users },
 ];
 
