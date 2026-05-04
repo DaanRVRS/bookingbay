@@ -57,17 +57,29 @@ function logToConsole(options: SendEmailOptions, from: string) {
   );
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<void> {
+export interface SendEmailResult {
+  ok: boolean;
+  provider: Provider;
+  error?: string;
+}
+
+/**
+ * Sends an email and NEVER throws.
+ * Returns {ok: false, error} on failure so the caller can decide whether
+ * to surface the issue. This keeps registration / reset flows alive even
+ * when the SMTP server is misconfigured.
+ */
+export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const from = options.from ?? env.EMAIL_FROM;
   const provider = pickProvider();
 
   if (provider === "console") {
     logToConsole(options, from);
-    return;
+    return { ok: true, provider };
   }
 
-  if (provider === "smtp") {
-    try {
+  try {
+    if (provider === "smtp") {
       await getTransporter().sendMail({
         from,
         to: options.to,
@@ -75,27 +87,26 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         html: options.html,
         text: options.text,
       });
-      return;
-    } catch (err) {
-      console.error("SMTP send failed:", err);
-      throw new Error(
-        `Email send failed via SMTP: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      return { ok: true, provider };
     }
-  }
 
-  // Resend
-  const result = await getResend().emails.send({
-    from,
-    to: options.to,
-    subject: options.subject,
-    html: options.html,
-    text: options.text,
-  });
-
-  if (result.error) {
-    console.error("Resend email failed:", result.error);
-    throw new Error(`Email send failed: ${result.error.message}`);
+    // Resend
+    const result = await getResend().emails.send({
+      from,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    });
+    if (result.error) {
+      console.error(`[email] Resend rejected: ${result.error.message}`);
+      return { ok: false, provider, error: result.error.message };
+    }
+    return { ok: true, provider };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[email] send failed via ${provider}: ${message}`);
+    return { ok: false, provider, error: message };
   }
 }
 

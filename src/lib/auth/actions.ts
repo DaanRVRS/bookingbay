@@ -44,39 +44,38 @@ async function sendVerificationEmail(email: string, identifier: string, verifica
   });
 
   const url = `${env.APP_URL}/verify-email?token=${verificationToken}`;
-  try {
-    await sendEmail({
-      to: email,
-      subject: "Bevestig je e-mail bij BookingBay",
-      html: emailLayout(`
-        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Welkom bij BookingBay</h1>
-        <p style="margin:0 0 24px 0">Bevestig je e-mailadres om je account te activeren.</p>
-        <p style="margin:0 0 24px 0">${btn(url, "Bevestig e-mail")}</p>
-        <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;word-break:break-all">Of kopieer deze link: ${url}</p>
-      `),
-      text: `Bevestig je e-mail: ${url}`,
-    });
-  } catch (err) {
-    console.error("[auth] verification email send failed:", err);
+  // sendEmail() never throws — returns {ok, error} for caller logging only.
+  const result = await sendEmail({
+    to: email,
+    subject: "Bevestig je e-mail bij BookingBay",
+    html: emailLayout(`
+      <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Welkom bij BookingBay</h1>
+      <p style="margin:0 0 24px 0">Bevestig je e-mailadres om je account te activeren.</p>
+      <p style="margin:0 0 24px 0">${btn(url, "Bevestig e-mail")}</p>
+      <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280;word-break:break-all">Of kopieer deze link: ${url}</p>
+    `),
+    text: `Bevestig je e-mail: ${url}`,
+  });
+  if (!result.ok) {
+    console.error(`[auth] verification email NOT delivered to ${email}: ${result.error}`);
   }
 }
 
 async function sendResetEmail(email: string, resetToken: string) {
   const url = `${env.APP_URL}/reset-password?token=${resetToken}`;
-  try {
-    await sendEmail({
-      to: email,
-      subject: "Wachtwoord resetten — BookingBay",
-      html: emailLayout(`
-        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Wachtwoord resetten</h1>
-        <p style="margin:0 0 24px 0">Klik op de knop hieronder om een nieuw wachtwoord in te stellen. De link verloopt na 1 uur.</p>
-        <p style="margin:0 0 24px 0">${btn(url, "Wachtwoord resetten")}</p>
-        <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280">Geen reset aangevraagd? Negeer deze mail.</p>
-      `),
-      text: `Reset link: ${url}`,
-    });
-  } catch (err) {
-    console.error("[auth] reset email send failed:", err);
+  const result = await sendEmail({
+    to: email,
+    subject: "Wachtwoord resetten — BookingBay",
+    html: emailLayout(`
+      <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Wachtwoord resetten</h1>
+      <p style="margin:0 0 24px 0">Klik op de knop hieronder om een nieuw wachtwoord in te stellen. De link verloopt na 1 uur.</p>
+      <p style="margin:0 0 24px 0">${btn(url, "Wachtwoord resetten")}</p>
+      <p style="margin:24px 0 0 0;font-size:13px;color:#6b7280">Geen reset aangevraagd? Negeer deze mail.</p>
+    `),
+    text: `Reset link: ${url}`,
+  });
+  if (!result.ok) {
+    console.error(`[auth] reset email NOT delivered to ${email}: ${result.error}`);
   }
 }
 
