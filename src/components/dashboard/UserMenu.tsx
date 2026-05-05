@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, ShieldCheck, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,7 @@ interface Props {
     name: string | null;
     email: string;
     image: string | null;
+    isAdmin?: boolean;
   };
 }
 
@@ -48,6 +49,15 @@ export function UserMenu({ user }: Props) {
           <Settings className="size-4" />
           Instellingen
         </DropdownMenuItem>
+        {user.isAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push("/admin")}>
+              <ShieldCheck className="size-4 text-primary" />
+              <span>Admin-omgeving</span>
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <form action={logoutAction}>
           <button

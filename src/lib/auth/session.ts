@@ -20,10 +20,22 @@ export const getCurrentUser = cache(async () => {
       name: true,
       image: true,
       emailVerified: true,
+      isAdmin: true,
     },
   });
   return user;
 });
+
+export async function requireAdmin() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/admin");
+  if (!user.isAdmin) {
+    // 404 — don't reveal that an /admin area exists to non-admins
+    const { notFound } = await import("next/navigation");
+    notFound();
+  }
+  return user;
+}
 
 export async function requireUser() {
   const user = await getCurrentUser();
