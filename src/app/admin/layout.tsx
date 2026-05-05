@@ -3,6 +3,7 @@ import { Building2, ChevronLeft, LayoutDashboard, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/session";
 import { Logo } from "@/components/marketing/Logo";
 import { AdminNav } from "./admin-nav";
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 
 export const metadata = {
   title: { default: "Admin", template: "%s · Admin" },
@@ -14,6 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-svh flex-col">
+      <ImpersonationBanner />
       <header className="border-b border-border bg-[oklch(0.18_0.02_250)] text-white">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
           <Link href="/admin" className="flex items-center gap-2.5">

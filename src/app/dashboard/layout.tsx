@@ -3,12 +3,14 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { OrgSwitcher } from "@/components/dashboard/OrgSwitcher";
 import { UserMenu } from "@/components/dashboard/UserMenu";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
 
   return (
     <div className="flex min-h-svh flex-col">
+      <ImpersonationBanner />
       <TopBar
         sidebarContent={<Sidebar />}
         orgSwitcherSlot={

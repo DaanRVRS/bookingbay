@@ -19,6 +19,7 @@ import {
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { planLimits } from "@/lib/plans";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -153,6 +154,14 @@ export async function inviteMemberAction(input: InviteInput): Promise<ActionResu
     text: `Je bent uitgenodigd voor ${ctx.organization.name}. Accepteer via: ${inviteUrl}`,
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "member.invite",
+    resource: "invitation",
+    metadata: { email, role: parsed.data.role },
+  });
+
   revalidatePath("/dashboard/team");
   return { ok: true };
 }
@@ -167,6 +176,16 @@ export async function cancelInviteAction(invitationId: string): Promise<ActionRe
   if (!invite) return { ok: false, error: "Uitnodiging niet gevonden" };
 
   await db.invitation.delete({ where: { id: invitationId } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "member.invite.cancel",
+    resource: "invitation",
+    resourceId: invitationId,
+    metadata: { email: invite.email },
+  });
+
   revalidatePath("/dashboard/team");
   return { ok: true };
 }
@@ -205,6 +224,15 @@ export async function updateRoleAction(input: UpdateRoleInput): Promise<ActionRe
     data: { role: parsed.data.role },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "member.role.update",
+    resource: "membership",
+    resourceId: parsed.data.membershipId,
+    metadata: { from: target.role, to: parsed.data.role, targetUserId: target.userId },
+  });
+
   revalidatePath("/dashboard/team");
   return { ok: true };
 }
@@ -237,6 +265,16 @@ export async function removeMemberAction(input: RemoveMemberInput): Promise<Acti
   }
 
   await db.membership.delete({ where: { id: parsed.data.membershipId } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "member.remove",
+    resource: "membership",
+    resourceId: parsed.data.membershipId,
+    metadata: { targetUserId: target.userId, role: target.role },
+  });
+
   revalidatePath("/dashboard/team");
   return { ok: true };
 }
@@ -295,6 +333,15 @@ export async function acceptInviteAction(input: { token: string }): Promise<
       where: { id: invite.id },
       data: { acceptedAt: new Date() },
     });
+  });
+
+  await audit({
+    organizationId: invite.organizationId,
+    actorUserId: user.id,
+    action: "member.invite.accept",
+    resource: "invitation",
+    resourceId: invite.id,
+    metadata: { role: invite.role },
   });
 
   return { ok: true, data: { organizationSlug: invite.organization.slug } };

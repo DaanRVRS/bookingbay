@@ -5,6 +5,7 @@ import { sendEmail, emailLayout } from "@/lib/email";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { leadSchema, type LeadInput } from "./schemas";
 import { isEmailBlocked } from "./blocklist";
+import { audit } from "@/lib/audit/log";
 
 export async function createLeadAction(input: LeadInput): Promise<ActionResult> {
   const parsed = leadSchema.safeParse(input);
@@ -57,6 +58,14 @@ export async function createLeadAction(input: LeadInput): Promise<ActionResult> 
       endAt: endAt && !Number.isNaN(endAt.getTime()) ? endAt : null,
     },
     select: { id: true },
+  });
+
+  await audit({
+    organizationId: org.id,
+    action: "lead.create",
+    resource: "lead",
+    resourceId: lead.id,
+    metadata: { name: parsed.data.name, email: parsed.data.email.toLowerCase() },
   });
 
   // Notify the organization owner via the configured contact email

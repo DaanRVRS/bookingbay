@@ -12,6 +12,7 @@ import {
   type CategoryUpdateInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -61,6 +62,15 @@ export async function createCategoryAction(
     select: { id: true },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "category.create",
+    resource: "category",
+    resourceId: created.id,
+    metadata: { name: parsed.data.name },
+  });
+
   revalidatePath("/dashboard/categories");
   revalidatePath("/dashboard");
   return { ok: true, data: { id: created.id } };
@@ -92,6 +102,15 @@ export async function updateCategoryAction(input: CategoryUpdateInput): Promise<
       imageUrl: parsed.data.imageUrl || null,
       parentId: parsed.data.parentId ?? null,
     },
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "category.update",
+    resource: "category",
+    resourceId: parsed.data.id,
+    metadata: { name: parsed.data.name },
   });
 
   revalidatePath("/dashboard/categories");
@@ -130,6 +149,14 @@ export async function reorderCategoriesAction(input: {
       db.category.update({ where: { id }, data: { sortOrder: idx } }),
     ),
   );
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "category.reorder",
+    resource: "category",
+    metadata: { count: input.orderedIds.length, parentId: input.parentId },
+  });
 
   revalidatePath("/dashboard/categories");
   return { ok: true };

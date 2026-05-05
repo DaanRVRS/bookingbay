@@ -6,6 +6,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { siteCustomizerSchema, type SiteCustomizerInput } from "./site-schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 export async function updateSiteAction(input: SiteCustomizerInput): Promise<ActionResult> {
   const ctx = await requireOrg();
@@ -33,6 +34,14 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
       contactPhone: parsed.data.contactPhone || null,
       itemDisplayStyle: parsed.data.itemDisplayStyle,
     },
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "site.update",
+    resource: "organization",
+    resourceId: ctx.organization.id,
   });
 
   revalidatePath("/dashboard/site");

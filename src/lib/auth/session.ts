@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { Role } from "@prisma/client";
+import { getImpersonation } from "@/lib/admin/impersonate";
 
 export const ACTIVE_ORG_COOKIE = "bb_active_org";
 
@@ -12,8 +13,11 @@ export const getCurrentUser = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) return null;
 
+  const impersonation = await getImpersonation();
+  const effectiveUserId = impersonation?.targetUserId ?? session.user.id;
+
   const user = await db.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: effectiveUserId },
     select: {
       id: true,
       email: true,
@@ -26,11 +30,32 @@ export const getCurrentUser = cache(async () => {
   return user;
 });
 
+/**
+ * The real, authenticated admin user — bypasses any active impersonation.
+ * Use for permission checks that must not be spoofable through a stolen cookie.
+ */
+export const getRealUser = cache(async () => {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  return db.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
+      emailVerified: true,
+      isAdmin: true,
+    },
+  });
+});
+
 export async function requireAdmin() {
-  const user = await getCurrentUser();
+  // Always check the REAL session — never the impersonated one — so a
+  // running impersonation can't open the admin area as the target user.
+  const user = await getRealUser();
   if (!user) redirect("/login?next=/admin");
   if (!user.isAdmin) {
-    // 404 — don't reveal that an /admin area exists to non-admins
     const { notFound } = await import("next/navigation");
     notFound();
   }

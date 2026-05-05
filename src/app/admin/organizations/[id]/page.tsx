@@ -6,8 +6,12 @@ import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { describeAction } from "@/lib/audit/log";
 import { OrgPlanForm } from "./plan-form";
 import { ExtendTrialForm } from "./extend-trial-form";
+import { AdminOrgEditForm } from "./edit-form";
+import { AdminOrgDeleteForm } from "./delete-form";
+import { ImpersonateButton } from "./impersonate-button";
 
 export const metadata = { title: "Organisatie" };
 
@@ -31,6 +35,12 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
     },
   });
   if (!org) notFound();
+
+  const recentLogs = await db.auditLog.findMany({
+    where: { organizationId: id },
+    orderBy: { createdAt: "desc" },
+    take: 15,
+  });
 
   const adminHost = (process.env.NEXTAUTH_URL ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
   const protocol = (process.env.NEXTAUTH_URL ?? "").startsWith("https") ? "https" : "http";
@@ -148,12 +158,75 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
                     <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium uppercase">
                       {ROLE_LABELS[m.role]}
                     </span>
+                    <ImpersonateButton
+                      userId={m.user.id}
+                      userLabel={m.user.name ?? m.user.email}
+                    />
                   </li>
                 );
               })}
             </ul>
           </section>
+
+          {/* Edit organization */}
+          <section className="rounded-xl border border-border bg-card p-6">
+            <h2 className="text-base font-semibold">Organisatie bewerken</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pas de naam en URL-slug van deze klant aan.
+            </p>
+            <div className="mt-5">
+              <AdminOrgEditForm
+                organizationId={org.id}
+                initialName={org.name}
+                initialSlug={org.slug}
+              />
+            </div>
+          </section>
+
+          {/* Recent activity */}
+          <section className="rounded-xl border border-border bg-card p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Recente activiteit</h2>
+              <Link
+                href={`/admin/audit?org=${org.id}`}
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Volledig log →
+              </Link>
+            </div>
+            {recentLogs.length === 0 ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                Nog geen activiteit gelogd.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-border text-sm">
+                {recentLogs.map((l) => (
+                  <li key={l.id} className="flex items-baseline justify-between gap-2 py-2">
+                    <span>{describeAction(l.action)}</span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {format(l.createdAt, "d MMM HH:mm", { locale: nl })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
+
+        {/* Danger zone */}
+        <section className="mt-6 rounded-xl border border-destructive/40 bg-destructive/5 p-6">
+          <h2 className="text-base font-semibold text-destructive">Gevarenzone</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Verwijdert deze organisatie inclusief alle items, boekingen, klanten,
+            leden en pages — onomkeerbaar.
+          </p>
+          <div className="mt-4">
+            <AdminOrgDeleteForm
+              organizationId={org.id}
+              organizationName={org.name}
+            />
+          </div>
+        </section>
       </div>
     </div>
   );

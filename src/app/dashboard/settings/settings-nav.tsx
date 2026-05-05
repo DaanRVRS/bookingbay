@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, CreditCard, UserCircle } from "lucide-react";
+import { Building2, CreditCard, ScrollText, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/dashboard/settings/profile", label: "Profiel", icon: UserCircle },
   { href: "/dashboard/settings/organization", label: "Organisatie", icon: Building2 },
   { href: "/dashboard/settings/billing", label: "Plan & facturatie", icon: CreditCard },
+  { href: "/dashboard/settings/audit", label: "Activiteitenlogboek", icon: ScrollText },
 ];
 
 export function SettingsNav() {

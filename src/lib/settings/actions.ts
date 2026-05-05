@@ -18,6 +18,7 @@ import {
   type DeleteOrgInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -118,6 +119,18 @@ export async function updateOrgAction(input: UpdateOrgInput): Promise<ActionResu
     },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "org.update",
+    resource: "organization",
+    resourceId: ctx.organization.id,
+    metadata: {
+      from: { name: ctx.organization.name, slug: ctx.organization.slug },
+      to: { name: parsed.data.name, slug: parsed.data.slug },
+    },
+  });
+
   revalidatePath("/dashboard/settings/organization");
   revalidatePath("/dashboard");
   return { ok: true };
@@ -140,6 +153,14 @@ export async function deleteOrgAction(input: DeleteOrgInput): Promise<ActionResu
       fieldErrors: { confirmation: "Naam klopt niet" },
     };
   }
+
+  await audit({
+    actorUserId: ctx.user.id,
+    action: "org.delete",
+    resource: "organization",
+    resourceId: ctx.organization.id,
+    metadata: { name: ctx.organization.name, slug: ctx.organization.slug },
+  });
 
   // onDelete: Cascade handles cleanup of memberships, items, bookings, etc.
   await db.organization.delete({ where: { id: ctx.organization.id } });

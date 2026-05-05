@@ -13,6 +13,7 @@ import {
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { planLimits } from "@/lib/plans";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -85,6 +86,15 @@ export async function createItemAction(
     select: { id: true },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "item.create",
+    resource: "item",
+    resourceId: created.id,
+    metadata: { name: parsed.data.name, categoryId: parsed.data.categoryId },
+  });
+
   revalidatePath("/dashboard/items");
   revalidatePath("/dashboard");
   return { ok: true, data: { id: created.id } };
@@ -126,6 +136,15 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
     },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "item.update",
+    resource: "item",
+    resourceId: parsed.data.id,
+    metadata: { name: parsed.data.name, isActive: parsed.data.isActive },
+  });
+
   revalidatePath("/dashboard/items");
   revalidatePath(`/dashboard/items/${parsed.data.id}`);
   return { ok: true };
@@ -144,11 +163,27 @@ export async function deleteItemAction(id: string): Promise<ActionResult> {
   if (existing._count.bookings > 0) {
     // Soft-deactivate instead of deleting when bookings exist
     await db.item.update({ where: { id }, data: { isActive: false } });
+    await audit({
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      action: "item.update",
+      resource: "item",
+      resourceId: id,
+      metadata: { name: existing.name, softDelete: true },
+    });
     revalidatePath("/dashboard/items");
     return { ok: true };
   }
 
   await db.item.delete({ where: { id } });
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "item.delete",
+    resource: "item",
+    resourceId: id,
+    metadata: { name: existing.name },
+  });
   revalidatePath("/dashboard/items");
   revalidatePath("/dashboard");
   return { ok: true };

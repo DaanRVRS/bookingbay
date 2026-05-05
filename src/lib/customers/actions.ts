@@ -12,6 +12,7 @@ import {
   type CustomerUpdateInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -44,6 +45,15 @@ export async function createCustomerAction(
     select: { id: true, name: true },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "customer.create",
+    resource: "customer",
+    resourceId: created.id,
+    metadata: { name: created.name },
+  });
+
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard");
   return { ok: true, data: created };
@@ -73,6 +83,15 @@ export async function updateCustomerAction(input: CustomerUpdateInput): Promise<
     },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "customer.update",
+    resource: "customer",
+    resourceId: parsed.data.id,
+    metadata: { name: parsed.data.name },
+  });
+
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${parsed.data.id}`);
   return { ok: true };
@@ -96,6 +115,16 @@ export async function deleteCustomerAction(id: string): Promise<ActionResult> {
   }
 
   await db.customer.delete({ where: { id } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "customer.delete",
+    resource: "customer",
+    resourceId: id,
+    metadata: { name: existing.name },
+  });
+
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard");
   return { ok: true };

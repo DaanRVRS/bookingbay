@@ -4,6 +4,8 @@ import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
 import { AdminToggle } from "./admin-toggle";
+import { VerifyEmailButton } from "./verify-button";
+import { ImpersonateUserButton } from "./impersonate-button";
 
 export const metadata = { title: "Gebruikers" };
 
@@ -66,6 +68,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                 <th className="px-4 py-2">Verified</th>
                 <th className="px-4 py-2">Aangemaakt</th>
                 <th className="px-4 py-2 text-right">Platform-admin</th>
+                <th className="px-4 py-2 text-right">Acties</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -98,7 +101,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                       {u.emailVerified ? (
                         <span className="text-[oklch(0.5_0.14_150)]">✓</span>
                       ) : (
-                        <span className="text-destructive">—</span>
+                        <VerifyEmailButton userId={u.id} />
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -110,6 +113,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
                         isAdmin={u.isAdmin}
                         isSelf={u.id === me.id}
                       />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {u.id !== me.id && (
+                        <ImpersonateUserButton
+                          userId={u.id}
+                          userLabel={u.name ?? u.email}
+                        />
+                      )}
                     </td>
                   </tr>
                 );

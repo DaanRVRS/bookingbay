@@ -14,6 +14,7 @@ import {
   type BookingUpdateInput,
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -79,6 +80,21 @@ export async function createBookingAction(
     select: { id: true },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.create",
+    resource: "booking",
+    resourceId: created.id,
+    metadata: {
+      itemId: parsed.data.itemId,
+      customerId: parsed.data.customerId,
+      startAt: parsed.data.startAt.toISOString(),
+      endAt: parsed.data.endAt.toISOString(),
+      status: parsed.data.status,
+    },
+  });
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath("/dashboard/calendar");
@@ -132,6 +148,15 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.update",
+    resource: "booking",
+    resourceId: parsed.data.id,
+    metadata: { status: parsed.data.status },
+  });
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${parsed.data.id}`);
@@ -150,6 +175,14 @@ export async function cancelBookingAction(id: string): Promise<ActionResult> {
   await db.booking.update({
     where: { id },
     data: { status: "CANCELED" },
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.cancel",
+    resource: "booking",
+    resourceId: id,
   });
 
   revalidatePath("/dashboard");
@@ -187,6 +220,16 @@ export async function setBookingStatusAction(
   }
 
   await db.booking.update({ where: { id }, data: { status } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.status",
+    resource: "booking",
+    resourceId: id,
+    metadata: { status },
+  });
+
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
   return { ok: true };

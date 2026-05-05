@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 
 const patternSchema = z
   .string()
@@ -55,6 +56,14 @@ export async function addLeadBlockAction(input: {
     throw err;
   }
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "leadblock.add",
+    resource: "leadblock",
+    metadata: { pattern: lower },
+  });
+
   revalidatePath("/dashboard/leads/blocklist");
   return { ok: true };
 }
@@ -69,6 +78,15 @@ export async function removeLeadBlockAction(id: string): Promise<ActionResult> {
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
   await db.leadBlock.delete({ where: { id } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "leadblock.remove",
+    resource: "leadblock",
+    metadata: { pattern: existing.pattern },
+  });
+
   revalidatePath("/dashboard/leads/blocklist");
   return { ok: true };
 }
@@ -103,6 +121,14 @@ export async function blockLeadSenderAction(
       reason: `Geblokkeerd vanuit lead ${leadId}`,
     },
     update: {},
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "leadblock.add",
+    resource: "leadblock",
+    metadata: { pattern, fromLead: leadId },
   });
 
   revalidatePath("/dashboard/leads");

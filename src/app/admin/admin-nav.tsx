@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, Users } from "lucide-react";
+import { Building2, LayoutDashboard, ScrollText, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin", label: "Overzicht", icon: LayoutDashboard, exact: true },
   { href: "/admin/organizations", label: "Organisaties", icon: Building2 },
   { href: "/admin/users", label: "Gebruikers", icon: Users },
+  { href: "/admin/audit", label: "Audit log", icon: ScrollText },
 ];
 
 export function AdminNav() {

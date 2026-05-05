@@ -342,16 +342,22 @@ model LeadBlock {
 
 model AuditLog {
   id             String   @id @default(cuid())
-  organizationId String
+  // Nullable for platform-level events (admin actions outside any org context)
+  organizationId String?
   actorUserId    String?
+  // Friendly action key — e.g. "item.create", "org.plan.change", "admin.impersonate.start"
   action         String
+  // Resource type ("item", "booking", "user", "organization", "lead", ...)
   resource       String
   resourceId     String?
+  // Optional context: { before, after, ip, userAgent, ... }
   metadata       Json?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }

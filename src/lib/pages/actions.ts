@@ -8,6 +8,7 @@ import { assertCan } from "@/lib/auth/permissions";
 import { planAllows, assertPageQuotaOk } from "@/lib/plans";
 import type { Plan } from "@prisma/client";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { audit } from "@/lib/audit/log";
 import {
   pageCreateSchema,
   pageMetaUpdateSchema,
@@ -86,6 +87,15 @@ export async function createPageAction(
     select: { id: true },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "page.create",
+    resource: "page",
+    resourceId: created.id,
+    metadata: { title: parsed.data.title, slug: parsed.data.slug },
+  });
+
   revalidatePath("/dashboard/site/pages");
   return { ok: true, data: { id: created.id } };
 }
@@ -131,6 +141,15 @@ export async function updatePageMetaAction(
     },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "page.update",
+    resource: "page",
+    resourceId: parsed.data.id,
+    metadata: { title: parsed.data.title, slug: parsed.data.slug, kind: "meta" },
+  });
+
   revalidatePath("/dashboard/site/pages");
   revalidatePath(`/dashboard/site/pages/${parsed.data.id}`);
   return { ok: true };
@@ -158,6 +177,15 @@ export async function updatePageBlocksAction(
     data: { blocks: parsed.data.blocks },
   });
 
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "page.update",
+    resource: "page",
+    resourceId: parsed.data.id,
+    metadata: { kind: "blocks", blockCount: parsed.data.blocks.length },
+  });
+
   revalidatePath(`/dashboard/site/pages/${parsed.data.id}`);
   return { ok: true };
 }
@@ -173,6 +201,14 @@ export async function deletePageAction(id: string): Promise<ActionResult> {
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
   await db.page.delete({ where: { id } });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "page.delete",
+    resource: "page",
+    resourceId: id,
+  });
 
   revalidatePath("/dashboard/site/pages");
   return { ok: true };
