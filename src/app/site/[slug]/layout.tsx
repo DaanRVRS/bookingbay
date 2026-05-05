@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Geist } from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
@@ -35,6 +36,7 @@ export default async function TenantLayout({
 
   // Per-org accent — fall back to BookingBay coral.
   const accent = org.primaryColor ?? "#ef5934";
+  const navPages = await getNavPages(org.id);
 
   return (
     <div
@@ -64,6 +66,15 @@ export default async function TenantLayout({
             >
               Aanbod
             </Link>
+            {navPages.map((p) => (
+              <Link
+                key={p.slug}
+                href={`/${p.slug}`}
+                className="hidden rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground sm:inline-block"
+              >
+                {p.title}
+              </Link>
+            ))}
             <Link
               href="/contact"
               className="rounded-md px-4 py-1.5 font-medium text-white shadow-sm transition-opacity hover:opacity-90"

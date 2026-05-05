@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
+  FileText,
   Inbox,
   Layers,
   Package,
@@ -39,7 +40,13 @@ const catalog: NavItem[] = [
 ];
 
 const settings: NavItem[] = [
-  { href: "/dashboard/site", label: "Klantsite", icon: Globe },
+  {
+    href: "/dashboard/site",
+    label: "Klantsite",
+    icon: Globe,
+    match: (p) => p === "/dashboard/site",
+  },
+  { href: "/dashboard/site/pages", label: "Pagina's", icon: FileText },
   { href: "/dashboard/team", label: "Team", icon: UserCog },
   { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
 ];

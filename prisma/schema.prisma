@@ -110,6 +110,7 @@ model Organization {
   leads       Lead[]
   leadBlocks  LeadBlock[]
   auditLogs   AuditLog[]
+  pages       Page[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,6 +217,30 @@ model Item {
 
   @@index([organizationId])
   @@index([categoryId])
+}
+
+// ----------------------------------------------------------------------------
+// Tenant-site pages (drag-and-drop builder, Pro+)
+// ----------------------------------------------------------------------------
+
+model Page {
+  id             String  @id @default(cuid())
+  organizationId String
+  slug           String  // URL slug — unique within org. Reserved: "home" maps to "/"
+  title          String
+  // JSON-array of block objects validated by Zod schemas in lib/pages/blocks.ts
+  blocks         Json    @default("[]")
+  isPublished    Boolean @default(true)
+  showInNav      Boolean @default(true)
+  sortOrder      Int     @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
 }
 
 // ----------------------------------------------------------------------------
