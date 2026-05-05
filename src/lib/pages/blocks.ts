@@ -101,6 +101,50 @@ const spacerBlock = z.object({
   size: z.enum(["sm", "md", "lg"]).default("md"),
 });
 
+const galleryBlock = z.object({
+  id: idField,
+  type: z.literal("gallery"),
+  heading: z.string().max(160).default(""),
+  columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(3),
+  images: z
+    .array(
+      z.object({
+        url: z.string().max(500),
+        caption: z.string().max(160).default(""),
+      }),
+    )
+    .min(1)
+    .max(12)
+    .default([]),
+});
+
+const faqBlock = z.object({
+  id: idField,
+  type: z.literal("faq"),
+  heading: z.string().max(160).default(""),
+  intro: z.string().max(400).default(""),
+  items: z
+    .array(
+      z.object({
+        question: z.string().max(220),
+        answer: z.string().max(2000),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .default([]),
+});
+
+const videoBlock = z.object({
+  id: idField,
+  type: z.literal("video"),
+  heading: z.string().max(160).default(""),
+  // Accepts a YouTube watch URL, youtu.be shortlink, or Vimeo URL.
+  // Renderer extracts the embed URL.
+  url: z.string().max(500).default(""),
+  caption: z.string().max(280).default(""),
+});
+
 export const blockSchema = z.discriminatedUnion("type", [
   heroBlock,
   textBlock,
@@ -109,6 +153,9 @@ export const blockSchema = z.discriminatedUnion("type", [
   iconRowBlock,
   ctaBlock,
   spacerBlock,
+  galleryBlock,
+  faqBlock,
+  videoBlock,
 ]);
 
 export const blocksSchema = z.array(blockSchema).max(40);
@@ -121,6 +168,9 @@ export type ImageStripBlock = z.infer<typeof imageStripBlock>;
 export type IconRowBlock = z.infer<typeof iconRowBlock>;
 export type CtaBlock = z.infer<typeof ctaBlock>;
 export type SpacerBlock = z.infer<typeof spacerBlock>;
+export type GalleryBlock = z.infer<typeof galleryBlock>;
+export type FaqBlock = z.infer<typeof faqBlock>;
+export type VideoBlock = z.infer<typeof videoBlock>;
 
 export type BlockType = Block["type"];
 
@@ -132,6 +182,9 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   iconRow: "Icon-rij",
   cta: "Call-to-action",
   spacer: "Witruimte",
+  gallery: "Galerij",
+  faq: "FAQ",
+  video: "Video",
 };
 
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
@@ -142,6 +195,9 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   iconRow: "3-4 icons met label, voor 'waarom ons'",
   cta: "Compacte call-to-action met knop",
   spacer: "Verticale witruimte (klein/normaal/groot)",
+  gallery: "Galerij van 1 tot 12 afbeeldingen, 2/3/4 kolommen",
+  faq: "Inklapbare vraag-en-antwoord-lijst",
+  video: "YouTube- of Vimeo-video embedded",
 };
 
 /**
@@ -195,6 +251,43 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
       };
     case "spacer":
       return { id, type: "spacer", size: "md" };
+    case "gallery":
+      return {
+        id,
+        type: "gallery",
+        heading: "Galerij",
+        columns: 3,
+        images: [
+          { url: "", caption: "" },
+          { url: "", caption: "" },
+          { url: "", caption: "" },
+        ],
+      };
+    case "faq":
+      return {
+        id,
+        type: "faq",
+        heading: "Veelgestelde vragen",
+        intro: "",
+        items: [
+          {
+            question: "Hoe lang van tevoren moet ik reserveren?",
+            answer: "Liefst minimaal 24 uur, maar last-minute mag je 't altijd vragen.",
+          },
+          {
+            question: "Wat als ik moet annuleren?",
+            answer: "Tot 48 uur van tevoren kosteloos. Daarna brengen we 50% in rekening.",
+          },
+        ],
+      };
+    case "video":
+      return {
+        id,
+        type: "video",
+        heading: "",
+        url: "",
+        caption: "",
+      };
   }
 }
 

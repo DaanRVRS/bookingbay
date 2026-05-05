@@ -7,11 +7,15 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Copy,
   ExternalLink,
   GripVertical,
+  HelpCircle,
   Image as ImageLucide,
+  ImagesIcon,
   LayoutDashboard,
   Loader2,
+  PlayCircle,
   Plus,
   Settings,
   Trash2,
@@ -24,12 +28,16 @@ import {
 import { toast } from "sonner";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  useDraggable,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -39,10 +47,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  restrictToParentElement,
-  restrictToVerticalAxis,
-} from "@dnd-kit/modifiers";
 import { Button } from "@/components/ui/button";
 import {
   BLOCK_DESCRIPTIONS,
@@ -58,6 +62,9 @@ import { CtaBlockView } from "@/components/tenants/blocks/CtaBlockView";
 import { SpacerBlockView } from "@/components/tenants/blocks/SpacerBlockView";
 import { ImageStripBlockView } from "@/components/tenants/blocks/ImageStripBlockView";
 import { IconRowBlockView } from "@/components/tenants/blocks/IconRowBlockView";
+import { GalleryBlockView } from "@/components/tenants/blocks/GalleryBlockView";
+import { FaqBlockView } from "@/components/tenants/blocks/FaqBlockView";
+import { VideoBlockView } from "@/components/tenants/blocks/VideoBlockView";
 import { BlockEditor } from "./block-editors";
 import { PageMetaDialog } from "./page-meta-form";
 import type { LucideIcon } from "lucide-react";
@@ -67,10 +74,16 @@ const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
   { type: "text", icon: Type },
   { type: "slider", icon: Rows3 },
   { type: "imageStrip", icon: ImageLucide },
+  { type: "gallery", icon: ImagesIcon },
   { type: "iconRow", icon: Sparkles },
+  { type: "faq", icon: HelpCircle },
+  { type: "video", icon: PlayCircle },
   { type: "cta", icon: Megaphone },
   { type: "spacer", icon: Minus },
 ];
+
+const PALETTE_PREFIX = "palette__" as const;
+const END_DROP_ZONE_ID = "__end__";
 
 type CategoryRef = { id: string; name: string; parentId: string | null };
 
@@ -119,15 +132,29 @@ export function Builder({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
-  const addBlock = (type: BlockType) => {
+  const insertBlockAt = (type: BlockType, index: number) => {
     const id = newId();
-    const next = [...blocks, makeDefaultBlock(type, id)];
+    const block = makeDefaultBlock(type, id);
+    const next = [...blocks];
+    next.splice(index, 0, block);
     setBlocks(next);
     setSelectedId(id);
-    // Scroll the new block into view next tick
     setTimeout(() => {
-      document.getElementById(`block-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
+      document
+        .getElementById(`block-${id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  };
+
+  const duplicateBlock = (id: string) => {
+    const idx = blocks.findIndex((b) => b.id === id);
+    if (idx === -1) return;
+    const original = blocks[idx];
+    const clone = { ...original, id: newId() } as Block;
+    const next = [...blocks];
+    next.splice(idx + 1, 0, clone);
+    setBlocks(next);
+    setSelectedId(clone.id);
   };
 
   const updateBlock = (id: string, patch: Partial<Block>) => {
@@ -146,11 +173,47 @@ export function Builder({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const [activeDrag, setActiveDrag] = useState<
+    { kind: "palette"; type: BlockType } | { kind: "block"; id: string } | null
+  >(null);
+
+  const onDragStart = (event: DragStartEvent) => {
+    const aid = String(event.active.id);
+    if (aid.startsWith(PALETTE_PREFIX)) {
+      setActiveDrag({ kind: "palette", type: aid.slice(PALETTE_PREFIX.length) as BlockType });
+    } else {
+      setActiveDrag({ kind: "block", id: aid });
+    }
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
+    setActiveDrag(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = blocks.findIndex((b) => b.id === active.id);
-    const newIndex = blocks.findIndex((b) => b.id === over.id);
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Dragging from the palette = insert a new block
+    if (activeId.startsWith(PALETTE_PREFIX)) {
+      const type = activeId.slice(PALETTE_PREFIX.length) as BlockType;
+      let insertAt = blocks.length;
+      if (overId !== END_DROP_ZONE_ID) {
+        const overIdx = blocks.findIndex((b) => b.id === overId);
+        if (overIdx !== -1) insertAt = overIdx;
+      }
+      insertBlockAt(type, insertAt);
+      return;
+    }
+
+    // Reorder within the canvas
+    if (activeId === overId) return;
+    const oldIndex = blocks.findIndex((b) => b.id === activeId);
+    let newIndex: number;
+    if (overId === END_DROP_ZONE_ID) {
+      newIndex = blocks.length - 1;
+    } else {
+      newIndex = blocks.findIndex((b) => b.id === overId);
+    }
     if (oldIndex === -1 || newIndex === -1) return;
     setBlocks((prev) => arrayMove(prev, oldIndex, newIndex));
   };
@@ -214,81 +277,78 @@ export function Builder({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col lg:flex-row">
-        {/* Palette */}
-        <aside className="border-b border-border bg-card lg:w-64 lg:shrink-0 lg:border-r lg:border-b-0">
-          <div className="sticky top-[6.75rem] p-3">
-            <p className="px-2 pb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-              Voeg een blok toe
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1">
-              {PALETTE.map(({ type, icon: Icon }) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => addBlock(type)}
-                  className="group flex items-start gap-2 rounded-md border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-accent"
-                >
-                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{BLOCK_LABELS[type]}</p>
-                    <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                      {BLOCK_DESCRIPTIONS[type]}
-                    </p>
-                  </div>
-                  <Plus className="ml-auto size-4 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-              ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        <div className="flex flex-1 flex-col lg:flex-row">
+          {/* Palette */}
+          <aside className="border-b border-border bg-card lg:w-64 lg:shrink-0 lg:border-r lg:border-b-0">
+            <div className="sticky top-[6.75rem] p-3">
+              <p className="px-2 pb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                Sleep om toe te voegen
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1">
+                {PALETTE.map(({ type, icon: Icon }) => (
+                  <PaletteItem key={type} type={type} Icon={Icon} />
+                ))}
+              </div>
+              <p className="mt-3 px-2 text-[11px] leading-relaxed text-muted-foreground">
+                Tip: laat los <em>boven</em> een bestaand blok om te tussenvoegen, of in
+                de drop-zone onderaan om aan het einde te plakken.
+              </p>
+            </div>
+          </aside>
+
+          {/* Canvas */}
+          <div className="min-w-0 flex-1 bg-muted/30 px-3 py-6 sm:px-8">
+            <div className="mx-auto max-w-3xl">
+              <SortableContext
+                items={blocks.map((b) => b.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ul className="flex flex-col gap-3">
+                  {blocks.map((block) => (
+                    <BlockCard
+                      key={block.id}
+                      block={block}
+                      accent={accent}
+                      selected={selectedId === block.id}
+                      onSelect={() =>
+                        setSelectedId((prev) => (prev === block.id ? null : block.id))
+                      }
+                      onChange={(patch) => updateBlock(block.id, patch)}
+                      onRemove={() => removeBlock(block.id)}
+                      onDuplicate={() => duplicateBlock(block.id)}
+                      categories={categories}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+
+              <EndDropZone empty={blocks.length === 0} />
             </div>
           </div>
-        </aside>
-
-        {/* Canvas */}
-        <div className="min-w-0 flex-1 bg-muted/30 px-3 py-6 sm:px-8">
-          <div className="mx-auto max-w-3xl">
-            {blocks.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center">
-                <p className="text-sm font-medium">Nog geen blokken</p>
-                <p className="max-w-md text-xs text-muted-foreground">
-                  Klik links op een blok om er één toe te voegen. Sleep blokken later om te
-                  herordenen.
-                </p>
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                onDragEnd={onDragEnd}
-              >
-                <SortableContext
-                  items={blocks.map((b) => b.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ul className="flex flex-col gap-3">
-                    {blocks.map((block) => (
-                      <BlockCard
-                        key={block.id}
-                        block={block}
-                        accent={accent}
-                        selected={selectedId === block.id}
-                        onSelect={() =>
-                          setSelectedId((prev) => (prev === block.id ? null : block.id))
-                        }
-                        onChange={(patch) => updateBlock(block.id, patch)}
-                        onRemove={() => removeBlock(block.id)}
-                        categories={categories}
-                      />
-                    ))}
-                  </ul>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
         </div>
-      </div>
+
+        <DragOverlay dropAnimation={null}>
+          {activeDrag?.kind === "palette" ? (
+            <div className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-primary shadow-md">
+              + {BLOCK_LABELS[activeDrag.type]}
+            </div>
+          ) : activeDrag?.kind === "block" ? (
+            <div className="rounded-xl border border-primary/40 bg-card px-4 py-3 shadow-lg">
+              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {BLOCK_LABELS[
+                  blocks.find((b) => b.id === activeDrag.id)?.type ?? "text"
+                ]}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <PageMetaDialog
         page={{
@@ -305,6 +365,57 @@ export function Builder({
   );
 }
 
+function PaletteItem({ type, Icon }: { type: BlockType; Icon: LucideIcon }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `${PALETTE_PREFIX}${type}`,
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      {...attributes}
+      {...listeners}
+      className={`group flex cursor-grab items-start gap-2 rounded-md border border-transparent p-2 text-left transition-colors hover:border-border hover:bg-accent active:cursor-grabbing ${
+        isDragging ? "opacity-40" : ""
+      }`}
+    >
+      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{BLOCK_LABELS[type]}</p>
+        <p className="line-clamp-2 text-[11px] text-muted-foreground">
+          {BLOCK_DESCRIPTIONS[type]}
+        </p>
+      </div>
+      <Plus className="ml-auto size-4 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
+
+function EndDropZone({ empty }: { empty: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: END_DROP_ZONE_ID });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mt-3 flex flex-col items-center justify-center rounded-xl border border-dashed text-center transition-colors ${
+        isOver
+          ? "border-primary/60 bg-primary/5"
+          : "border-border bg-card/40"
+      } ${empty ? "px-6 py-16" : "px-6 py-8"}`}
+    >
+      <p className={`text-sm font-medium ${isOver ? "text-primary" : ""}`}>
+        {empty ? "Sleep een blok hierheen" : "Sleep hierheen om aan het einde toe te voegen"}
+      </p>
+      {empty && (
+        <p className="mt-1 max-w-md text-xs text-muted-foreground">
+          Of laat een blok los boven deze zone om de positie te kiezen.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BlockCard({
   block,
   accent,
@@ -312,6 +423,7 @@ function BlockCard({
   onSelect,
   onChange,
   onRemove,
+  onDuplicate,
   categories,
 }: {
   block: Block;
@@ -320,6 +432,7 @@ function BlockCard({
   onSelect: () => void;
   onChange: (patch: Partial<Block>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   categories: CategoryRef[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -368,6 +481,14 @@ function BlockCard({
                 <ChevronDown className="size-3" /> Bewerken
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={onDuplicate}
+            aria-label="Dupliceren"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Copy className="size-3.5" />
           </button>
           <button
             type="button"
@@ -428,5 +549,11 @@ function BlockPreview({ block, accent }: { block: Block; accent: string }) {
           </p>
         </div>
       );
+    case "gallery":
+      return <GalleryBlockView block={block} />;
+    case "faq":
+      return <FaqBlockView block={block} accent={accent} />;
+    case "video":
+      return <VideoBlockView block={block} />;
   }
 }

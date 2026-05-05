@@ -6,6 +6,9 @@ import { SpacerBlockView } from "./blocks/SpacerBlockView";
 import { ImageStripBlockView } from "./blocks/ImageStripBlockView";
 import { IconRowBlockView } from "./blocks/IconRowBlockView";
 import { SliderBlockView } from "./blocks/SliderBlockView";
+import { GalleryBlockView } from "./blocks/GalleryBlockView";
+import { FaqBlockView } from "./blocks/FaqBlockView";
+import { VideoBlockView } from "./blocks/VideoBlockView";
 
 export function PageRenderer({
   blocks,
@@ -41,6 +44,12 @@ export function PageRenderer({
                 accent={accent}
               />
             );
+          case "gallery":
+            return <GalleryBlockView key={block.id} block={block} />;
+          case "faq":
+            return <FaqBlockView key={block.id} block={block} accent={accent} />;
+          case "video":
+            return <VideoBlockView key={block.id} block={block} />;
         }
       })}
     </>

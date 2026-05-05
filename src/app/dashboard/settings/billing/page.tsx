@@ -24,9 +24,10 @@ export default async function BillingPage() {
   });
   if (!org) throw new Error("Organization missing");
 
-  const [itemCount, memberCount] = await Promise.all([
+  const [itemCount, memberCount, pageCount] = await Promise.all([
     db.item.count({ where: { organizationId: org.id, isActive: true } }),
     db.membership.count({ where: { organizationId: org.id } }),
+    db.page.count({ where: { organizationId: org.id } }),
   ]);
 
   const current = planLimits(org.plan);
@@ -63,7 +64,7 @@ export default async function BillingPage() {
           </p>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <Stat
             label="Items"
             current={itemCount}
@@ -74,8 +75,13 @@ export default async function BillingPage() {
             current={memberCount}
             max={describeLimit(org.plan, "members")}
           />
+          <Stat
+            label="Pagina's"
+            current={pageCount}
+            max={describeLimit(org.plan, "pages")}
+          />
+          <FeatureBadge label="Site-builder" enabled={current.pageBuilder} />
           <FeatureBadge label="Custom domain" enabled={current.customDomain} />
-          <FeatureBadge label="API-toegang" enabled={current.apiAccess} />
         </div>
       </section>
 
@@ -188,6 +194,20 @@ function PlanCard({
         <li className="flex items-center gap-2">
           <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
           {Number.isFinite(limits.maxMembers) ? `${limits.maxMembers} leden` : "Onbeperkte leden"}
+        </li>
+        <li className="flex items-center gap-2">
+          {limits.pageBuilder ? (
+            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+          ) : (
+            <X className="size-3 text-muted-foreground" />
+          )}
+          <span className={limits.pageBuilder ? "" : "text-muted-foreground"}>
+            {limits.pageBuilder
+              ? `Site-builder + ${
+                  Number.isFinite(limits.maxPages) ? limits.maxPages : "onbeperkt"
+                } pagina's`
+              : "Geen site-builder"}
+          </span>
         </li>
         <li className="flex items-center gap-2">
           {limits.customDomain ? (

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
+// Plus and Trash2 are referenced by the new gallery + faq editors below
 import { ICON_KEYS, type Block } from "@/lib/pages/blocks";
 
 type CategoryRef = { id: string; name: string; parentId: string | null };
@@ -360,6 +361,211 @@ export function BlockEditor({
             ]}
           />
         </Field>
+      );
+
+    case "gallery":
+      return (
+        <div className="flex flex-col gap-4">
+          <Field label="Heading (optioneel)">
+            <Input
+              value={block.heading}
+              maxLength={160}
+              placeholder="Onze locatie in beeld"
+              onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Aantal kolommen">
+            <Toggle
+              value={String(block.columns) as "2" | "3" | "4"}
+              onChange={(v) =>
+                onChange({ columns: Number(v) as 2 | 3 | 4 } as Partial<Block>)
+              }
+              options={[
+                { value: "2", label: "2" },
+                { value: "3", label: "3" },
+                { value: "4", label: "4" },
+              ]}
+            />
+          </Field>
+          <div className="flex flex-col gap-3">
+            {block.images.map((img, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-border bg-background/40 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Afbeelding {i + 1}
+                  </span>
+                  {block.images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...block.images];
+                        next.splice(i, 1);
+                        onChange({ images: next } as Partial<Block>);
+                      }}
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Verwijder afbeelding"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                <ImageUploader
+                  value={img.url || null}
+                  onChange={(url) => {
+                    const next = [...block.images];
+                    next[i] = { ...next[i], url: url ?? "" };
+                    onChange({ images: next } as Partial<Block>);
+                  }}
+                />
+                <div className="mt-2">
+                  <Input
+                    value={img.caption}
+                    maxLength={160}
+                    placeholder="Onderschrift (optioneel)"
+                    onChange={(e) => {
+                      const next = [...block.images];
+                      next[i] = { ...next[i], caption: e.target.value };
+                      onChange({ images: next } as Partial<Block>);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {block.images.length < 12 && (
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    images: [...block.images, { url: "", caption: "" }],
+                  } as Partial<Block>)
+                }
+                className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="size-3.5" />
+                Afbeelding toevoegen
+              </button>
+            )}
+          </div>
+        </div>
+      );
+
+    case "faq":
+      return (
+        <div className="flex flex-col gap-4">
+          <Field label="Heading">
+            <Input
+              value={block.heading}
+              maxLength={160}
+              placeholder="Veelgestelde vragen"
+              onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Korte introtekst (optioneel)">
+            <Textarea
+              value={block.intro}
+              rows={2}
+              maxLength={400}
+              onChange={(e) => onChange({ intro: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <div className="flex flex-col gap-3">
+            {block.items.map((item, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-border bg-background/40 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Vraag {i + 1}
+                  </span>
+                  {block.items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...block.items];
+                        next.splice(i, 1);
+                        onChange({ items: next } as Partial<Block>);
+                      }}
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Verwijder"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    value={item.question}
+                    maxLength={220}
+                    placeholder="Vraag"
+                    onChange={(e) => {
+                      const next = [...block.items];
+                      next[i] = { ...next[i], question: e.target.value };
+                      onChange({ items: next } as Partial<Block>);
+                    }}
+                  />
+                  <Textarea
+                    value={item.answer}
+                    rows={3}
+                    maxLength={2000}
+                    placeholder="Antwoord"
+                    onChange={(e) => {
+                      const next = [...block.items];
+                      next[i] = { ...next[i], answer: e.target.value };
+                      onChange({ items: next } as Partial<Block>);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {block.items.length < 20 && (
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    items: [...block.items, { question: "", answer: "" }],
+                  } as Partial<Block>)
+                }
+                className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="size-3.5" />
+                Vraag toevoegen
+              </button>
+            )}
+          </div>
+        </div>
+      );
+
+    case "video":
+      return (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Heading (optioneel)" className="sm:col-span-2">
+            <Input
+              value={block.heading}
+              maxLength={160}
+              placeholder="Bekijk de demo"
+              onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="YouTube- of Vimeo-URL" className="sm:col-span-2">
+            <Input
+              value={block.url}
+              maxLength={500}
+              placeholder="https://www.youtube.com/watch?v=..."
+              onChange={(e) => onChange({ url: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Onderschrift (optioneel)" className="sm:col-span-2">
+            <Input
+              value={block.caption}
+              maxLength={280}
+              onChange={(e) => onChange({ caption: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+        </div>
       );
   }
 }
