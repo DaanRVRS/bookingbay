@@ -7,6 +7,7 @@ import {
   GripVertical,
   EyeOff,
   ExternalLink,
+  HomeIcon,
   Pencil,
   Trash2,
   MoreHorizontal,
@@ -114,9 +115,10 @@ function PageRow({ item, tenantSlug }: { item: Item; tenantSlug: string }) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const isHome = item.slug === "home";
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+    useSortable({ id: item.id, disabled: isHome });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -138,17 +140,31 @@ function PageRow({ item, tenantSlug }: { item: Item; tenantSlug: string }) {
     });
   };
 
+  const tenantHref = isHome
+    ? `/site/${tenantSlug}`
+    : `/site/${tenantSlug}/${item.slug}`;
+
   return (
     <li ref={setNodeRef} style={style}>
       <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-5">
-        <button
-          {...attributes}
-          {...listeners}
-          aria-label="Versleep om te sorteren"
-          className="grid size-6 cursor-grab place-items-center text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
-        >
-          <GripVertical className="size-4" />
-        </button>
+        {isHome ? (
+          <span
+            aria-hidden
+            className="grid size-6 place-items-center text-primary"
+            title="Home blijft altijd bovenaan"
+          >
+            <HomeIcon className="size-4" />
+          </span>
+        ) : (
+          <button
+            {...attributes}
+            {...listeners}
+            aria-label="Versleep om te sorteren"
+            className="grid size-6 cursor-grab place-items-center text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" />
+          </button>
+        )}
 
         <Link
           href={`/dashboard/site/pages/${item.id}`}
@@ -156,24 +172,30 @@ function PageRow({ item, tenantSlug }: { item: Item; tenantSlug: string }) {
         >
           <p className="flex items-center gap-2 truncate text-sm font-medium">
             <span className="truncate">{item.title}</span>
-            {!item.isPublished && (
+            {isHome && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                Home
+              </span>
+            )}
+            {!item.isPublished && !isHome && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 <EyeOff className="size-3" /> Verborgen
               </span>
             )}
-            {!item.showInNav && item.isPublished && (
+            {!item.showInNav && item.isPublished && !isHome && (
               <span className="inline-flex shrink-0 items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 Niet in menu
               </span>
             )}
           </p>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            /{item.slug} · {item.blockCount} blok{item.blockCount === 1 ? "" : "ken"}
+            {isHome ? "/" : `/${item.slug}`} · {item.blockCount} blok
+            {item.blockCount === 1 ? "" : "ken"}
           </p>
         </Link>
 
         <a
-          href={`/site/${tenantSlug}/${item.slug}`}
+          href={tenantHref}
           target="_blank"
           rel="noopener noreferrer"
           className="hidden size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground sm:grid"
@@ -186,16 +208,27 @@ function PageRow({ item, tenantSlug }: { item: Item; tenantSlug: string }) {
           <DropdownMenuTrigger className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent">
             <MoreHorizontal className="size-4" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onClick={() => router.push(`/dashboard/site/pages/${item.id}`)}>
               <Pencil className="size-4" /> Bewerken
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeleteOpen(true)}
-              className="text-destructive"
-            >
-              <Trash2 className="size-4" /> Verwijderen
-            </DropdownMenuItem>
+            {!isHome && (
+              <DropdownMenuItem
+                onClick={() => setDeleteOpen(true)}
+                className="text-destructive"
+              >
+                <Trash2 className="size-4" /> Verwijderen
+              </DropdownMenuItem>
+            )}
+            {isHome && (
+              <DropdownMenuItem
+                disabled
+                className="text-muted-foreground"
+                title="Homepagina kan niet verwijderd worden"
+              >
+                <Trash2 className="size-4" /> Niet verwijderbaar
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

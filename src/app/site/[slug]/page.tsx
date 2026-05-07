@@ -3,6 +3,8 @@ import { ImageIcon, ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog, searchTenantItems } from "@/lib/tenants/queries";
 import { TenantSearch } from "@/components/tenants/TenantSearch";
+import { getPublishedPage } from "@/lib/pages/queries";
+import { PageRenderer } from "@/components/tenants/PageRenderer";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -17,6 +19,12 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
 
   const accent = org.primaryColor ?? "#ef5934";
   const trimmed = q.trim();
+
+  // If the org has a custom home page in the page builder (and it has any
+  // blocks), render that instead of the hardcoded hero. The catalog still
+  // shows below so the booking flow stays one click away.
+  const customHome = await getPublishedPage(org.id, "home");
+  const useCustomHome = customHome && customHome.blocks.length > 0 && !trimmed;
 
   // Build the item list — either filtered (search) or grouped from the catalog
   let visibleItems: {
@@ -57,51 +65,61 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background: `linear-gradient(135deg, color-mix(in oklch, ${accent} 18%, transparent) 0%, transparent 60%)`,
-          }}
+      {useCustomHome ? (
+        <PageRenderer
+          blocks={customHome!.blocks}
+          organizationId={org.id}
+          accent={accent}
         />
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              {heroTitle}
-            </h1>
-            <p className="mt-4 max-w-2xl text-lg text-muted-foreground text-pretty">
-              {heroSubtitle}
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="#aanbod"
-                className="inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-                style={{ background: accent }}
-              >
-                Bekijk het aanbod
-              </Link>
-              <Link
-                href="/contact"
-                className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium hover:bg-accent"
-              >
-                Stuur een aanvraag
-              </Link>
+      ) : (
+        <>
+          {/* Hero (fallback when home page is empty) */}
+          <section className="relative overflow-hidden border-b border-border">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -z-10"
+              style={{
+                background: `linear-gradient(135deg, color-mix(in oklch, ${accent} 18%, transparent) 0%, transparent 60%)`,
+              }}
+            />
+            <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+              <div className="max-w-3xl">
+                <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+                  {heroTitle}
+                </h1>
+                <p className="mt-4 max-w-2xl text-lg text-muted-foreground text-pretty">
+                  {heroSubtitle}
+                </p>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="#aanbod"
+                    className="inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+                    style={{ background: accent }}
+                  >
+                    Bekijk het aanbod
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium hover:bg-accent"
+                  >
+                    Stuur een aanvraag
+                  </Link>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* About */}
-      {org.aboutText && (
-        <section className="border-b border-border py-12">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
-            <p className="text-base leading-relaxed text-foreground/90 whitespace-pre-line">
-              {org.aboutText}
-            </p>
-          </div>
-        </section>
+          {/* About */}
+          {org.aboutText && (
+            <section className="border-b border-border py-12">
+              <div className="mx-auto max-w-3xl px-4 sm:px-6">
+                <p className="text-base leading-relaxed text-foreground/90 whitespace-pre-line">
+                  {org.aboutText}
+                </p>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {/* Catalog */}

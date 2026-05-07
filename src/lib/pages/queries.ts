@@ -66,3 +66,35 @@ export const getNavPages = cache(async (organizationId: string) => {
   });
   return rows;
 });
+
+/**
+ * Ensures the org has a home page record. Idempotent — call from any
+ * dashboard entry that surfaces the page builder.
+ *
+ * The home page lives at slug "home" and is the only page guaranteed to
+ * exist. UI prevents renaming or deleting it.
+ */
+export async function ensureHomePage(organizationId: string): Promise<PageRecord> {
+  const existing = await db.page.findFirst({
+    where: { organizationId, slug: "home" },
+  });
+  if (existing) return rowToRecord(existing);
+
+  const created = await db.page.create({
+    data: {
+      organizationId,
+      title: "Homepagina",
+      slug: "home",
+      blocks: [],
+      // Keep home pinned at the top of the pages list.
+      sortOrder: -1,
+      // Hide from nav by default — it's the root, not a separate menu item.
+      showInNav: false,
+    },
+  });
+  return rowToRecord(created);
+}
+
+export function isHomeSlug(slug: string): boolean {
+  return slug === "home";
+}

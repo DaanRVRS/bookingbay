@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Clock,
   Copy,
   ExternalLink,
   GripVertical,
@@ -15,15 +16,18 @@ import {
   ImagesIcon,
   LayoutDashboard,
   Loader2,
+  MapPin,
+  Megaphone,
+  Minus,
   PlayCircle,
   Plus,
+  Quote,
+  Rows3,
   Settings,
+  Sparkles,
+  Tag,
   Trash2,
   Type,
-  Sparkles,
-  Megaphone,
-  Rows3,
-  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,6 +41,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
@@ -65,6 +70,10 @@ import { IconRowBlockView } from "@/components/tenants/blocks/IconRowBlockView";
 import { GalleryBlockView } from "@/components/tenants/blocks/GalleryBlockView";
 import { FaqBlockView } from "@/components/tenants/blocks/FaqBlockView";
 import { VideoBlockView } from "@/components/tenants/blocks/VideoBlockView";
+import { PriceTableBlockView } from "@/components/tenants/blocks/PriceTableBlockView";
+import { TestimonialsBlockView } from "@/components/tenants/blocks/TestimonialsBlockView";
+import { OpeningHoursBlockView } from "@/components/tenants/blocks/OpeningHoursBlockView";
+import { MapBlockView } from "@/components/tenants/blocks/MapBlockView";
 import { BlockEditor } from "./block-editors";
 import { PageMetaDialog } from "./page-meta-form";
 import type { LucideIcon } from "lucide-react";
@@ -76,6 +85,10 @@ const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
   { type: "imageStrip", icon: ImageLucide },
   { type: "gallery", icon: ImagesIcon },
   { type: "iconRow", icon: Sparkles },
+  { type: "priceTable", icon: Tag },
+  { type: "testimonials", icon: Quote },
+  { type: "openingHours", icon: Clock },
+  { type: "map", icon: MapPin },
   { type: "faq", icon: HelpCircle },
   { type: "video", icon: PlayCircle },
   { type: "cta", icon: Megaphone },
@@ -176,6 +189,10 @@ export function Builder({
   const [activeDrag, setActiveDrag] = useState<
     { kind: "palette"; type: BlockType } | { kind: "block"; id: string } | null
   >(null);
+  // Index where a new (palette) block would be inserted, or where the
+  // currently-dragged existing block would land. Used to render a dashed
+  // drop indicator between cards. -1 = no current drop target.
+  const [dropIndex, setDropIndex] = useState<number>(-1);
 
   const onDragStart = (event: DragStartEvent) => {
     const aid = String(event.active.id);
@@ -186,8 +203,24 @@ export function Builder({
     }
   };
 
+  const onDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setDropIndex(-1);
+      return;
+    }
+    const overId = String(over.id);
+    if (overId === END_DROP_ZONE_ID) {
+      setDropIndex(blocks.length);
+      return;
+    }
+    const idx = blocks.findIndex((b) => b.id === overId);
+    setDropIndex(idx);
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
     setActiveDrag(null);
+    setDropIndex(-1);
     const { active, over } = event;
     if (!over) return;
     const activeId = String(active.id);
@@ -281,7 +314,12 @@ export function Builder({
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={onDragStart}
+        onDragOver={onDragOver}
         onDragEnd={onDragEnd}
+        onDragCancel={() => {
+          setActiveDrag(null);
+          setDropIndex(-1);
+        }}
       >
         <div className="flex flex-1 flex-col lg:flex-row">
           {/* Palette */}
@@ -310,25 +348,41 @@ export function Builder({
                 strategy={verticalListSortingStrategy}
               >
                 <ul className="flex flex-col gap-3">
-                  {blocks.map((block) => (
-                    <BlockCard
-                      key={block.id}
-                      block={block}
-                      accent={accent}
-                      selected={selectedId === block.id}
-                      onSelect={() =>
-                        setSelectedId((prev) => (prev === block.id ? null : block.id))
-                      }
-                      onChange={(patch) => updateBlock(block.id, patch)}
-                      onRemove={() => removeBlock(block.id)}
-                      onDuplicate={() => duplicateBlock(block.id)}
-                      categories={categories}
-                    />
+                  {blocks.map((block, idx) => (
+                    <li key={block.id} className="contents">
+                      <DropIndicator
+                        visible={
+                          activeDrag !== null &&
+                          dropIndex === idx &&
+                          // Hide the indicator above the block being dragged
+                          // itself, otherwise it looks like it would re-insert
+                          // at the same spot.
+                          !(activeDrag.kind === "block" && activeDrag.id === block.id)
+                        }
+                      />
+                      <BlockCard
+                        block={block}
+                        accent={accent}
+                        selected={selectedId === block.id}
+                        onSelect={() =>
+                          setSelectedId((prev) => (prev === block.id ? null : block.id))
+                        }
+                        onChange={(patch) => updateBlock(block.id, patch)}
+                        onRemove={() => removeBlock(block.id)}
+                        onDuplicate={() => duplicateBlock(block.id)}
+                        categories={categories}
+                      />
+                    </li>
                   ))}
                 </ul>
               </SortableContext>
 
-              <EndDropZone empty={blocks.length === 0} />
+              <EndDropZone
+                empty={blocks.length === 0}
+                showIndicator={
+                  activeDrag !== null && dropIndex === blocks.length && blocks.length > 0
+                }
+              />
             </div>
           </div>
         </div>
@@ -393,19 +447,46 @@ function PaletteItem({ type, Icon }: { type: BlockType; Icon: LucideIcon }) {
   );
 }
 
-function EndDropZone({ empty }: { empty: boolean }) {
+function DropIndicator({ visible }: { visible: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`overflow-hidden transition-all duration-150 ${
+        visible ? "h-7 opacity-100" : "h-0 opacity-0"
+      }`}
+    >
+      <div className="relative my-1 h-5 rounded-md border-2 border-dashed border-primary/70 bg-primary/8">
+        <span className="absolute -left-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-primary" />
+        <span className="absolute -right-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-primary" />
+      </div>
+    </div>
+  );
+}
+
+function EndDropZone({
+  empty,
+  showIndicator,
+}: {
+  empty: boolean;
+  showIndicator: boolean;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: END_DROP_ZONE_ID });
+  const active = isOver || showIndicator;
   return (
     <div
       ref={setNodeRef}
-      className={`mt-3 flex flex-col items-center justify-center rounded-xl border border-dashed text-center transition-colors ${
-        isOver
-          ? "border-primary/60 bg-primary/5"
+      className={`mt-3 flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-center transition-colors ${
+        active
+          ? "border-primary/70 bg-primary/8"
           : "border-border bg-card/40"
       } ${empty ? "px-6 py-16" : "px-6 py-8"}`}
     >
-      <p className={`text-sm font-medium ${isOver ? "text-primary" : ""}`}>
-        {empty ? "Sleep een blok hierheen" : "Sleep hierheen om aan het einde toe te voegen"}
+      <p className={`text-sm font-medium ${active ? "text-primary" : ""}`}>
+        {empty
+          ? "Sleep een blok hierheen"
+          : active
+            ? "Loslaten om hier toe te voegen"
+            : "Sleep hierheen om aan het einde toe te voegen"}
       </p>
       {empty && (
         <p className="mt-1 max-w-md text-xs text-muted-foreground">
@@ -555,5 +636,13 @@ function BlockPreview({ block, accent }: { block: Block; accent: string }) {
       return <FaqBlockView block={block} accent={accent} />;
     case "video":
       return <VideoBlockView block={block} />;
+    case "priceTable":
+      return <PriceTableBlockView block={block} accent={accent} />;
+    case "testimonials":
+      return <TestimonialsBlockView block={block} accent={accent} />;
+    case "openingHours":
+      return <OpeningHoursBlockView block={block} accent={accent} />;
+    case "map":
+      return <MapBlockView block={block} />;
   }
 }

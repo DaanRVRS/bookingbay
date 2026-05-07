@@ -119,11 +119,16 @@ export async function updatePageMetaAction(
   });
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
-  if (parsed.data.slug !== existing.slug) {
+  // The home page is special: its slug must remain "home" — UI hides the
+  // slug field, but enforce here too in case someone bypasses it.
+  const isHome = existing.slug === "home";
+  const targetSlug = isHome ? "home" : parsed.data.slug;
+
+  if (targetSlug !== existing.slug) {
     const collision = await db.page.findFirst({
       where: {
         organizationId: ctx.organization.id,
-        slug: parsed.data.slug,
+        slug: targetSlug,
         NOT: { id: parsed.data.id },
       },
       select: { id: true },
@@ -135,8 +140,9 @@ export async function updatePageMetaAction(
     where: { id: parsed.data.id },
     data: {
       title: parsed.data.title,
-      slug: parsed.data.slug,
-      isPublished: parsed.data.isPublished,
+      slug: targetSlug,
+      // Home page is always published — otherwise the tenant root breaks.
+      isPublished: isHome ? true : parsed.data.isPublished,
       showInNav: parsed.data.showInNav,
     },
   });
@@ -196,9 +202,15 @@ export async function deletePageAction(id: string): Promise<ActionResult> {
 
   const existing = await db.page.findFirst({
     where: { id, organizationId: ctx.organization.id },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
   if (!existing) return { ok: false, error: "Niet gevonden" };
+  if (existing.slug === "home") {
+    return {
+      ok: false,
+      error: "De homepagina kan niet verwijderd worden — leegmaken kan wel.",
+    };
+  }
 
   await db.page.delete({ where: { id } });
 

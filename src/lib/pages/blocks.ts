@@ -145,6 +145,79 @@ const videoBlock = z.object({
   caption: z.string().max(280).default(""),
 });
 
+const priceTableBlock = z.object({
+  id: idField,
+  type: z.literal("priceTable"),
+  heading: z.string().max(160).default(""),
+  intro: z.string().max(400).default(""),
+  columns: z.union([z.literal(2), z.literal(3)]).default(2),
+  tiers: z
+    .array(
+      z.object({
+        name: z.string().max(60),
+        price: z.string().max(40).default(""),
+        period: z.string().max(40).default(""),
+        features: z.array(z.string().max(140)).max(8).default([]),
+        buttonText: z.string().max(40).default(""),
+        buttonHref: z.string().max(200).default(""),
+        highlighted: z.boolean().default(false),
+      }),
+    )
+    .min(1)
+    .max(4)
+    .default([]),
+});
+
+const testimonialsBlock = z.object({
+  id: idField,
+  type: z.literal("testimonials"),
+  heading: z.string().max(160).default(""),
+  intro: z.string().max(400).default(""),
+  items: z
+    .array(
+      z.object({
+        quote: z.string().max(600),
+        author: z.string().max(80).default(""),
+        role: z.string().max(120).default(""),
+        rating: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).default(5),
+      }),
+    )
+    .min(1)
+    .max(8)
+    .default([]),
+});
+
+const openingHoursBlock = z.object({
+  id: idField,
+  type: z.literal("openingHours"),
+  heading: z.string().max(160).default(""),
+  intro: z.string().max(280).default(""),
+  // Index 0 = Monday … 6 = Sunday. Empty open/close = closed.
+  days: z
+    .array(
+      z.object({
+        label: z.string().max(20),
+        open: z.string().max(8).default(""),
+        close: z.string().max(8).default(""),
+        closed: z.boolean().default(false),
+      }),
+    )
+    .length(7)
+    .default([]),
+  note: z.string().max(280).default(""),
+});
+
+const mapBlock = z.object({
+  id: idField,
+  type: z.literal("map"),
+  heading: z.string().max(160).default(""),
+  address: z.string().max(280).default(""),
+  // Either a Google Maps embed src URL, an OpenStreetMap iframe URL, or any
+  // iframe src. The renderer wraps it in an <iframe> with sensible defaults.
+  embedUrl: z.string().max(800).default(""),
+  height: z.union([z.literal("sm"), z.literal("md"), z.literal("lg")]).default("md"),
+});
+
 export const blockSchema = z.discriminatedUnion("type", [
   heroBlock,
   textBlock,
@@ -156,6 +229,10 @@ export const blockSchema = z.discriminatedUnion("type", [
   galleryBlock,
   faqBlock,
   videoBlock,
+  priceTableBlock,
+  testimonialsBlock,
+  openingHoursBlock,
+  mapBlock,
 ]);
 
 export const blocksSchema = z.array(blockSchema).max(40);
@@ -171,6 +248,10 @@ export type SpacerBlock = z.infer<typeof spacerBlock>;
 export type GalleryBlock = z.infer<typeof galleryBlock>;
 export type FaqBlock = z.infer<typeof faqBlock>;
 export type VideoBlock = z.infer<typeof videoBlock>;
+export type PriceTableBlock = z.infer<typeof priceTableBlock>;
+export type TestimonialsBlock = z.infer<typeof testimonialsBlock>;
+export type OpeningHoursBlock = z.infer<typeof openingHoursBlock>;
+export type MapBlock = z.infer<typeof mapBlock>;
 
 export type BlockType = Block["type"];
 
@@ -185,6 +266,10 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   gallery: "Galerij",
   faq: "FAQ",
   video: "Video",
+  priceTable: "Prijstabel",
+  testimonials: "Reviews",
+  openingHours: "Openingstijden",
+  map: "Kaart",
 };
 
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
@@ -198,6 +283,10 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   gallery: "Galerij van 1 tot 12 afbeeldingen, 2/3/4 kolommen",
   faq: "Inklapbare vraag-en-antwoord-lijst",
   video: "YouTube- of Vimeo-video embedded",
+  priceTable: "Prijstabel met 2 of 3 plannen naast elkaar",
+  testimonials: "Citaat-reviews met sterren en auteur",
+  openingHours: "Tabel met openingstijden per dag",
+  map: "Embedded kaart met adres",
 };
 
 /**
@@ -287,6 +376,81 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
         heading: "",
         url: "",
         caption: "",
+      };
+    case "priceTable":
+      return {
+        id,
+        type: "priceTable",
+        heading: "Onze prijzen",
+        intro: "Eerlijke tarieven, geen verrassingen.",
+        columns: 2,
+        tiers: [
+          {
+            name: "Basis",
+            price: "€29",
+            period: "per maand",
+            features: ["Functie 1", "Functie 2", "Functie 3"],
+            buttonText: "Kiezen",
+            buttonHref: "/contact",
+            highlighted: false,
+          },
+          {
+            name: "Pro",
+            price: "€59",
+            period: "per maand",
+            features: ["Alles uit Basis", "Functie 4", "Functie 5", "Prioriteit support"],
+            buttonText: "Kiezen",
+            buttonHref: "/contact",
+            highlighted: true,
+          },
+        ],
+      };
+    case "testimonials":
+      return {
+        id,
+        type: "testimonials",
+        heading: "Wat klanten zeggen",
+        intro: "",
+        items: [
+          {
+            quote: "Top service en alles netjes geregeld — wij komen zeker terug.",
+            author: "Jan de Vries",
+            role: "Vaste klant",
+            rating: 5,
+          },
+          {
+            quote: "Snel en duidelijk geboekt, alles werkte zoals beloofd.",
+            author: "Lisa Klein",
+            role: "Amsterdam",
+            rating: 5,
+          },
+        ],
+      };
+    case "openingHours":
+      return {
+        id,
+        type: "openingHours",
+        heading: "Openingstijden",
+        intro: "",
+        days: [
+          { label: "Maandag", open: "09:00", close: "17:00", closed: false },
+          { label: "Dinsdag", open: "09:00", close: "17:00", closed: false },
+          { label: "Woensdag", open: "09:00", close: "17:00", closed: false },
+          { label: "Donderdag", open: "09:00", close: "17:00", closed: false },
+          { label: "Vrijdag", open: "09:00", close: "17:00", closed: false },
+          { label: "Zaterdag", open: "10:00", close: "16:00", closed: false },
+          { label: "Zondag", open: "", close: "", closed: true },
+        ],
+        note: "",
+      };
+    case "map":
+      return {
+        id,
+        type: "map",
+        heading: "Hier zit je",
+        address: "",
+        embedUrl: "",
+        height: "md",
       };
   }
 }

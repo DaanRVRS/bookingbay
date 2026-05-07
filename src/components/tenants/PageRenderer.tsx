@@ -9,6 +9,10 @@ import { SliderBlockView } from "./blocks/SliderBlockView";
 import { GalleryBlockView } from "./blocks/GalleryBlockView";
 import { FaqBlockView } from "./blocks/FaqBlockView";
 import { VideoBlockView } from "./blocks/VideoBlockView";
+import { PriceTableBlockView } from "./blocks/PriceTableBlockView";
+import { TestimonialsBlockView } from "./blocks/TestimonialsBlockView";
+import { OpeningHoursBlockView } from "./blocks/OpeningHoursBlockView";
+import { MapBlockView } from "./blocks/MapBlockView";
 
 export function PageRenderer({
   blocks,
@@ -50,6 +54,14 @@ export function PageRenderer({
             return <FaqBlockView key={block.id} block={block} accent={accent} />;
           case "video":
             return <VideoBlockView key={block.id} block={block} />;
+          case "priceTable":
+            return <PriceTableBlockView key={block.id} block={block} accent={accent} />;
+          case "testimonials":
+            return <TestimonialsBlockView key={block.id} block={block} accent={accent} />;
+          case "openingHours":
+            return <OpeningHoursBlockView key={block.id} block={block} accent={accent} />;
+          case "map":
+            return <MapBlockView key={block.id} block={block} />;
         }
       })}
     </>

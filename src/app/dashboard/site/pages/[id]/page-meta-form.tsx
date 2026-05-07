@@ -39,6 +39,7 @@ export function PageMetaDialog({
   const [isPublished, setIsPublished] = useState(page.isPublished);
   const [showInNav, setShowInNav] = useState(page.showInNav);
   const [pending, startTransition] = useTransition();
+  const isHome = page.slug === "home";
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,33 +81,43 @@ export function PageMetaDialog({
                 required
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="meta-slug">Slug</Label>
-              <Input
-                id="meta-slug"
-                value={slug}
-                onChange={(e) =>
-                  setSlug(
-                    e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, "-")
-                      .replace(/-{2,}/g, "-"),
-                  )
-                }
-                pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
-                maxLength={60}
-                required
-              />
-              <p className="text-[11px] text-muted-foreground">
-                URL: <span className="font-mono">/{slug || "slug"}</span>
+            {!isHome && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="meta-slug">Slug</Label>
+                <Input
+                  id="meta-slug"
+                  value={slug}
+                  onChange={(e) =>
+                    setSlug(
+                      e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "-")
+                        .replace(/-{2,}/g, "-"),
+                    )
+                  }
+                  pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+                  maxLength={60}
+                  required
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  URL: <span className="font-mono">/{slug || "slug"}</span>
+                </p>
+              </div>
+            )}
+            {isHome && (
+              <p className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Dit is de homepagina — slug en publicatie staan vast op{" "}
+                <span className="font-mono">/</span>.
               </p>
-            </div>
-            <ToggleField
-              label="Gepubliceerd"
-              description="Uitgevinkt = pagina is alleen voor jou zichtbaar."
-              checked={isPublished}
-              onChange={setIsPublished}
-            />
+            )}
+            {!isHome && (
+              <ToggleField
+                label="Gepubliceerd"
+                description="Uitgevinkt = pagina is alleen voor jou zichtbaar."
+                checked={isPublished}
+                onChange={setIsPublished}
+              />
+            )}
             <ToggleField
               label="In navigatie tonen"
               description="Verschijnt in de menubalk van je site."
