@@ -6,6 +6,7 @@ import { getOrgBySlug } from "@/lib/tenants/queries";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
+import { TenantMobileNav } from "@/components/tenants/TenantMobileNav";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
@@ -64,7 +65,8 @@ export default async function TenantLayout({
             )}
             <span className="text-base">{org.name}</span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          {/* Desktop nav */}
+          <nav className="hidden items-center gap-1 text-sm sm:flex">
             <Link
               href={tenantHref(base, "/")}
               className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground"
@@ -75,7 +77,7 @@ export default async function TenantLayout({
               <Link
                 key={p.slug}
                 href={tenantHref(base, `/${p.slug}`)}
-                className="hidden rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground sm:inline-block"
+                className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground"
               >
                 {p.title}
               </Link>
@@ -88,6 +90,19 @@ export default async function TenantLayout({
               Contact
             </Link>
           </nav>
+
+          {/* Mobile hamburger */}
+          <TenantMobileNav
+            accent={accent}
+            contactHref={tenantHref(base, "/contact")}
+            items={[
+              { href: tenantHref(base, "/"), label: "Aanbod" },
+              ...navPages.map((p) => ({
+                href: tenantHref(base, `/${p.slug}`),
+                label: p.title,
+              })),
+            ]}
+          />
         </div>
       </header>
 

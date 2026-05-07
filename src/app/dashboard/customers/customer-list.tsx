@@ -108,23 +108,23 @@ function CustomerRow({ customer }: { customer: Customer }) {
   };
 
   return (
-    <li className="flex items-center gap-4 px-5 py-4">
+    <li className="flex items-center gap-3 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary text-sm font-semibold">
         {initials}
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{customer.name}</p>
-        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 flex flex-col gap-y-0.5 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-3">
           {customer.email && (
-            <span className="flex items-center gap-1">
-              <Mail className="size-3" />
-              {customer.email}
+            <span className="flex min-w-0 items-center gap-1">
+              <Mail className="size-3 shrink-0" />
+              <span className="truncate">{customer.email}</span>
             </span>
           )}
           {customer.phone && (
-            <span className="flex items-center gap-1">
-              <Phone className="size-3" />
-              {customer.phone}
+            <span className="flex min-w-0 items-center gap-1">
+              <Phone className="size-3 shrink-0" />
+              <span className="truncate">{customer.phone}</span>
             </span>
           )}
           {!customer.email && !customer.phone && <span>Geen contact-info</span>}

@@ -609,7 +609,8 @@ function ItemsGrid({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <div className="min-w-[760px]">
       <div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/30 text-xs">
         <div className="px-4 py-2 font-semibold text-muted-foreground">Item</div>
         {days.map((d) => (
@@ -682,6 +683,7 @@ function ItemsGrid({
           );
         })}
       </ul>
+      </div>
     </div>
   );
 }

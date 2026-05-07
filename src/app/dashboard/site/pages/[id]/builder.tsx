@@ -411,16 +411,16 @@ export function Builder({
         <div className="flex flex-1 flex-col lg:flex-row">
           {/* Palette */}
           <aside className="border-b border-border bg-card lg:w-64 lg:shrink-0 lg:border-r lg:border-b-0">
-            <div className="sticky top-[6.75rem] p-3">
+            <div className="p-3 lg:sticky lg:top-[6.75rem]">
               <p className="px-2 pb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                 Sleep om toe te voegen
               </p>
-              <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-1">
+              <div className="grid max-h-64 grid-cols-3 gap-1.5 overflow-y-auto sm:grid-cols-4 sm:max-h-56 lg:max-h-none lg:grid-cols-1">
                 {PALETTE.map(({ type, icon: Icon }) => (
                   <PaletteItem key={type} type={type} Icon={Icon} />
                 ))}
               </div>
-              <p className="mt-3 px-2 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-3 hidden px-2 text-[11px] leading-relaxed text-muted-foreground lg:block">
                 Tip: laat los <em>boven</em> een bestaand blok om te tussenvoegen, of in
                 de drop-zone onderaan om aan het einde te plakken.
               </p>
@@ -428,7 +428,7 @@ export function Builder({
           </aside>
 
           {/* Canvas */}
-          <div className="min-w-0 flex-1 bg-muted/30 px-3 py-6 sm:px-8">
+          <div className="min-w-0 flex-1 bg-muted/30 px-2 py-4 sm:px-6 sm:py-6 lg:px-8">
             <div className="mx-auto max-w-3xl">
               <SortableContext
                 items={blocks.map((b) => b.id)}

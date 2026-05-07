@@ -92,6 +92,17 @@ export function BookingList({
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {b.customerName}
                     </p>
+                    {/* Compact date on mobile only */}
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground tabular-nums sm:hidden">
+                      {new Date(b.startAt).toLocaleString("nl-NL", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {" · €"}
+                      {Number(b.totalPrice).toFixed(0)}
+                    </p>
                   </div>
                   <div className="hidden text-right text-xs sm:block">
                     <p className="font-medium tabular-nums">
