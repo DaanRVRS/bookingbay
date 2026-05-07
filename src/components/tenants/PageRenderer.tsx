@@ -1,5 +1,11 @@
-import type { Block, NonContainerBlock, TestimonialsBlock } from "@/lib/pages/blocks";
+import type {
+  Block,
+  NonContainerBlock,
+  PriceTableBlock,
+  TestimonialsBlock,
+} from "@/lib/pages/blocks";
 import { getPublishedReviews, getReviewsByIds } from "@/lib/reviews/queries";
+import { getPriceListItems } from "@/lib/tenants/queries";
 import { HeroBlockView } from "./blocks/HeroBlockView";
 import { TextBlockView } from "./blocks/TextBlockView";
 import { CtaBlockView } from "./blocks/CtaBlockView";
@@ -10,7 +16,10 @@ import { SliderBlockView } from "./blocks/SliderBlockView";
 import { GalleryBlockView } from "./blocks/GalleryBlockView";
 import { FaqBlockView } from "./blocks/FaqBlockView";
 import { VideoBlockView } from "./blocks/VideoBlockView";
-import { PriceTableBlockView } from "./blocks/PriceTableBlockView";
+import {
+  PriceTableBlockView,
+  type PriceTableItem,
+} from "./blocks/PriceTableBlockView";
 import {
   TestimonialsBlockView,
   type TestimonialItem,
@@ -65,15 +74,47 @@ function collectTestimonialBlocks(blocks: Block[]): TestimonialsBlock[] {
   return out;
 }
 
+function collectPriceTableBlocks(blocks: Block[]): PriceTableBlock[] {
+  const out: PriceTableBlock[] = [];
+  for (const b of blocks) {
+    if (b.type === "priceTable") out.push(b);
+    if (b.type === "container") {
+      for (const c of b.children) {
+        if (c.type === "priceTable") out.push(c);
+      }
+    }
+  }
+  return out;
+}
+
+async function resolvePriceTableItems(
+  block: PriceTableBlock,
+  organizationId: string,
+): Promise<PriceTableItem[]> {
+  const opts =
+    block.source === "items"
+      ? { itemIds: block.itemIds }
+      : { categoryId: block.categoryId };
+  return getPriceListItems(organizationId, opts);
+}
+
 function renderNonContainer(
   block: NonContainerBlock,
   ctx: {
     organizationId: string;
     accent: string;
     testimonialItemsByBlockId: Map<string, TestimonialItem[]>;
+    priceTableItemsByBlockId: Map<string, PriceTableItem[]>;
+    contactBasePath: string;
   },
 ) {
-  const { organizationId, accent, testimonialItemsByBlockId } = ctx;
+  const {
+    organizationId,
+    accent,
+    testimonialItemsByBlockId,
+    priceTableItemsByBlockId,
+    contactBasePath,
+  } = ctx;
   switch (block.type) {
     case "hero":
       return <HeroBlockView block={block} accent={accent} />;
@@ -102,7 +143,14 @@ function renderNonContainer(
     case "video":
       return <VideoBlockView block={block} />;
     case "priceTable":
-      return <PriceTableBlockView block={block} accent={accent} />;
+      return (
+        <PriceTableBlockView
+          block={block}
+          accent={accent}
+          resolvedItems={priceTableItemsByBlockId.get(block.id) ?? []}
+          contactBasePath={contactBasePath}
+        />
+      );
     case "testimonials":
       return (
         <TestimonialsBlockView
@@ -128,22 +176,41 @@ export async function PageRenderer({
   blocks,
   organizationId,
   accent,
+  contactBasePath = "",
 }: {
   blocks: Block[];
   organizationId: string;
   accent: string;
+  /**
+   * Tenant base path so that internal CTAs in resolved blocks (e.g. the
+   * priceTable "Reserveer" button) link correctly under both subdomain and
+   * /site/<slug> path-style access.
+   */
+  contactBasePath?: string;
 }) {
-  // Pre-resolve all testimonials blocks (including those nested in containers)
-  // so the rendered output can stay synchronous from here down.
+  // Pre-resolve all dynamic blocks (testimonials + price tables) so the
+  // rendered output stays synchronous from here down.
   const testimonialItemsByBlockId = new Map<string, TestimonialItem[]>();
-  await Promise.all(
-    collectTestimonialBlocks(blocks).map(async (b) => {
+  const priceTableItemsByBlockId = new Map<string, PriceTableItem[]>();
+
+  await Promise.all([
+    ...collectTestimonialBlocks(blocks).map(async (b) => {
       const items = await resolveTestimonialItems(b, organizationId);
       testimonialItemsByBlockId.set(b.id, items);
     }),
-  );
+    ...collectPriceTableBlocks(blocks).map(async (b) => {
+      const items = await resolvePriceTableItems(b, organizationId);
+      priceTableItemsByBlockId.set(b.id, items);
+    }),
+  ]);
 
-  const ctx = { organizationId, accent, testimonialItemsByBlockId };
+  const ctx = {
+    organizationId,
+    accent,
+    testimonialItemsByBlockId,
+    priceTableItemsByBlockId,
+    contactBasePath,
+  };
 
   return (
     <>

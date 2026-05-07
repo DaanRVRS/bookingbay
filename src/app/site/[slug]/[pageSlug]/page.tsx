@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { getTenantBasePath } from "@/lib/tenants/base-path";
 import { getPublishedPage } from "@/lib/pages/queries";
 import { PageRenderer } from "@/components/tenants/PageRenderer";
 
@@ -25,6 +26,7 @@ export default async function TenantBuilderPage({ params }: PageProps) {
   if (!page) notFound();
 
   const accent = org.primaryColor ?? "#ef5934";
+  const base = await getTenantBasePath(slug);
 
   if (page.blocks.length === 0) {
     return (
@@ -38,6 +40,11 @@ export default async function TenantBuilderPage({ params }: PageProps) {
   }
 
   return (
-    <PageRenderer blocks={page.blocks} organizationId={org.id} accent={accent} />
+    <PageRenderer
+      blocks={page.blocks}
+      organizationId={org.id}
+      accent={accent}
+      contactBasePath={base}
+    />
   );
 }

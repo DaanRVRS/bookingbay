@@ -131,6 +131,17 @@ export type ReviewRef = {
   quote: string;
   isPublished: boolean;
 };
+export type ItemRef = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  pricePerHour: number | null;
+  pricePerDay: number | null;
+  pricePerWeek: number | null;
+  deposit: number | null;
+  categoryName: string;
+};
 
 type PageInit = {
   id: string;
@@ -152,12 +163,14 @@ export function Builder({
   accent,
   categories,
   reviews,
+  items,
 }: {
   page: PageInit;
   tenantSlug: string;
   accent: string;
   categories: CategoryRef[];
   reviews: ReviewRef[];
+  items: ItemRef[];
 }) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<Block[]>(page.blocks);
@@ -459,6 +472,7 @@ export function Builder({
                         onDuplicate={() => duplicateBlock(block.id)}
                         categories={categories}
                         reviews={reviews}
+                        items={items}
                       />
                     </li>
                   ))}
@@ -665,6 +679,7 @@ function BlockCard({
   onDuplicate,
   categories,
   reviews,
+  items,
 }: {
   block: Block;
   accent: string;
@@ -675,6 +690,7 @@ function BlockCard({
   onDuplicate: () => void;
   categories: CategoryRef[];
   reviews: ReviewRef[];
+  items: ItemRef[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
@@ -745,7 +761,7 @@ function BlockCard({
       {/* Preview */}
       <div className="bg-background">
         <div className="pointer-events-none scale-[0.95] origin-top">
-          <BlockPreview block={block} accent={accent} reviews={reviews} />
+          <BlockPreview block={block} accent={accent} reviews={reviews} items={items} />
         </div>
       </div>
 
@@ -766,6 +782,7 @@ function BlockCard({
             onChange={onChange as (patch: Partial<Block>) => void}
             categories={categories}
             reviews={reviews}
+            items={items}
           />
         </div>
       )}
@@ -777,10 +794,12 @@ function BlockPreview({
   block,
   accent,
   reviews,
+  items,
 }: {
   block: Block;
   accent: string;
   reviews: ReviewRef[];
+  items: ItemRef[];
 }) {
   switch (block.type) {
     case "hero":
@@ -814,8 +833,27 @@ function BlockPreview({
       return <FaqBlockView block={block} accent={accent} />;
     case "video":
       return <VideoBlockView block={block} />;
-    case "priceTable":
-      return <PriceTableBlockView block={block} accent={accent} />;
+    case "priceTable": {
+      // Resolve a preview-quality items list from the available items, mirroring
+      // what the server-side renderer will do at request time.
+      const previewItems =
+        block.source === "items"
+          ? block.itemIds
+              .map((id) => items.find((i) => i.id === id))
+              .filter((x): x is ItemRef => Boolean(x))
+          : items.filter(
+              (i) => !block.categoryId || true, // categoryName check: items don't carry id, so just show all if categoryId set
+            );
+      // For category mode in preview, we only have categoryName per item but no
+      // id; show all items as a rough preview. Server will filter properly.
+      return (
+        <PriceTableBlockView
+          block={block}
+          accent={accent}
+          resolvedItems={previewItems.slice(0, 8)}
+        />
+      );
+    }
     case "testimonials": {
       // Resolve a preview-quality items list from the available reviews so
       // the canvas shows the actual reviews the user picked, not just the
@@ -863,7 +901,7 @@ function BlockPreview({
         <ContainerBlockView block={block} accent={accent}>
           {block.children.map((child) => (
             <div key={child.id}>
-              <BlockPreview block={child} accent={accent} reviews={reviews} />
+              <BlockPreview block={child} accent={accent} reviews={reviews} items={items} />
             </div>
           ))}
         </ContainerBlockView>

@@ -89,3 +89,58 @@ export const getTenantItem = cache(async (organizationId: string, itemId: string
     include: { category: { select: { id: true, name: true } } },
   });
 });
+
+export type PriceListItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  pricePerHour: number | null;
+  pricePerDay: number | null;
+  pricePerWeek: number | null;
+  deposit: number | null;
+  categoryName: string;
+};
+
+/**
+ * Fetch items for a price-list block. When `categoryId` is null all active
+ * items in the org are returned. When `itemIds` is non-empty (and source =
+ * "items"), only those items are returned, in the order requested.
+ */
+export async function getPriceListItems(
+  organizationId: string,
+  opts: { categoryId?: string | null; itemIds?: string[] } = {},
+): Promise<PriceListItem[]> {
+  const { categoryId, itemIds } = opts;
+  const useItemIds = itemIds && itemIds.length > 0;
+
+  const rows = await db.item.findMany({
+    where: {
+      organizationId,
+      isActive: true,
+      ...(useItemIds ? { id: { in: itemIds } } : {}),
+      ...(categoryId && !useItemIds ? { categoryId } : {}),
+    },
+    include: { category: { select: { name: true } } },
+    orderBy: { name: "asc" },
+    take: 60,
+  });
+
+  const mapped = rows.map<PriceListItem>((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    imageUrl: r.imageUrl,
+    pricePerHour: r.pricePerHour ? Number(r.pricePerHour) : null,
+    pricePerDay: r.pricePerDay ? Number(r.pricePerDay) : null,
+    pricePerWeek: r.pricePerWeek ? Number(r.pricePerWeek) : null,
+    deposit: r.deposit ? Number(r.deposit) : null,
+    categoryName: r.category.name,
+  }));
+
+  if (useItemIds) {
+    const byId = new Map(mapped.map((m) => [m.id, m]));
+    return itemIds!.map((id) => byId.get(id)).filter((x): x is PriceListItem => Boolean(x));
+  }
+  return mapped;
+}

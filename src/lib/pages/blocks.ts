@@ -148,24 +148,23 @@ const videoBlock = z.object({
 const priceTableBlock = z.object({
   id: idField,
   type: z.literal("priceTable"),
-  heading: z.string().max(160).default(""),
+  heading: z.string().max(160).default("Prijslijst"),
   intro: z.string().max(400).default(""),
-  columns: z.union([z.literal(2), z.literal(3)]).default(2),
-  tiers: z
-    .array(
-      z.object({
-        name: z.string().max(60),
-        price: z.string().max(40).default(""),
-        period: z.string().max(40).default(""),
-        features: z.array(z.string().max(140)).max(8).default([]),
-        buttonText: z.string().max(40).default(""),
-        buttonHref: z.string().max(200).default(""),
-        highlighted: z.boolean().default(false),
-      }),
-    )
-    .min(1)
-    .max(4)
-    .default([]),
+  // "category" — alle (actieve) items uit één categorie. null = hele catalogus.
+  // "items"    — handgepikte item-id's, in volgorde van weergave.
+  source: z.enum(["category", "items"]).default("category"),
+  categoryId: z.string().nullable().default(null),
+  itemIds: z.array(z.string().min(1)).max(30).default([]),
+  // Welke prijskolommen / -velden tonen we?
+  showHour: z.boolean().default(false),
+  showDay: z.boolean().default(true),
+  showWeek: z.boolean().default(true),
+  showDeposit: z.boolean().default(true),
+  // "table" — strakke tabel
+  // "cards" — kaartrooster (met afbeelding)
+  layout: z.enum(["table", "cards"]).default("table"),
+  showCta: z.boolean().default(true),
+  ctaLabel: z.string().max(40).default("Reserveer"),
 });
 
 const testimonialsBlock = z.object({
@@ -371,7 +370,7 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   gallery: "Galerij van 1 tot 12 afbeeldingen, 2/3/4 kolommen",
   faq: "Inklapbare vraag-en-antwoord-lijst",
   video: "YouTube- of Vimeo-video embedded",
-  priceTable: "Prijstabel met 2 of 3 plannen naast elkaar",
+  priceTable: "Prijslijst van je verhuur-items met dag/week/uur tarief",
   testimonials: "Reviews — auto uit lijst, handmatig of inline",
   openingHours: "Tabel met openingstijden per dag",
   map: "Embedded kaart met adres",
@@ -473,29 +472,18 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
       return {
         id,
         type: "priceTable",
-        heading: "Onze prijzen",
-        intro: "Eerlijke tarieven, geen verrassingen.",
-        columns: 2,
-        tiers: [
-          {
-            name: "Basis",
-            price: "€29",
-            period: "per maand",
-            features: ["Functie 1", "Functie 2", "Functie 3"],
-            buttonText: "Kiezen",
-            buttonHref: "/contact",
-            highlighted: false,
-          },
-          {
-            name: "Pro",
-            price: "€59",
-            period: "per maand",
-            features: ["Alles uit Basis", "Functie 4", "Functie 5", "Prioriteit support"],
-            buttonText: "Kiezen",
-            buttonHref: "/contact",
-            highlighted: true,
-          },
-        ],
+        heading: "Prijslijst",
+        intro: "",
+        source: "category",
+        categoryId: null,
+        itemIds: [],
+        showHour: false,
+        showDay: true,
+        showWeek: true,
+        showDeposit: true,
+        layout: "table",
+        showCta: true,
+        ctaLabel: "Reserveer",
       };
     case "testimonials":
       return {

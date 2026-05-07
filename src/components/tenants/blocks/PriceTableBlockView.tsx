@@ -1,21 +1,51 @@
-import { Check } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import Link from "next/link";
 import type { PriceTableBlock } from "@/lib/pages/blocks";
+
+export interface PriceTableItem {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  pricePerHour: number | null;
+  pricePerDay: number | null;
+  pricePerWeek: number | null;
+  deposit: number | null;
+  categoryName: string;
+}
+
+function formatPrice(v: number | null) {
+  if (v === null || Number.isNaN(v)) return "—";
+  return `€${v.toFixed(2).replace(".", ",")}`;
+}
 
 export function PriceTableBlockView({
   block,
   accent,
+  resolvedItems,
+  contactBasePath,
 }: {
   block: PriceTableBlock;
   accent: string;
+  resolvedItems?: PriceTableItem[];
+  /** Tenant base path for the "Reserveer" CTA link (e.g. "" or "/site/<slug>"). */
+  contactBasePath?: string;
 }) {
-  const cols = block.columns;
-  const visibleTiers = block.tiers;
+  const items = resolvedItems ?? [];
+  const showCols = {
+    hour: block.showHour,
+    day: block.showDay,
+    week: block.showWeek,
+    deposit: block.showDeposit,
+  };
+  const hasAnyCol =
+    showCols.hour || showCols.day || showCols.week || showCols.deposit;
+
   return (
-    <section className="border-b border-border bg-muted/20 py-14 sm:py-20">
+    <section className="border-b border-border py-12 sm:py-16">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         {(block.heading || block.intro) && (
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="mb-8 max-w-2xl">
             {block.heading && (
               <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
                 {block.heading}
@@ -28,82 +58,277 @@ export function PriceTableBlockView({
             )}
           </div>
         )}
-        <div
-          className={`mt-10 grid gap-5 ${
-            cols === 3 ? "lg:grid-cols-3" : "sm:grid-cols-2"
-          }`}
-        >
-          {visibleTiers.map((tier, i) => (
-            <div
-              key={i}
-              className={`relative flex flex-col rounded-2xl border bg-card p-6 ${
-                tier.highlighted ? "shadow-lg" : "border-border"
-              }`}
-              style={
-                tier.highlighted
-                  ? {
-                      borderColor: `color-mix(in oklch, ${accent} 50%, transparent)`,
-                      boxShadow: `0 24px 60px -30px color-mix(in oklch, ${accent} 60%, transparent)`,
+
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center text-sm text-muted-foreground">
+            Nog geen items om te tonen. Voeg ze toe in je catalogus.
+          </div>
+        ) : block.layout === "cards" ? (
+          <CardsLayout
+            items={items}
+            showCols={showCols}
+            block={block}
+            accent={accent}
+            contactBasePath={contactBasePath ?? ""}
+          />
+        ) : (
+          <TableLayout
+            items={items}
+            showCols={showCols}
+            hasAnyCol={hasAnyCol}
+            block={block}
+            accent={accent}
+            contactBasePath={contactBasePath ?? ""}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+interface ColFlags {
+  hour: boolean;
+  day: boolean;
+  week: boolean;
+  deposit: boolean;
+}
+
+function TableLayout({
+  items,
+  showCols,
+  hasAnyCol,
+  block,
+  accent,
+  contactBasePath,
+}: {
+  items: PriceTableItem[];
+  showCols: ColFlags;
+  hasAnyCol: boolean;
+  block: PriceTableBlock;
+  accent: string;
+  contactBasePath: string;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <table className="w-full min-w-[600px] text-sm">
+        <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-4 py-3 text-left font-semibold">Item</th>
+            {showCols.hour && (
+              <th className="px-4 py-3 text-right font-semibold">Per uur</th>
+            )}
+            {showCols.day && (
+              <th className="px-4 py-3 text-right font-semibold">Per dag</th>
+            )}
+            {showCols.week && (
+              <th className="px-4 py-3 text-right font-semibold">Per week</th>
+            )}
+            {showCols.deposit && (
+              <th className="px-4 py-3 text-right font-semibold">Borg</th>
+            )}
+            {block.showCta && hasAnyCol && (
+              <th className="px-4 py-3 text-right font-semibold" aria-label="Actie" />
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {items.map((it) => (
+            <tr key={it.id} className="hover:bg-muted/20">
+              <td className="px-4 py-3">
+                <Link
+                  href={
+                    contactBasePath
+                      ? `${contactBasePath}/item/${it.id}`
+                      : `/item/${it.id}`
+                  }
+                  className="flex items-center gap-3 hover:underline"
+                >
+                  {it.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={it.imageUrl}
+                      alt={it.name}
+                      className="hidden size-10 shrink-0 rounded-md object-cover sm:block"
+                    />
+                  ) : (
+                    <div className="hidden size-10 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground sm:grid">
+                      <ImageIcon className="size-4 opacity-40" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{it.name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {it.categoryName}
+                    </p>
+                  </div>
+                </Link>
+              </td>
+              {showCols.hour && (
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatPrice(it.pricePerHour)}
+                </td>
+              )}
+              {showCols.day && (
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatPrice(it.pricePerDay)}
+                </td>
+              )}
+              {showCols.week && (
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {formatPrice(it.pricePerWeek)}
+                </td>
+              )}
+              {showCols.deposit && (
+                <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                  {formatPrice(it.deposit)}
+                </td>
+              )}
+              {block.showCta && hasAnyCol && (
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={
+                      contactBasePath
+                        ? `${contactBasePath}/contact?item=${it.id}`
+                        : `/contact?item=${it.id}`
                     }
-                  : undefined
-              }
-            >
-              {tier.highlighted && (
-                <span
-                  className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 rounded-full px-3 py-1 text-xs font-medium text-white"
+                    className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium text-white shadow-sm hover:opacity-90"
+                    style={{ background: accent }}
+                  >
+                    {block.ctaLabel || "Reserveer"}
+                  </Link>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CardsLayout({
+  items,
+  showCols,
+  block,
+  accent,
+  contactBasePath,
+}: {
+  items: PriceTableItem[];
+  showCols: ColFlags;
+  block: PriceTableBlock;
+  accent: string;
+  contactBasePath: string;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((it) => {
+        const itemHref = contactBasePath
+          ? `${contactBasePath}/item/${it.id}`
+          : `/item/${it.id}`;
+        const reserveHref = contactBasePath
+          ? `${contactBasePath}/contact?item=${it.id}`
+          : `/contact?item=${it.id}`;
+        return (
+          <div
+            key={it.id}
+            className="flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md"
+          >
+            <Link href={itemHref}>
+              <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                {it.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={it.imageUrl}
+                    alt={it.name}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <div className="grid size-full place-items-center text-muted-foreground">
+                    <ImageIcon className="size-8 opacity-40" />
+                  </div>
+                )}
+              </div>
+            </Link>
+            <div className="flex flex-1 flex-col gap-3 p-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {it.categoryName}
+                </p>
+                <Link href={itemHref} className="hover:underline">
+                  <h3 className="mt-0.5 text-base font-semibold tracking-tight">
+                    {it.name}
+                  </h3>
+                </Link>
+              </div>
+              <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-2 text-xs">
+                {showCols.hour && (
+                  <PriceCell
+                    label="Per uur"
+                    value={formatPrice(it.pricePerHour)}
+                    accent={accent}
+                  />
+                )}
+                {showCols.day && (
+                  <PriceCell
+                    label="Per dag"
+                    value={formatPrice(it.pricePerDay)}
+                    accent={accent}
+                  />
+                )}
+                {showCols.week && (
+                  <PriceCell
+                    label="Per week"
+                    value={formatPrice(it.pricePerWeek)}
+                    accent={accent}
+                  />
+                )}
+                {showCols.deposit && (
+                  <PriceCell
+                    label="Borg"
+                    value={formatPrice(it.deposit)}
+                    muted
+                  />
+                )}
+              </dl>
+              {block.showCta && (
+                <Link
+                  href={reserveHref}
+                  className="mt-auto inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white shadow-sm hover:opacity-90"
                   style={{ background: accent }}
                 >
-                  Aanbevolen
-                </span>
-              )}
-              <h3 className="text-xl font-semibold tracking-tight">{tier.name}</h3>
-              {tier.price && (
-                <p className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-semibold tabular-nums">
-                    {tier.price}
-                  </span>
-                  {tier.period && (
-                    <span className="text-sm text-muted-foreground">
-                      {tier.period}
-                    </span>
-                  )}
-                </p>
-              )}
-              {tier.features.length > 0 && (
-                <ul className="mt-5 space-y-2 text-sm">
-                  {tier.features.map((f, j) => (
-                    <li key={j} className="flex items-start gap-2.5">
-                      <span
-                        className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full"
-                        style={{
-                          background: `color-mix(in oklch, ${accent} 18%, transparent)`,
-                          color: accent,
-                        }}
-                      >
-                        <Check className="size-3" />
-                      </span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {tier.buttonText && (
-                <Link
-                  href={tier.buttonHref || "#"}
-                  className="mt-6 inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-medium transition-opacity hover:opacity-90"
-                  style={
-                    tier.highlighted
-                      ? { background: accent, color: "white" }
-                      : { borderColor: "var(--border)", border: "1px solid", background: "var(--background)" }
-                  }
-                >
-                  {tier.buttonText}
+                  {block.ctaLabel || "Reserveer"}
                 </Link>
               )}
             </div>
-          ))}
-        </div>
-      </div>
-    </section>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PriceCell({
+  label,
+  value,
+  accent,
+  muted,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  muted?: boolean;
+}) {
+  return (
+    <div className="rounded bg-background px-2 py-1.5">
+      <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={`mt-0.5 text-sm font-semibold tabular-nums ${muted ? "text-muted-foreground" : ""}`}
+        style={muted ? undefined : { color: accent }}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }

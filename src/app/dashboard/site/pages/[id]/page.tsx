@@ -26,13 +26,28 @@ export default async function EditPagePage({
   const page = await getPageById(ctx.organization.id, id);
   if (!page) notFound();
 
-  const [categories, reviews] = await Promise.all([
+  const [categories, reviews, items] = await Promise.all([
     db.category.findMany({
       where: { organizationId: ctx.organization.id },
       orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
       select: { id: true, name: true, parentId: true },
     }),
     listReviewsForOrg(ctx.organization.id),
+    db.item.findMany({
+      where: { organizationId: ctx.organization.id, isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        pricePerHour: true,
+        pricePerDay: true,
+        pricePerWeek: true,
+        deposit: true,
+        category: { select: { name: true } },
+      },
+    }),
   ]);
 
   return (
@@ -53,6 +68,17 @@ export default async function EditPagePage({
         author: r.author,
         quote: r.quote,
         isPublished: r.isPublished,
+      }))}
+      items={items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        description: i.description,
+        imageUrl: i.imageUrl,
+        pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
+        pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+        pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
+        deposit: i.deposit ? Number(i.deposit) : null,
+        categoryName: i.category.name,
       }))}
     />
   );

@@ -48,17 +48,30 @@ type ReviewRef = {
   quote: string;
   isPublished: boolean;
 };
+type ItemRef = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  pricePerHour: number | null;
+  pricePerDay: number | null;
+  pricePerWeek: number | null;
+  deposit: number | null;
+  categoryName: string;
+};
 
 export function BlockEditor({
   block,
   onChange,
   categories,
   reviews,
+  items,
 }: {
   block: Block;
   onChange: (patch: Partial<Block>) => void;
   categories: CategoryRef[];
   reviews: ReviewRef[];
+  items: ItemRef[];
 }) {
   switch (block.type) {
     case "hero":
@@ -609,7 +622,8 @@ export function BlockEditor({
         </div>
       );
 
-    case "priceTable":
+    case "priceTable": {
+      const noItems = items.length === 0;
       return (
         <div className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -617,16 +631,17 @@ export function BlockEditor({
               <Input
                 value={block.heading}
                 maxLength={160}
+                placeholder="Prijslijst"
                 onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
               />
             </Field>
-            <Field label="Kolommen">
+            <Field label="Layout">
               <Toggle
-                value={String(block.columns) as "2" | "3"}
-                onChange={(v) => onChange({ columns: Number(v) as 2 | 3 } as Partial<Block>)}
+                value={block.layout}
+                onChange={(v) => onChange({ layout: v } as Partial<Block>)}
                 options={[
-                  { value: "2", label: "2" },
-                  { value: "3", label: "3" },
+                  { value: "table", label: "Tabel" },
+                  { value: "cards", label: "Kaarten" },
                 ]}
               />
             </Field>
@@ -639,146 +654,143 @@ export function BlockEditor({
               onChange={(e) => onChange({ intro: e.target.value } as Partial<Block>)}
             />
           </Field>
-          <div className="flex flex-col gap-3">
-            {block.tiers.map((tier, i) => (
-              <div
-                key={i}
-                className="rounded-md border border-border bg-background/40 p-3"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Plan {i + 1}
-                  </span>
-                  {block.tiers.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = [...block.tiers];
-                        next.splice(i, 1);
-                        onChange({ tiers: next } as Partial<Block>);
-                      }}
-                      className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Verwijder"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Input
-                    value={tier.name}
-                    maxLength={60}
-                    placeholder="Naam (bv. Pro)"
-                    onChange={(e) => {
-                      const next = [...block.tiers];
-                      next[i] = { ...next[i], name: e.target.value };
-                      onChange({ tiers: next } as Partial<Block>);
-                    }}
-                  />
-                  <Input
-                    value={tier.price}
-                    maxLength={40}
-                    placeholder="€49"
-                    onChange={(e) => {
-                      const next = [...block.tiers];
-                      next[i] = { ...next[i], price: e.target.value };
-                      onChange({ tiers: next } as Partial<Block>);
-                    }}
-                  />
-                  <Input
-                    value={tier.period}
-                    maxLength={40}
-                    placeholder="per maand"
-                    onChange={(e) => {
-                      const next = [...block.tiers];
-                      next[i] = { ...next[i], period: e.target.value };
-                      onChange({ tiers: next } as Partial<Block>);
-                    }}
-                  />
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={tier.highlighted}
-                      onChange={(e) => {
-                        const next = block.tiers.map((t, j) => ({
-                          ...t,
-                          highlighted: j === i ? e.target.checked : false,
-                        }));
-                        onChange({ tiers: next } as Partial<Block>);
-                      }}
-                    />
-                    Aanbevolen plan
-                  </label>
-                </div>
-                <Textarea
-                  className="mt-2"
-                  value={tier.features.join("\n")}
-                  rows={4}
-                  placeholder="Eén feature per regel"
-                  onChange={(e) => {
-                    const next = [...block.tiers];
-                    next[i] = {
-                      ...next[i],
-                      features: e.target.value
-                        .split("\n")
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                        .slice(0, 8),
-                    };
-                    onChange({ tiers: next } as Partial<Block>);
-                  }}
-                />
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <Input
-                    value={tier.buttonText}
-                    maxLength={40}
-                    placeholder="Knop-tekst"
-                    onChange={(e) => {
-                      const next = [...block.tiers];
-                      next[i] = { ...next[i], buttonText: e.target.value };
-                      onChange({ tiers: next } as Partial<Block>);
-                    }}
-                  />
-                  <Input
-                    value={tier.buttonHref}
-                    maxLength={200}
-                    placeholder="/contact"
-                    onChange={(e) => {
-                      const next = [...block.tiers];
-                      next[i] = { ...next[i], buttonHref: e.target.value };
-                      onChange({ tiers: next } as Partial<Block>);
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            {block.tiers.length < 4 && (
-              <button
-                type="button"
-                onClick={() =>
+
+          <Field label="Bron">
+            <Toggle
+              value={block.source}
+              onChange={(v) =>
+                onChange({
+                  source: v,
+                  // Clear the other side to keep state clean
+                  ...(v === "category"
+                    ? { itemIds: [] }
+                    : { categoryId: null }),
+                } as Partial<Block>)
+              }
+              options={[
+                { value: "category", label: "Per categorie" },
+                { value: "items", label: "Specifieke items" },
+              ]}
+            />
+          </Field>
+
+          {block.source === "category" && (
+            <Field label="Categorie">
+              <select
+                value={block.categoryId ?? ""}
+                onChange={(e) =>
                   onChange({
-                    tiers: [
-                      ...block.tiers,
-                      {
-                        name: "",
-                        price: "",
-                        period: "",
-                        features: [],
-                        buttonText: "",
-                        buttonHref: "",
-                        highlighted: false,
-                      },
-                    ],
+                    categoryId: e.target.value || null,
                   } as Partial<Block>)
                 }
-                className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
               >
-                <Plus className="size-3.5" /> Plan toevoegen
-              </button>
+                <option value="">Alle categorieën</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.parentId ? "↳ " : ""}{c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {block.source === "items" && (
+            <div className="rounded-md border border-border bg-background/40 p-3">
+              <p className="text-xs text-muted-foreground">
+                Vink de items aan die je wil tonen.
+                {noItems && (
+                  <span className="mt-1 block text-[oklch(0.5_0.16_70)]">
+                    Geen actieve items gevonden. Voeg ze eerst toe in
+                    Catalogus.
+                  </span>
+                )}
+              </p>
+              <div className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
+                {items.map((it) => {
+                  const checked = block.itemIds.includes(it.id);
+                  return (
+                    <label
+                      key={it.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background p-2 hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          let next = block.itemIds.filter((id) => id !== it.id);
+                          if (e.target.checked) next = [...next, it.id];
+                          onChange({ itemIds: next } as Partial<Block>);
+                        }}
+                        className="size-4 rounded border-border accent-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">{it.name}</p>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          {it.categoryName}
+                          {it.pricePerDay !== null && (
+                            <> · €{it.pricePerDay.toFixed(2)} / dag</>
+                          )}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <Field label="Kolommen">
+            <div className="flex flex-wrap gap-3">
+              <Checkbox
+                label="Per uur"
+                checked={block.showHour}
+                onChange={(v) => onChange({ showHour: v } as Partial<Block>)}
+              />
+              <Checkbox
+                label="Per dag"
+                checked={block.showDay}
+                onChange={(v) => onChange({ showDay: v } as Partial<Block>)}
+              />
+              <Checkbox
+                label="Per week"
+                checked={block.showWeek}
+                onChange={(v) => onChange({ showWeek: v } as Partial<Block>)}
+              />
+              <Checkbox
+                label="Borg"
+                checked={block.showDeposit}
+                onChange={(v) => onChange({ showDeposit: v } as Partial<Block>)}
+              />
+            </div>
+          </Field>
+
+          <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
+            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background p-2 text-xs">
+              <input
+                type="checkbox"
+                checked={block.showCta}
+                onChange={(e) =>
+                  onChange({ showCta: e.target.checked } as Partial<Block>)
+                }
+                className="size-4 rounded border-border accent-primary"
+              />
+              <span>Reserveer-knop tonen</span>
+            </label>
+            {block.showCta && (
+              <Input
+                value={block.ctaLabel}
+                maxLength={40}
+                placeholder="Reserveer"
+                onChange={(e) =>
+                  onChange({ ctaLabel: e.target.value } as Partial<Block>)
+                }
+              />
             )}
           </div>
         </div>
       );
+    }
 
     case "testimonials": {
       const publishedReviews = reviews.filter((r) => r.isPublished);
@@ -1570,5 +1582,27 @@ function Toggle<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+function Checkbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-3.5 rounded border-border accent-primary"
+      />
+      {label}
+    </label>
   );
 }
