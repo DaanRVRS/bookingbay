@@ -173,16 +173,33 @@ const testimonialsBlock = z.object({
   type: z.literal("testimonials"),
   heading: z.string().max(160).default(""),
   intro: z.string().max(400).default(""),
+  // "auto"   = pull latest published reviews from the Review collection
+  // "manual" = pick specific reviews from the Review collection (by id)
+  // "inline" = use the items array typed inside this block (legacy / standalone)
+  source: z.enum(["auto", "manual", "inline"]).default("auto"),
+  // Used in auto mode — how many reviews to show.
+  limit: z.number().int().min(1).max(12).default(3),
+  // Used in manual mode — selected review ids in display order.
+  reviewIds: z.array(z.string().min(1)).max(12).default([]),
+  // Used in inline mode (and as fallback if a Review id was deleted).
   items: z
     .array(
       z.object({
         quote: z.string().max(600),
         author: z.string().max(80).default(""),
         role: z.string().max(120).default(""),
-        rating: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).default(5),
+        rating: z
+          .union([
+            z.literal(0),
+            z.literal(1),
+            z.literal(2),
+            z.literal(3),
+            z.literal(4),
+            z.literal(5),
+          ])
+          .default(5),
       }),
     )
-    .min(1)
     .max(8)
     .default([]),
 });
@@ -218,7 +235,64 @@ const mapBlock = z.object({
   height: z.union([z.literal("sm"), z.literal("md"), z.literal("lg")]).default("md"),
 });
 
-export const blockSchema = z.discriminatedUnion("type", [
+const buttonBlock = z.object({
+  id: idField,
+  type: z.literal("button"),
+  label: z.string().max(60).default("Klik hier"),
+  href: z.string().max(200).default("/"),
+  variant: z.enum(["primary", "outline", "ghost"]).default("primary"),
+  size: z.enum(["sm", "md", "lg"]).default("md"),
+  align: z.enum(["left", "center", "right"]).default("center"),
+});
+
+const quoteBlock = z.object({
+  id: idField,
+  type: z.literal("quote"),
+  quote: z.string().max(800).default(""),
+  author: z.string().max(80).default(""),
+  role: z.string().max(120).default(""),
+  align: z.enum(["left", "center"]).default("center"),
+});
+
+const imageSliderBlock = z.object({
+  id: idField,
+  type: z.literal("imageSlider"),
+  heading: z.string().max(160).default(""),
+  // Auto-rotate interval in ms (0 = disabled)
+  intervalMs: z.number().int().min(0).max(20000).default(5000),
+  aspect: z.enum(["wide", "square", "tall"]).default("wide"),
+  slides: z
+    .array(
+      z.object({
+        url: z.string().max(500),
+        caption: z.string().max(200).default(""),
+        link: z.string().max(200).default(""),
+      }),
+    )
+    .min(1)
+    .max(10)
+    .default([]),
+});
+
+const containerBlock = z.object({
+  id: idField,
+  type: z.literal("container"),
+  heading: z.string().max(160).default(""),
+  // Visual padding around the inner content
+  padding: z.enum(["sm", "md", "lg"]).default("md"),
+  // Background variant
+  background: z
+    .enum(["none", "muted", "card", "primary-soft", "image"])
+    .default("none"),
+  backgroundImageUrl: z.string().max(500).default(""),
+  // Layout direction for children
+  layout: z.enum(["stack", "row-2", "row-3"]).default("stack"),
+  maxWidth: z.enum(["sm", "md", "lg", "full"]).default("lg"),
+  // Children blocks. Excludes "container" itself to avoid arbitrary nesting.
+  children: z.array(z.lazy(() => nonContainerBlock)).max(20).default([]),
+});
+
+const nonContainerBlock = z.discriminatedUnion("type", [
   heroBlock,
   textBlock,
   sliderBlock,
@@ -233,11 +307,17 @@ export const blockSchema = z.discriminatedUnion("type", [
   testimonialsBlock,
   openingHoursBlock,
   mapBlock,
+  buttonBlock,
+  quoteBlock,
+  imageSliderBlock,
 ]);
+
+export const blockSchema = z.union([nonContainerBlock, containerBlock]);
 
 export const blocksSchema = z.array(blockSchema).max(40);
 
 export type Block = z.infer<typeof blockSchema>;
+export type NonContainerBlock = z.infer<typeof nonContainerBlock>;
 export type HeroBlock = z.infer<typeof heroBlock>;
 export type TextBlock = z.infer<typeof textBlock>;
 export type SliderBlock = z.infer<typeof sliderBlock>;
@@ -252,6 +332,10 @@ export type PriceTableBlock = z.infer<typeof priceTableBlock>;
 export type TestimonialsBlock = z.infer<typeof testimonialsBlock>;
 export type OpeningHoursBlock = z.infer<typeof openingHoursBlock>;
 export type MapBlock = z.infer<typeof mapBlock>;
+export type ButtonBlock = z.infer<typeof buttonBlock>;
+export type QuoteBlock = z.infer<typeof quoteBlock>;
+export type ImageSliderBlock = z.infer<typeof imageSliderBlock>;
+export type ContainerBlock = z.infer<typeof containerBlock>;
 
 export type BlockType = Block["type"];
 
@@ -270,6 +354,10 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   testimonials: "Reviews",
   openingHours: "Openingstijden",
   map: "Kaart",
+  button: "Knop",
+  quote: "Citaat",
+  imageSlider: "Foto-slider",
+  container: "Container",
 };
 
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
@@ -284,9 +372,13 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   faq: "Inklapbare vraag-en-antwoord-lijst",
   video: "YouTube- of Vimeo-video embedded",
   priceTable: "Prijstabel met 2 of 3 plannen naast elkaar",
-  testimonials: "Citaat-reviews met sterren en auteur",
+  testimonials: "Reviews — auto uit lijst, handmatig of inline",
   openingHours: "Tabel met openingstijden per dag",
   map: "Embedded kaart met adres",
+  button: "Losse knop met variant en uitlijning",
+  quote: "Groot uitgelicht citaat",
+  imageSlider: "Auto-roterende foto-carousel met dots & pijlen",
+  container: "Wrapper met achtergrond — andere blokken erin slepen",
 };
 
 /**
@@ -411,20 +503,10 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
         type: "testimonials",
         heading: "Wat klanten zeggen",
         intro: "",
-        items: [
-          {
-            quote: "Top service en alles netjes geregeld — wij komen zeker terug.",
-            author: "Jan de Vries",
-            role: "Vaste klant",
-            rating: 5,
-          },
-          {
-            quote: "Snel en duidelijk geboekt, alles werkte zoals beloofd.",
-            author: "Lisa Klein",
-            role: "Amsterdam",
-            rating: 5,
-          },
-        ],
+        source: "auto",
+        limit: 3,
+        reviewIds: [],
+        items: [],
       };
     case "openingHours":
       return {
@@ -451,6 +533,51 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
         address: "",
         embedUrl: "",
         height: "md",
+      };
+    case "button":
+      return {
+        id,
+        type: "button",
+        label: "Bekijk meer",
+        href: "/contact",
+        variant: "primary",
+        size: "md",
+        align: "center",
+      };
+    case "quote":
+      return {
+        id,
+        type: "quote",
+        quote:
+          "We zetten elke dag een stapje extra om jouw verhuur tot een succes te maken.",
+        author: "",
+        role: "",
+        align: "center",
+      };
+    case "imageSlider":
+      return {
+        id,
+        type: "imageSlider",
+        heading: "",
+        intervalMs: 5000,
+        aspect: "wide",
+        slides: [
+          { url: "", caption: "", link: "" },
+          { url: "", caption: "", link: "" },
+          { url: "", caption: "", link: "" },
+        ],
+      };
+    case "container":
+      return {
+        id,
+        type: "container",
+        heading: "",
+        padding: "md",
+        background: "muted",
+        backgroundImageUrl: "",
+        layout: "stack",
+        maxWidth: "lg",
+        children: [],
       };
   }
 }

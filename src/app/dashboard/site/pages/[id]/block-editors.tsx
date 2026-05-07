@@ -6,18 +6,59 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
 // Plus and Trash2 are referenced by the new gallery + faq editors below
-import { ICON_KEYS, type Block } from "@/lib/pages/blocks";
+import {
+  BLOCK_DESCRIPTIONS,
+  BLOCK_LABELS,
+  ICON_KEYS,
+  makeDefaultBlock,
+  type Block,
+  type BlockType,
+  type ContainerBlock,
+  type NonContainerBlock,
+} from "@/lib/pages/blocks";
+
+const NON_CONTAINER_PALETTE: BlockType[] = [
+  "hero",
+  "text",
+  "imageStrip",
+  "gallery",
+  "iconRow",
+  "priceTable",
+  "testimonials",
+  "openingHours",
+  "map",
+  "faq",
+  "video",
+  "cta",
+  "button",
+  "quote",
+  "imageSlider",
+  "spacer",
+];
+
+function newBlockId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `b_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+}
 
 type CategoryRef = { id: string; name: string; parentId: string | null };
+type ReviewRef = {
+  id: string;
+  author: string;
+  quote: string;
+  isPublished: boolean;
+};
 
 export function BlockEditor({
   block,
   onChange,
   categories,
+  reviews,
 }: {
   block: Block;
   onChange: (patch: Partial<Block>) => void;
   categories: CategoryRef[];
+  reviews: ReviewRef[];
 }) {
   switch (block.type) {
     case "hero":
@@ -739,7 +780,9 @@ export function BlockEditor({
         </div>
       );
 
-    case "testimonials":
+    case "testimonials": {
+      const publishedReviews = reviews.filter((r) => r.isPublished);
+      const noPublished = publishedReviews.length === 0;
       return (
         <div className="flex flex-col gap-4">
           <Field label="Heading">
@@ -758,17 +801,101 @@ export function BlockEditor({
               onChange={(e) => onChange({ intro: e.target.value } as Partial<Block>)}
             />
           </Field>
-          <div className="flex flex-col gap-3">
-            {block.items.map((item, i) => (
-              <div
-                key={i}
-                className="rounded-md border border-border bg-background/40 p-3"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Review {i + 1}
+          <Field label="Bron">
+            <Toggle
+              value={block.source}
+              onChange={(v) => onChange({ source: v } as Partial<Block>)}
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "manual", label: "Handmatig kiezen" },
+                { value: "inline", label: "Inline" },
+              ]}
+            />
+          </Field>
+
+          {block.source === "auto" && (
+            <div className="rounded-md border border-border bg-background/40 p-3">
+              <p className="text-xs text-muted-foreground">
+                Toont je nieuwste gepubliceerde reviews uit{" "}
+                <a className="underline" href="/dashboard/reviews" target="_blank" rel="noreferrer">
+                  Reviews
+                </a>
+                .
+                {noPublished && (
+                  <span className="block mt-1 text-[oklch(0.5_0.16_70)]">
+                    Nog geen gepubliceerde reviews. Voeg er eerst een paar toe.
                   </span>
-                  {block.items.length > 1 && (
+                )}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Maximaal:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={block.limit}
+                  onChange={(e) => {
+                    const v = Math.max(1, Math.min(12, Number(e.target.value) || 3));
+                    onChange({ limit: v } as Partial<Block>);
+                  }}
+                  className="h-8 w-16 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+                />
+              </div>
+            </div>
+          )}
+
+          {block.source === "manual" && (
+            <div className="rounded-md border border-border bg-background/40 p-3">
+              <p className="text-xs text-muted-foreground">
+                Vink de reviews aan die je wil tonen.
+                {noPublished && (
+                  <span className="block mt-1 text-[oklch(0.5_0.16_70)]">
+                    Geen gepubliceerde reviews beschikbaar.
+                  </span>
+                )}
+              </p>
+              <div className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
+                {publishedReviews.map((r) => {
+                  const checked = block.reviewIds.includes(r.id);
+                  return (
+                    <label
+                      key={r.id}
+                      className="flex cursor-pointer items-start gap-2 rounded-md border border-border bg-background p-2 hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          let next = block.reviewIds.filter((id) => id !== r.id);
+                          if (e.target.checked) next = [...next, r.id];
+                          onChange({ reviewIds: next } as Partial<Block>);
+                        }}
+                        className="mt-1 size-4 rounded border-border accent-primary"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium">{r.author}</p>
+                        <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                          {r.quote}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {block.source === "inline" && (
+            <div className="flex flex-col gap-3">
+              {block.items.map((item, i) => (
+                <div
+                  key={i}
+                  className="rounded-md border border-border bg-background/40 p-3"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Review {i + 1}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -781,77 +908,78 @@ export function BlockEditor({
                     >
                       <Trash2 className="size-3.5" />
                     </button>
-                  )}
-                </div>
-                <Textarea
-                  value={item.quote}
-                  rows={3}
-                  maxLength={600}
-                  placeholder="Citaat"
-                  onChange={(e) => {
-                    const next = [...block.items];
-                    next[i] = { ...next[i], quote: e.target.value };
-                    onChange({ items: next } as Partial<Block>);
-                  }}
-                />
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  <Input
-                    value={item.author}
-                    maxLength={80}
-                    placeholder="Auteur"
+                  </div>
+                  <Textarea
+                    value={item.quote}
+                    rows={3}
+                    maxLength={600}
+                    placeholder="Citaat"
                     onChange={(e) => {
                       const next = [...block.items];
-                      next[i] = { ...next[i], author: e.target.value };
+                      next[i] = { ...next[i], quote: e.target.value };
                       onChange({ items: next } as Partial<Block>);
                     }}
                   />
-                  <Input
-                    value={item.role}
-                    maxLength={120}
-                    placeholder="Rol/locatie"
-                    onChange={(e) => {
-                      const next = [...block.items];
-                      next[i] = { ...next[i], role: e.target.value };
-                      onChange({ items: next } as Partial<Block>);
-                    }}
-                  />
-                  <Toggle
-                    value={String(item.rating) as "0" | "3" | "4" | "5"}
-                    onChange={(v) => {
-                      const next = [...block.items];
-                      const rating = Number(v) as 0 | 3 | 4 | 5;
-                      next[i] = { ...next[i], rating };
-                      onChange({ items: next } as Partial<Block>);
-                    }}
-                    options={[
-                      { value: "5", label: "★★★★★" },
-                      { value: "4", label: "★★★★" },
-                      { value: "3", label: "★★★" },
-                      { value: "0", label: "—" },
-                    ]}
-                  />
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <Input
+                      value={item.author}
+                      maxLength={80}
+                      placeholder="Auteur"
+                      onChange={(e) => {
+                        const next = [...block.items];
+                        next[i] = { ...next[i], author: e.target.value };
+                        onChange({ items: next } as Partial<Block>);
+                      }}
+                    />
+                    <Input
+                      value={item.role}
+                      maxLength={120}
+                      placeholder="Rol/locatie"
+                      onChange={(e) => {
+                        const next = [...block.items];
+                        next[i] = { ...next[i], role: e.target.value };
+                        onChange({ items: next } as Partial<Block>);
+                      }}
+                    />
+                    <Toggle
+                      value={String(item.rating) as "0" | "3" | "4" | "5"}
+                      onChange={(v) => {
+                        const next = [...block.items];
+                        const rating = Number(v) as 0 | 3 | 4 | 5;
+                        next[i] = { ...next[i], rating };
+                        onChange({ items: next } as Partial<Block>);
+                      }}
+                      options={[
+                        { value: "5", label: "★★★★★" },
+                        { value: "4", label: "★★★★" },
+                        { value: "3", label: "★★★" },
+                        { value: "0", label: "—" },
+                      ]}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
-            {block.items.length < 8 && (
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({
-                    items: [
-                      ...block.items,
-                      { quote: "", author: "", role: "", rating: 5 },
-                    ],
-                  } as Partial<Block>)
-                }
-                className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <Plus className="size-3.5" /> Review toevoegen
-              </button>
-            )}
-          </div>
+              ))}
+              {block.items.length < 8 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      items: [
+                        ...block.items,
+                        { quote: "", author: "", role: "", rating: 5 },
+                      ],
+                    } as Partial<Block>)
+                  }
+                  className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="size-3.5" /> Review toevoegen
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
+    }
 
     case "openingHours":
       return (
@@ -975,7 +1103,428 @@ export function BlockEditor({
           </Field>
         </div>
       );
+
+    case "button":
+      return (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Tekst" className="sm:col-span-2">
+            <Input
+              value={block.label}
+              maxLength={60}
+              onChange={(e) => onChange({ label: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Link" className="sm:col-span-2">
+            <Input
+              value={block.href}
+              maxLength={200}
+              placeholder="/contact"
+              onChange={(e) => onChange({ href: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Stijl">
+            <Toggle
+              value={block.variant}
+              onChange={(v) => onChange({ variant: v } as Partial<Block>)}
+              options={[
+                { value: "primary", label: "Primair" },
+                { value: "outline", label: "Outline" },
+                { value: "ghost", label: "Tekst" },
+              ]}
+            />
+          </Field>
+          <Field label="Grootte">
+            <Toggle
+              value={block.size}
+              onChange={(v) => onChange({ size: v } as Partial<Block>)}
+              options={[
+                { value: "sm", label: "S" },
+                { value: "md", label: "M" },
+                { value: "lg", label: "L" },
+              ]}
+            />
+          </Field>
+          <Field label="Uitlijning" className="sm:col-span-2">
+            <Toggle
+              value={block.align}
+              onChange={(v) => onChange({ align: v } as Partial<Block>)}
+              options={[
+                { value: "left", label: "Links" },
+                { value: "center", label: "Midden" },
+                { value: "right", label: "Rechts" },
+              ]}
+            />
+          </Field>
+        </div>
+      );
+
+    case "quote":
+      return (
+        <div className="flex flex-col gap-4">
+          <Field label="Citaat">
+            <Textarea
+              value={block.quote}
+              rows={4}
+              maxLength={800}
+              onChange={(e) => onChange({ quote: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Auteur (optioneel)">
+              <Input
+                value={block.author}
+                maxLength={80}
+                onChange={(e) => onChange({ author: e.target.value } as Partial<Block>)}
+              />
+            </Field>
+            <Field label="Rol/locatie (optioneel)">
+              <Input
+                value={block.role}
+                maxLength={120}
+                onChange={(e) => onChange({ role: e.target.value } as Partial<Block>)}
+              />
+            </Field>
+          </div>
+          <Field label="Uitlijning">
+            <Toggle
+              value={block.align}
+              onChange={(v) => onChange({ align: v } as Partial<Block>)}
+              options={[
+                { value: "left", label: "Links" },
+                { value: "center", label: "Midden" },
+              ]}
+            />
+          </Field>
+        </div>
+      );
+
+    case "imageSlider":
+      return (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Heading (optioneel)">
+              <Input
+                value={block.heading}
+                maxLength={160}
+                onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+              />
+            </Field>
+            <Field label="Verhouding">
+              <Toggle
+                value={block.aspect}
+                onChange={(v) => onChange({ aspect: v } as Partial<Block>)}
+                options={[
+                  { value: "wide", label: "Breed" },
+                  { value: "square", label: "Vierkant" },
+                  { value: "tall", label: "Hoog" },
+                ]}
+              />
+            </Field>
+            <Field label="Auto-rotate">
+              <select
+                value={String(block.intervalMs)}
+                onChange={(e) =>
+                  onChange({ intervalMs: Number(e.target.value) } as Partial<Block>)
+                }
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+              >
+                <option value="0">Uit</option>
+                <option value="3000">3s</option>
+                <option value="5000">5s</option>
+                <option value="8000">8s</option>
+                <option value="12000">12s</option>
+              </select>
+            </Field>
+          </div>
+          <div className="flex flex-col gap-3">
+            {block.slides.map((s, i) => (
+              <div
+                key={i}
+                className="rounded-md border border-border bg-background/40 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Slide {i + 1}
+                  </span>
+                  {block.slides.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = [...block.slides];
+                        next.splice(i, 1);
+                        onChange({ slides: next } as Partial<Block>);
+                      }}
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Verwijder"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                <ImageUploader
+                  value={s.url || null}
+                  onChange={(url) => {
+                    const next = [...block.slides];
+                    next[i] = { ...next[i], url: url ?? "" };
+                    onChange({ slides: next } as Partial<Block>);
+                  }}
+                />
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <Input
+                    value={s.caption}
+                    maxLength={200}
+                    placeholder="Onderschrift (optioneel)"
+                    onChange={(e) => {
+                      const next = [...block.slides];
+                      next[i] = { ...next[i], caption: e.target.value };
+                      onChange({ slides: next } as Partial<Block>);
+                    }}
+                  />
+                  <Input
+                    value={s.link}
+                    maxLength={200}
+                    placeholder="Link bij klik (optioneel)"
+                    onChange={(e) => {
+                      const next = [...block.slides];
+                      next[i] = { ...next[i], link: e.target.value };
+                      onChange({ slides: next } as Partial<Block>);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {block.slides.length < 10 && (
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    slides: [...block.slides, { url: "", caption: "", link: "" }],
+                  } as Partial<Block>)
+                }
+                className="inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="size-3.5" /> Slide toevoegen
+              </button>
+            )}
+          </div>
+        </div>
+      );
+
+    case "container":
+      return <ContainerEditor block={block} onChange={onChange} />;
   }
+}
+
+function ContainerEditor({
+  block,
+  onChange,
+}: {
+  block: ContainerBlock;
+  onChange: (patch: Partial<Block>) => void;
+}) {
+  const updateChild = (childId: string, patch: Partial<NonContainerBlock>) => {
+    const children = block.children.map((c) =>
+      c.id === childId ? ({ ...c, ...patch } as NonContainerBlock) : c,
+    );
+    onChange({ children } as Partial<Block>);
+  };
+
+  const removeChild = (childId: string) => {
+    onChange({
+      children: block.children.filter((c) => c.id !== childId),
+    } as Partial<Block>);
+  };
+
+  const moveChild = (childId: string, dir: -1 | 1) => {
+    const idx = block.children.findIndex((c) => c.id === childId);
+    if (idx === -1) return;
+    const target = idx + dir;
+    if (target < 0 || target >= block.children.length) return;
+    const next = [...block.children];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange({ children: next } as Partial<Block>);
+  };
+
+  const addChild = (type: BlockType) => {
+    if (type === "container") return;
+    const created = makeDefaultBlock(type, newBlockId()) as NonContainerBlock;
+    onChange({ children: [...block.children, created] } as Partial<Block>);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Heading (optioneel)">
+          <Input
+            value={block.heading}
+            maxLength={160}
+            onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+          />
+        </Field>
+        <Field label="Layout">
+          <Toggle
+            value={block.layout}
+            onChange={(v) => onChange({ layout: v } as Partial<Block>)}
+            options={[
+              { value: "stack", label: "Onder elkaar" },
+              { value: "row-2", label: "2 kolommen" },
+              { value: "row-3", label: "3 kolommen" },
+            ]}
+          />
+        </Field>
+        <Field label="Achtergrond">
+          <Toggle
+            value={block.background}
+            onChange={(v) => onChange({ background: v } as Partial<Block>)}
+            options={[
+              { value: "none", label: "Geen" },
+              { value: "muted", label: "Grijs" },
+              { value: "card", label: "Wit" },
+              { value: "primary-soft", label: "Brand" },
+              { value: "image", label: "Foto" },
+            ]}
+          />
+        </Field>
+        <Field label="Padding">
+          <Toggle
+            value={block.padding}
+            onChange={(v) => onChange({ padding: v } as Partial<Block>)}
+            options={[
+              { value: "sm", label: "S" },
+              { value: "md", label: "M" },
+              { value: "lg", label: "L" },
+            ]}
+          />
+        </Field>
+        <Field label="Max breedte">
+          <Toggle
+            value={block.maxWidth}
+            onChange={(v) => onChange({ maxWidth: v } as Partial<Block>)}
+            options={[
+              { value: "sm", label: "S" },
+              { value: "md", label: "M" },
+              { value: "lg", label: "L" },
+              { value: "full", label: "Vol" },
+            ]}
+          />
+        </Field>
+        {block.background === "image" && (
+          <Field label="Achtergrond-afbeelding" className="sm:col-span-2">
+            <ImageUploader
+              value={block.backgroundImageUrl || null}
+              onChange={(url) =>
+                onChange({ backgroundImageUrl: url ?? "" } as Partial<Block>)
+              }
+            />
+          </Field>
+        )}
+      </div>
+
+      <div className="rounded-md border border-border bg-background/40 p-3">
+        <p className="mb-2 text-xs font-medium text-muted-foreground">
+          Inhoud — {block.children.length}
+          {block.children.length === 1 ? " blok" : " blokken"}
+        </p>
+        {block.children.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border bg-card/40 px-4 py-6 text-center text-xs text-muted-foreground">
+            Container is leeg. Voeg een blok toe ↓
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {block.children.map((child, idx) => (
+              <li
+                key={child.id}
+                className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
+              >
+                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  {BLOCK_LABELS[child.type]}
+                </span>
+                <span className="flex-1 truncate text-xs text-muted-foreground">
+                  {previewLabel(child)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => moveChild(child.id, -1)}
+                  disabled={idx === 0}
+                  className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                  aria-label="Omhoog"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveChild(child.id, 1)}
+                  disabled={idx === block.children.length - 1}
+                  className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                  aria-label="Omlaag"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newQuote = window.prompt(
+                      "Snel bewerken — voor uitgebreid bewerken, plaats het blok op het top-niveau.",
+                      previewLabel(child),
+                    );
+                    if (newQuote === null) return;
+                    // Generic quick-edit: try common text fields
+                    if ("heading" in child) {
+                      updateChild(child.id, { heading: newQuote } as Partial<NonContainerBlock>);
+                    } else if (child.type === "button") {
+                      updateChild(child.id, { label: newQuote } as Partial<NonContainerBlock>);
+                    } else if (child.type === "quote") {
+                      updateChild(child.id, { quote: newQuote } as Partial<NonContainerBlock>);
+                    }
+                  }}
+                  className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-accent"
+                  aria-label="Snel bewerken"
+                  title="Snel bewerken"
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeChild(child.id)}
+                  className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Verwijder"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <details className="mt-3">
+          <summary className="cursor-pointer rounded-md border border-dashed border-border py-2 text-center text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground">
+            <Plus className="mr-1 inline size-3.5" /> Blok toevoegen aan container
+          </summary>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {NON_CONTAINER_PALETTE.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => addChild(t)}
+                className="rounded-md border border-border bg-card px-2 py-1.5 text-left text-xs hover:bg-accent"
+                title={BLOCK_DESCRIPTIONS[t]}
+              >
+                {BLOCK_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function previewLabel(b: NonContainerBlock): string {
+  if ("heading" in b && b.heading) return b.heading;
+  if (b.type === "text") return b.body.slice(0, 60);
+  if (b.type === "button") return b.label;
+  if (b.type === "quote") return b.quote.slice(0, 60);
+  if (b.type === "spacer") return `Witruimte ${b.size}`;
+  return BLOCK_LABELS[b.type];
 }
 
 function Field({

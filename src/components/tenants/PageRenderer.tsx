@@ -1,4 +1,5 @@
-import type { Block } from "@/lib/pages/blocks";
+import type { Block, NonContainerBlock, TestimonialsBlock } from "@/lib/pages/blocks";
+import { getPublishedReviews, getReviewsByIds } from "@/lib/reviews/queries";
 import { HeroBlockView } from "./blocks/HeroBlockView";
 import { TextBlockView } from "./blocks/TextBlockView";
 import { CtaBlockView } from "./blocks/CtaBlockView";
@@ -10,11 +11,120 @@ import { GalleryBlockView } from "./blocks/GalleryBlockView";
 import { FaqBlockView } from "./blocks/FaqBlockView";
 import { VideoBlockView } from "./blocks/VideoBlockView";
 import { PriceTableBlockView } from "./blocks/PriceTableBlockView";
-import { TestimonialsBlockView } from "./blocks/TestimonialsBlockView";
+import {
+  TestimonialsBlockView,
+  type TestimonialItem,
+} from "./blocks/TestimonialsBlockView";
 import { OpeningHoursBlockView } from "./blocks/OpeningHoursBlockView";
 import { MapBlockView } from "./blocks/MapBlockView";
+import { ButtonBlockView } from "./blocks/ButtonBlockView";
+import { QuoteBlockView } from "./blocks/QuoteBlockView";
+import { ImageSliderBlockView } from "./blocks/ImageSliderBlockView";
+import { ContainerBlockView } from "./blocks/ContainerBlockView";
 
-export function PageRenderer({
+async function resolveTestimonialItems(
+  block: TestimonialsBlock,
+  organizationId: string,
+): Promise<TestimonialItem[]> {
+  if (block.source === "auto") {
+    const reviews = await getPublishedReviews(organizationId);
+    return reviews.slice(0, block.limit).map((r) => ({
+      quote: r.quote,
+      author: r.author,
+      role: r.role,
+      rating: r.rating,
+    }));
+  }
+  if (block.source === "manual" && block.reviewIds.length > 0) {
+    const reviews = await getReviewsByIds(organizationId, block.reviewIds);
+    return reviews.map((r) => ({
+      quote: r.quote,
+      author: r.author,
+      role: r.role,
+      rating: r.rating,
+    }));
+  }
+  return block.items.map((it) => ({
+    quote: it.quote,
+    author: it.author,
+    role: it.role || null,
+    rating: it.rating,
+  }));
+}
+
+function collectTestimonialBlocks(blocks: Block[]): TestimonialsBlock[] {
+  const out: TestimonialsBlock[] = [];
+  for (const b of blocks) {
+    if (b.type === "testimonials") out.push(b);
+    if (b.type === "container") {
+      for (const c of b.children) {
+        if (c.type === "testimonials") out.push(c);
+      }
+    }
+  }
+  return out;
+}
+
+function renderNonContainer(
+  block: NonContainerBlock,
+  ctx: {
+    organizationId: string;
+    accent: string;
+    testimonialItemsByBlockId: Map<string, TestimonialItem[]>;
+  },
+) {
+  const { organizationId, accent, testimonialItemsByBlockId } = ctx;
+  switch (block.type) {
+    case "hero":
+      return <HeroBlockView block={block} accent={accent} />;
+    case "text":
+      return <TextBlockView block={block} />;
+    case "cta":
+      return <CtaBlockView block={block} accent={accent} />;
+    case "spacer":
+      return <SpacerBlockView block={block} />;
+    case "imageStrip":
+      return <ImageStripBlockView block={block} />;
+    case "iconRow":
+      return <IconRowBlockView block={block} accent={accent} />;
+    case "slider":
+      return (
+        <SliderBlockView
+          block={block}
+          organizationId={organizationId}
+          accent={accent}
+        />
+      );
+    case "gallery":
+      return <GalleryBlockView block={block} />;
+    case "faq":
+      return <FaqBlockView block={block} accent={accent} />;
+    case "video":
+      return <VideoBlockView block={block} />;
+    case "priceTable":
+      return <PriceTableBlockView block={block} accent={accent} />;
+    case "testimonials":
+      return (
+        <TestimonialsBlockView
+          block={block}
+          accent={accent}
+          resolvedItems={testimonialItemsByBlockId.get(block.id) ?? []}
+        />
+      );
+    case "openingHours":
+      return <OpeningHoursBlockView block={block} accent={accent} />;
+    case "map":
+      return <MapBlockView block={block} />;
+    case "button":
+      return <ButtonBlockView block={block} accent={accent} />;
+    case "quote":
+      return <QuoteBlockView block={block} accent={accent} />;
+    case "imageSlider":
+      return <ImageSliderBlockView block={block} />;
+  }
+}
+
+export async function PageRenderer({
   blocks,
   organizationId,
   accent,
@@ -23,46 +133,31 @@ export function PageRenderer({
   organizationId: string;
   accent: string;
 }) {
+  // Pre-resolve all testimonials blocks (including those nested in containers)
+  // so the rendered output can stay synchronous from here down.
+  const testimonialItemsByBlockId = new Map<string, TestimonialItem[]>();
+  await Promise.all(
+    collectTestimonialBlocks(blocks).map(async (b) => {
+      const items = await resolveTestimonialItems(b, organizationId);
+      testimonialItemsByBlockId.set(b.id, items);
+    }),
+  );
+
+  const ctx = { organizationId, accent, testimonialItemsByBlockId };
+
   return (
     <>
       {blocks.map((block) => {
-        switch (block.type) {
-          case "hero":
-            return <HeroBlockView key={block.id} block={block} accent={accent} />;
-          case "text":
-            return <TextBlockView key={block.id} block={block} />;
-          case "cta":
-            return <CtaBlockView key={block.id} block={block} accent={accent} />;
-          case "spacer":
-            return <SpacerBlockView key={block.id} block={block} />;
-          case "imageStrip":
-            return <ImageStripBlockView key={block.id} block={block} />;
-          case "iconRow":
-            return <IconRowBlockView key={block.id} block={block} accent={accent} />;
-          case "slider":
-            return (
-              <SliderBlockView
-                key={block.id}
-                block={block}
-                organizationId={organizationId}
-                accent={accent}
-              />
-            );
-          case "gallery":
-            return <GalleryBlockView key={block.id} block={block} />;
-          case "faq":
-            return <FaqBlockView key={block.id} block={block} accent={accent} />;
-          case "video":
-            return <VideoBlockView key={block.id} block={block} />;
-          case "priceTable":
-            return <PriceTableBlockView key={block.id} block={block} accent={accent} />;
-          case "testimonials":
-            return <TestimonialsBlockView key={block.id} block={block} accent={accent} />;
-          case "openingHours":
-            return <OpeningHoursBlockView key={block.id} block={block} accent={accent} />;
-          case "map":
-            return <MapBlockView key={block.id} block={block} />;
+        if (block.type === "container") {
+          return (
+            <ContainerBlockView key={block.id} block={block} accent={accent}>
+              {block.children.map((child) => (
+                <div key={child.id}>{renderNonContainer(child, ctx)}</div>
+              ))}
+            </ContainerBlockView>
+          );
         }
+        return <div key={block.id}>{renderNonContainer(block, ctx)}</div>;
       })}
     </>
   );

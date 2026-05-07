@@ -121,6 +121,7 @@ model Organization {
   leadBlocks  LeadBlock[]
   auditLogs   AuditLog[]
   pages       Page[]
+  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -345,6 +346,29 @@ model LeadBlock {
 
   @@unique([organizationId, pattern])
   @@index([organizationId])
+}
+
+// ----------------------------------------------------------------------------
+// Reviews / testimonials — surfaced in the testimonials page-builder block
+// ----------------------------------------------------------------------------
+
+model Review {
+  id             String   @id @default(cuid())
+  organizationId String
+  quote          String
+  author         String
+  role           String?
+  // 0 hides stars, 1-5 shows that many filled stars
+  rating         Int      @default(5)
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, isPublished, sortOrder])
 }
 
 // ----------------------------------------------------------------------------

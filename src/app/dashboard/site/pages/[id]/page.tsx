@@ -3,6 +3,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { planAllows } from "@/lib/plans";
 import { getPageById } from "@/lib/pages/queries";
+import { listReviewsForOrg } from "@/lib/reviews/queries";
 import { Builder } from "./builder";
 
 export const metadata = { title: "Pagina bewerken" };
@@ -25,11 +26,14 @@ export default async function EditPagePage({
   const page = await getPageById(ctx.organization.id, id);
   if (!page) notFound();
 
-  const categories = await db.category.findMany({
-    where: { organizationId: ctx.organization.id },
-    orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
-    select: { id: true, name: true, parentId: true },
-  });
+  const [categories, reviews] = await Promise.all([
+    db.category.findMany({
+      where: { organizationId: ctx.organization.id },
+      orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
+      select: { id: true, name: true, parentId: true },
+    }),
+    listReviewsForOrg(ctx.organization.id),
+  ]);
 
   return (
     <Builder
@@ -44,6 +48,12 @@ export default async function EditPagePage({
       tenantSlug={org.slug}
       accent={org.primaryColor ?? "#ef5934"}
       categories={categories}
+      reviews={reviews.map((r) => ({
+        id: r.id,
+        author: r.author,
+        quote: r.quote,
+        isPublished: r.isPublished,
+      }))}
     />
   );
 }

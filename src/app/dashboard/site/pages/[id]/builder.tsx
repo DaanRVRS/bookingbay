@@ -5,11 +5,13 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Box,
   ChevronDown,
   ChevronUp,
   Clock,
   Copy,
   ExternalLink,
+  GalleryHorizontal,
   GripVertical,
   HelpCircle,
   Image as ImageLucide,
@@ -19,6 +21,7 @@ import {
   MapPin,
   Megaphone,
   Minus,
+  MousePointerClick,
   PlayCircle,
   Plus,
   Quote,
@@ -74,6 +77,10 @@ import { PriceTableBlockView } from "@/components/tenants/blocks/PriceTableBlock
 import { TestimonialsBlockView } from "@/components/tenants/blocks/TestimonialsBlockView";
 import { OpeningHoursBlockView } from "@/components/tenants/blocks/OpeningHoursBlockView";
 import { MapBlockView } from "@/components/tenants/blocks/MapBlockView";
+import { ButtonBlockView } from "@/components/tenants/blocks/ButtonBlockView";
+import { QuoteBlockView } from "@/components/tenants/blocks/QuoteBlockView";
+import { ImageSliderBlockView } from "@/components/tenants/blocks/ImageSliderBlockView";
+import { ContainerBlockView } from "@/components/tenants/blocks/ContainerBlockView";
 import { BlockEditor } from "./block-editors";
 import { PageMetaDialog } from "./page-meta-form";
 import type { LucideIcon } from "lucide-react";
@@ -81,7 +88,9 @@ import type { LucideIcon } from "lucide-react";
 const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
   { type: "hero", icon: LayoutDashboard },
   { type: "text", icon: Type },
+  { type: "container", icon: Box },
   { type: "slider", icon: Rows3 },
+  { type: "imageSlider", icon: GalleryHorizontal },
   { type: "imageStrip", icon: ImageLucide },
   { type: "gallery", icon: ImagesIcon },
   { type: "iconRow", icon: Sparkles },
@@ -91,6 +100,8 @@ const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
   { type: "map", icon: MapPin },
   { type: "faq", icon: HelpCircle },
   { type: "video", icon: PlayCircle },
+  { type: "quote", icon: Quote },
+  { type: "button", icon: MousePointerClick },
   { type: "cta", icon: Megaphone },
   { type: "spacer", icon: Minus },
 ];
@@ -99,6 +110,12 @@ const PALETTE_PREFIX = "palette__" as const;
 const END_DROP_ZONE_ID = "__end__";
 
 type CategoryRef = { id: string; name: string; parentId: string | null };
+export type ReviewRef = {
+  id: string;
+  author: string;
+  quote: string;
+  isPublished: boolean;
+};
 
 type PageInit = {
   id: string;
@@ -119,11 +136,13 @@ export function Builder({
   tenantSlug,
   accent,
   categories,
+  reviews,
 }: {
   page: PageInit;
   tenantSlug: string;
   accent: string;
   categories: CategoryRef[];
+  reviews: ReviewRef[];
 }) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<Block[]>(page.blocks);
@@ -371,6 +390,7 @@ export function Builder({
                         onRemove={() => removeBlock(block.id)}
                         onDuplicate={() => duplicateBlock(block.id)}
                         categories={categories}
+                        reviews={reviews}
                       />
                     </li>
                   ))}
@@ -506,6 +526,7 @@ function BlockCard({
   onRemove,
   onDuplicate,
   categories,
+  reviews,
 }: {
   block: Block;
   accent: string;
@@ -515,6 +536,7 @@ function BlockCard({
   onRemove: () => void;
   onDuplicate: () => void;
   categories: CategoryRef[];
+  reviews: ReviewRef[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
@@ -585,7 +607,7 @@ function BlockCard({
       {/* Preview */}
       <div className="bg-background">
         <div className="pointer-events-none scale-[0.95] origin-top">
-          <BlockPreview block={block} accent={accent} />
+          <BlockPreview block={block} accent={accent} reviews={reviews} />
         </div>
       </div>
 
@@ -596,6 +618,7 @@ function BlockCard({
             block={block}
             onChange={onChange as (patch: Partial<Block>) => void}
             categories={categories}
+            reviews={reviews}
           />
         </div>
       )}
@@ -603,7 +626,15 @@ function BlockCard({
   );
 }
 
-function BlockPreview({ block, accent }: { block: Block; accent: string }) {
+function BlockPreview({
+  block,
+  accent,
+  reviews,
+}: {
+  block: Block;
+  accent: string;
+  reviews: ReviewRef[];
+}) {
   switch (block.type) {
     case "hero":
       return <HeroBlockView block={block} accent={accent} />;
@@ -638,11 +669,57 @@ function BlockPreview({ block, accent }: { block: Block; accent: string }) {
       return <VideoBlockView block={block} />;
     case "priceTable":
       return <PriceTableBlockView block={block} accent={accent} />;
-    case "testimonials":
-      return <TestimonialsBlockView block={block} accent={accent} />;
+    case "testimonials": {
+      // Resolve a preview-quality items list from the available reviews so
+      // the canvas shows the actual reviews the user picked, not just the
+      // inline fallback.
+      const published = reviews.filter((r) => r.isPublished);
+      const previewItems =
+        block.source === "auto"
+          ? published.slice(0, block.limit).map((r) => ({
+              quote: r.quote,
+              author: r.author,
+              role: null,
+              rating: 5,
+            }))
+          : block.source === "manual"
+            ? block.reviewIds
+                .map((id) => published.find((r) => r.id === id))
+                .filter((r): r is ReviewRef => Boolean(r))
+                .map((r) => ({
+                  quote: r.quote,
+                  author: r.author,
+                  role: null,
+                  rating: 5,
+                }))
+            : undefined;
+      return (
+        <TestimonialsBlockView
+          block={block}
+          accent={accent}
+          resolvedItems={previewItems}
+        />
+      );
+    }
     case "openingHours":
       return <OpeningHoursBlockView block={block} accent={accent} />;
     case "map":
       return <MapBlockView block={block} />;
+    case "button":
+      return <ButtonBlockView block={block} accent={accent} />;
+    case "quote":
+      return <QuoteBlockView block={block} accent={accent} />;
+    case "imageSlider":
+      return <ImageSliderBlockView block={block} />;
+    case "container":
+      return (
+        <ContainerBlockView block={block} accent={accent}>
+          {block.children.map((child) => (
+            <div key={child.id}>
+              <BlockPreview block={child} accent={accent} reviews={reviews} />
+            </div>
+          ))}
+        </ContainerBlockView>
+      );
   }
 }
