@@ -6,14 +6,23 @@ import { UserMenu } from "@/components/dashboard/UserMenu";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
+import {
+  getUnreadCount,
+  listNotificationsForUser,
+} from "@/lib/notifications/queries";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
 
-  const billing = await db.organization.findUnique({
-    where: { id: ctx.organization.id },
-    select: { paidUntil: true, suspendedAt: true },
-  });
+  const [billing, unreadCount, recentNotifications] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: ctx.organization.id },
+      select: { paidUntil: true, suspendedAt: true },
+    }),
+    getUnreadCount(ctx.user.id),
+    listNotificationsForUser(ctx.user.id, 8),
+  ]);
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -31,7 +40,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
             memberships={ctx.allMemberships}
           />
         }
-        rightSlot={<UserMenu user={ctx.user} />}
+        rightSlot={
+          <>
+            <NotificationBell
+              unreadCount={unreadCount}
+              recent={recentNotifications.map((n) => ({
+                id: n.id,
+                title: n.title,
+                body: n.body,
+                ctaUrl: n.ctaUrl,
+                ctaLabel: n.ctaLabel,
+                readAt: n.readAt ? n.readAt.toISOString() : null,
+                createdAt: n.createdAt.toISOString(),
+              }))}
+            />
+            <UserMenu user={ctx.user} />
+          </>
+        }
       />
 
       <div className="flex flex-1">

@@ -27,6 +27,8 @@ model User {
   invitationsSent   Invitation[]    @relation("InvitedBy")
   bookingsCreated   Booking[]       @relation("BookingCreatedBy")
   passwordResets    PasswordReset[]
+  notifications     Notification[]  @relation("NotificationsToUser")
+  notificationsSent Notification[]  @relation("NotificationsByUser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -122,6 +124,7 @@ model Organization {
   auditLogs   AuditLog[]
   pages       Page[]
   reviews     Review[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -346,6 +349,34 @@ model LeadBlock {
 
   @@unique([organizationId, pattern])
   @@index([organizationId])
+}
+
+// ----------------------------------------------------------------------------
+// Notifications — one row per recipient (fan-out). Used for admin broadcasts
+// to all users + future per-org system messages.
+// ----------------------------------------------------------------------------
+
+model Notification {
+  id             String  @id @default(cuid())
+  userId         String
+  organizationId String?
+  type           String   @default("broadcast")
+  title          String
+  body           String
+  ctaUrl         String?
+  ctaLabel       String?
+  // The admin / system actor that sent it (for audit + display).
+  createdById    String?
+  readAt         DateTime?
+
+  user        User          @relation("NotificationsToUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?         @relation("NotificationsByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
 }
 
 // ----------------------------------------------------------------------------

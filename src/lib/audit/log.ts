@@ -80,6 +80,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.admin.revoke": "Platform-admin ingetrokken",
   "admin.impersonate.start": "Inloggen-als gestart",
   "admin.impersonate.stop": "Inloggen-als gestopt",
+  "admin.broadcast": "Broadcast verstuurd",
 };
 
 export function describeAction(action: string): string {
