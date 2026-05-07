@@ -8,11 +8,11 @@ import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "#use-cases", label: "Voor wie" },
-  { href: "#features", label: "Functies" },
-  { href: "#demo", label: "Demo" },
-  { href: "#pricing", label: "Prijzen" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#use-cases", label: "Voor wie" },
+  { href: "/#features", label: "Functies" },
+  { href: "/#demo", label: "Demo" },
+  { href: "/#pricing", label: "Prijzen" },
+  { href: "/#faq", label: "FAQ" },
 ];
 
 export function SiteHeader() {

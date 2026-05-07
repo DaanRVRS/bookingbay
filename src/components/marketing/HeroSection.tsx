@@ -58,7 +58,7 @@ export function HeroSection() {
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="#use-cases"
+                href="/#use-cases"
                 className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Bekijk wat je kunt verhuren
