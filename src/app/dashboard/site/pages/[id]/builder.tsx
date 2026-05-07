@@ -108,6 +108,21 @@ const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
 
 const PALETTE_PREFIX = "palette__" as const;
 const END_DROP_ZONE_ID = "__end__";
+const TRASH_DROP_ZONE_ID = "__trash__";
+const CONTAINER_DROP_PREFIX = "container__";
+const CONTAINER_DROP_SUFFIX = "__inside";
+
+function containerDropId(containerId: string) {
+  return `${CONTAINER_DROP_PREFIX}${containerId}${CONTAINER_DROP_SUFFIX}`;
+}
+function parseContainerDropId(id: string): string | null {
+  if (!id.startsWith(CONTAINER_DROP_PREFIX)) return null;
+  if (!id.endsWith(CONTAINER_DROP_SUFFIX)) return null;
+  return id.slice(
+    CONTAINER_DROP_PREFIX.length,
+    id.length - CONTAINER_DROP_SUFFIX.length,
+  );
+}
 
 type CategoryRef = { id: string; name: string; parentId: string | null };
 export type ReviewRef = {
@@ -200,6 +215,21 @@ export function Builder({
     if (selectedId === id) setSelectedId(null);
   };
 
+  const appendChildToContainer = (containerId: string, type: BlockType) => {
+    if (type === "container") return; // no nested containers
+    const childId = newId();
+    const child = makeDefaultBlock(type, childId);
+    if (child.type === "container") return;
+    setBlocks((prev) =>
+      prev.map((b) =>
+        b.id === containerId && b.type === "container"
+          ? { ...b, children: [...b.children, child] }
+          : b,
+      ),
+    );
+    setSelectedId(containerId);
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -229,6 +259,14 @@ export function Builder({
       return;
     }
     const overId = String(over.id);
+    // Container/trash drop zones don't show the line indicator
+    if (
+      overId === TRASH_DROP_ZONE_ID ||
+      parseContainerDropId(overId) !== null
+    ) {
+      setDropIndex(-1);
+      return;
+    }
     if (overId === END_DROP_ZONE_ID) {
       setDropIndex(blocks.length);
       return;
@@ -245,7 +283,37 @@ export function Builder({
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Dragging from the palette = insert a new block
+    // Trash zone — delete the dragged block (palette drags are no-ops here)
+    if (overId === TRASH_DROP_ZONE_ID) {
+      if (!activeId.startsWith(PALETTE_PREFIX)) {
+        removeBlock(activeId);
+      }
+      return;
+    }
+
+    // Drop into a container
+    const targetContainerId = parseContainerDropId(overId);
+    if (targetContainerId) {
+      if (activeId.startsWith(PALETTE_PREFIX)) {
+        const type = activeId.slice(PALETTE_PREFIX.length) as BlockType;
+        appendChildToContainer(targetContainerId, type);
+        return;
+      }
+      // Existing top-level block dragged into a container — move it.
+      const moving = blocks.find((b) => b.id === activeId);
+      if (!moving || moving.type === "container") return; // no nested containers
+      setBlocks((prev) => {
+        const withoutMoving = prev.filter((b) => b.id !== activeId);
+        return withoutMoving.map((b) =>
+          b.id === targetContainerId && b.type === "container"
+            ? { ...b, children: [...b.children, moving] }
+            : b,
+        );
+      });
+      return;
+    }
+
+    // Dragging from the palette = insert a new block at top level
     if (activeId.startsWith(PALETTE_PREFIX)) {
       const type = activeId.slice(PALETTE_PREFIX.length) as BlockType;
       let insertAt = blocks.length;
@@ -422,6 +490,10 @@ export function Builder({
             </div>
           ) : null}
         </DragOverlay>
+
+        <TrashDropZone
+          visible={activeDrag?.kind === "block"}
+        />
       </DndContext>
 
       <PageMetaDialog
@@ -464,6 +536,72 @@ function PaletteItem({ type, Icon }: { type: BlockType; Icon: LucideIcon }) {
       </div>
       <Plus className="ml-auto size-4 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
+  );
+}
+
+function TrashDropZone({ visible }: { visible: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: TRASH_DROP_ZONE_ID });
+  return (
+    <div
+      ref={setNodeRef}
+      aria-hidden={!visible}
+      className={`fixed bottom-6 right-6 z-50 grid place-items-center rounded-full border-2 border-dashed shadow-lg transition-all duration-200 ${
+        visible
+          ? "pointer-events-auto opacity-100 scale-100"
+          : "pointer-events-none opacity-0 scale-90"
+      } ${
+        isOver
+          ? "size-20 border-destructive bg-destructive text-white"
+          : "size-16 border-destructive/60 bg-card text-destructive"
+      }`}
+    >
+      <Trash2
+        className={`transition-all ${isOver ? "size-7" : "size-6"}`}
+      />
+      <span
+        className={`absolute -top-7 right-0 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background transition-opacity ${
+          isOver ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        Loslaten om te verwijderen
+      </span>
+    </div>
+  );
+}
+
+function ContainerDropZone({
+  containerId,
+  isEmpty,
+}: {
+  containerId: string;
+  isEmpty: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: containerDropId(containerId),
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`m-3 rounded-lg border-2 border-dashed text-center transition-colors ${
+        isOver
+          ? "border-primary bg-primary/10"
+          : isEmpty
+            ? "border-border bg-muted/30"
+            : "border-border/60 bg-background/50"
+      } ${isEmpty ? "px-4 py-10" : "px-4 py-3"}`}
+    >
+      <p
+        className={`text-xs font-medium ${
+          isOver ? "text-primary" : "text-muted-foreground"
+        }`}
+      >
+        {isOver
+          ? "Loslaten om in container te plaatsen"
+          : isEmpty
+            ? "Sleep een blok hierin"
+            : "+ Sleep om aan deze container toe te voegen"}
+      </p>
+    </div>
   );
 }
 
@@ -610,6 +748,15 @@ function BlockCard({
           <BlockPreview block={block} accent={accent} reviews={reviews} />
         </div>
       </div>
+
+      {/* Inline drop zone for containers — lets palette items be dragged
+          straight in. */}
+      {block.type === "container" && (
+        <ContainerDropZone
+          containerId={block.id}
+          isEmpty={block.children.length === 0}
+        />
+      )}
 
       {/* Editor */}
       {selected && (
