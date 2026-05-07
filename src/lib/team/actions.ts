@@ -1,11 +1,13 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { requireOrg } from "@/lib/auth/session";
+import { requireOrg, ACTIVE_ORG_COOKIE } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import {
@@ -344,5 +346,19 @@ export async function acceptInviteAction(input: { token: string }): Promise<
     metadata: { role: invite.role },
   });
 
-  return { ok: true, data: { organizationSlug: invite.organization.slug } };
+  // Switch to the newly-joined org so /dashboard renders it directly.
+  const jar = await cookies();
+  jar.set(ACTIVE_ORG_COOKIE, invite.organizationId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      process.env.NODE_ENV === "production" &&
+      (process.env.NEXTAUTH_URL ?? "").startsWith("https"),
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  // Server-side redirect avoids the brittle client-side router.replace +
+  // router.refresh dance (which could hang the transition forever).
+  redirect("/dashboard");
 }

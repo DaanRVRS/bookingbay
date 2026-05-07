@@ -1,26 +1,22 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { acceptInviteAction } from "@/lib/team/actions";
 
 export function AcceptInviteButton({ token }: { token: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const onClick = () => {
     startTransition(async () => {
+      // On success the action redirects server-side to /dashboard and never
+      // returns a result. We only see a return value on failure.
       const res = await acceptInviteAction({ token });
-      if (!res.ok) {
+      if (res && !res.ok) {
         toast.error(res.error);
-        return;
       }
-      toast.success("Welkom!");
-      router.replace("/dashboard");
-      router.refresh();
     });
   };
 
