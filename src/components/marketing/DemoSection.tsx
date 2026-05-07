@@ -15,12 +15,25 @@ import {
   Ship,
   Users,
 } from "lucide-react";
-import { addDays, differenceInCalendarDays, format } from "date-fns";
+import {
+  addDays,
+  addMinutes,
+  differenceInMinutes,
+  format,
+  isSameDay,
+  startOfDay,
+} from "date-fns";
 import { nl } from "date-fns/locale";
 
+const PRICE_PER_HOUR = 15;
 const PRICE_PER_DAY = 75;
 const PRICE_PER_WEEK = 380;
 const DEPOSIT = 200;
+const HALF_DAY_HOURS = 4;
+const FULL_DAY_HOURS = 8;
+const STEP_MINUTES = 30;
+const MIN_HOUR = 8;
+const MAX_HOUR = 22;
 
 export function DemoSection() {
   const [tab, setTab] = useState<"customer" | "dashboard">("customer");
@@ -139,27 +152,114 @@ function BrowserChrome({
 
 /* ---------------------- CUSTOMER DEMO ---------------------- */
 
+interface PricingResult {
+  rate: "hour" | "halfday" | "day" | "week";
+  unitLabel: string;
+  subtotal: number;
+}
+
+function calcPricing(start: Date, end: Date): PricingResult {
+  const minutes = Math.max(0, differenceInMinutes(end, start));
+  const hours = minutes / 60;
+
+  if (hours <= 0) {
+    return { rate: "hour", unitLabel: "0 uur", subtotal: 0 };
+  }
+
+  // Single calendar-day: hour-based, with half-day en hele-dag stoptarieven
+  if (isSameDay(start, end)) {
+    if (hours >= FULL_DAY_HOURS) {
+      return { rate: "day", unitLabel: "Hele dag", subtotal: PRICE_PER_DAY };
+    }
+    if (hours >= HALF_DAY_HOURS) {
+      return {
+        rate: "halfday",
+        unitLabel: "Halve dag (4 uur)",
+        subtotal: HALF_DAY_HOURS * PRICE_PER_HOUR,
+      };
+    }
+    const billedHours = Math.ceil(hours * 2) / 2;
+    return {
+      rate: "hour",
+      unitLabel: `${billedHours.toString().replace(".", ",")} uur`,
+      subtotal: Math.round(billedHours * PRICE_PER_HOUR),
+    };
+  }
+
+  // Multi-day
+  const days = Math.max(1, Math.ceil(hours / 24));
+  if (days >= 7) {
+    const weeks = Math.ceil(days / 7);
+    return {
+      rate: "week",
+      unitLabel: `${weeks} ${weeks === 1 ? "week" : "weken"}`,
+      subtotal: weeks * PRICE_PER_WEEK,
+    };
+  }
+  return {
+    rate: "day",
+    unitLabel: `${days} ${days === 1 ? "dag" : "dagen"}`,
+    subtotal: days * PRICE_PER_DAY,
+  };
+}
+
+function clampToBusinessHours(d: Date) {
+  const next = new Date(d);
+  if (next.getHours() < MIN_HOUR) next.setHours(MIN_HOUR, 0, 0, 0);
+  if (next.getHours() > MAX_HOUR) next.setHours(MAX_HOUR, 0, 0, 0);
+  return next;
+}
+
 function CustomerDemo() {
-  const today = useMemo(() => new Date(), []);
-  const [start, setStart] = useState<Date>(addDays(today, 3));
-  const [end, setEnd] = useState<Date>(addDays(today, 5));
+  const initial = useMemo(() => {
+    const today = startOfDay(new Date());
+    const startDate = addDays(today, 3);
+    startDate.setHours(10, 0, 0, 0);
+    const endDate = addDays(today, 3);
+    endDate.setHours(16, 0, 0, 0);
+    return { today, startDate, endDate };
+  }, []);
+
+  const [start, setStart] = useState<Date>(initial.startDate);
+  const [end, setEnd] = useState<Date>(initial.endDate);
   const [done, setDone] = useState(false);
 
-  const days = Math.max(1, differenceInCalendarDays(end, start) + 1);
-  const useWeek = days >= 7;
-  const subtotal = useWeek
-    ? Math.ceil(days / 7) * PRICE_PER_WEEK
-    : days * PRICE_PER_DAY;
-  const total = subtotal + DEPOSIT;
+  const pricing = calcPricing(start, end);
+  const total = pricing.subtotal + DEPOSIT;
 
-  const adjustStart = (delta: number) => {
+  const adjustStartDay = (delta: number) => {
     const next = addDays(start, delta);
-    if (next < today) return;
+    if (startOfDay(next) < initial.today) return;
+    next.setHours(start.getHours(), start.getMinutes(), 0, 0);
     setStart(next);
-    if (next > end) setEnd(addDays(next, 1));
+    if (end <= next) {
+      const newEnd = addMinutes(next, 60);
+      setEnd(clampToBusinessHours(newEnd));
+    }
   };
-  const adjustEnd = (delta: number) => {
+
+  const adjustEndDay = (delta: number) => {
     const next = addDays(end, delta);
+    if (startOfDay(next) < startOfDay(start)) return;
+    next.setHours(end.getHours(), end.getMinutes(), 0, 0);
+    if (next <= start) return;
+    setEnd(next);
+  };
+
+  const adjustStartTime = (deltaMin: number) => {
+    const next = addMinutes(start, deltaMin);
+    if (next.getHours() < MIN_HOUR || next.getHours() > MAX_HOUR) return;
+    if (!isSameDay(next, start)) return;
+    setStart(next);
+    if (end <= next) {
+      setEnd(clampToBusinessHours(addMinutes(next, 60)));
+    }
+  };
+
+  const adjustEndTime = (deltaMin: number) => {
+    const next = addMinutes(end, deltaMin);
+    if (next.getHours() < MIN_HOUR || next.getHours() > MAX_HOUR + 0) return;
+    if (!isSameDay(next, end)) return;
     if (next <= start) return;
     setEnd(next);
   };
@@ -181,14 +281,18 @@ function CustomerDemo() {
             Sloep Aurora — 6 personen
           </h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Elektrische sloep, comfortabel voor een halve of hele dag varen door
-            de grachten. Vaarbewijs niet vereist.
+            Elektrische sloep, comfortabel voor een paar uurtjes of een hele
+            dag varen door de grachten. Vaarbewijs niet vereist.
           </p>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <PriceTile label="Per dag" value={`€${PRICE_PER_DAY}`} />
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <PriceTile label="Per uur" value={`€${PRICE_PER_HOUR}`} />
+            <PriceTile label="Halve dag" value={`€${HALF_DAY_HOURS * PRICE_PER_HOUR}`} />
+            <PriceTile label="Hele dag" value={`€${PRICE_PER_DAY}`} />
             <PriceTile label="Per week" value={`€${PRICE_PER_WEEK}`} />
-            <PriceTile label="Borg" value={`€${DEPOSIT}`} />
           </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Borg €{DEPOSIT} · vaartijd 08:00 – 22:00
+          </p>
         </div>
 
         {/* Booking form */}
@@ -197,6 +301,7 @@ function CustomerDemo() {
             <SuccessState
               start={start}
               end={end}
+              pricing={pricing}
               total={total}
               onReset={() => setDone(false)}
             />
@@ -205,30 +310,29 @@ function CustomerDemo() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Reserveer
               </p>
-              <h3 className="mt-1 text-lg font-semibold">
-                Kies je vaardagen
-              </h3>
+              <h3 className="mt-1 text-lg font-semibold">Kies datum & tijd</h3>
 
-              <div className="mt-5 flex flex-col gap-3">
-                <DatePickerRow
+              <div className="mt-5 flex flex-col gap-2.5">
+                <DateTimeRow
                   label="Vanaf"
                   date={start}
-                  onMinus={() => adjustStart(-1)}
-                  onPlus={() => adjustStart(1)}
+                  onDayMinus={() => adjustStartDay(-1)}
+                  onDayPlus={() => adjustStartDay(1)}
+                  onTimeMinus={() => adjustStartTime(-STEP_MINUTES)}
+                  onTimePlus={() => adjustStartTime(STEP_MINUTES)}
                 />
-                <DatePickerRow
-                  label="Tot en met"
+                <DateTimeRow
+                  label="Tot"
                   date={end}
-                  onMinus={() => adjustEnd(-1)}
-                  onPlus={() => adjustEnd(1)}
+                  onDayMinus={() => adjustEndDay(-1)}
+                  onDayPlus={() => adjustEndDay(1)}
+                  onTimeMinus={() => adjustEndTime(-STEP_MINUTES)}
+                  onTimePlus={() => adjustEndTime(STEP_MINUTES)}
                 />
               </div>
 
-              <div className="mt-6 rounded-xl border border-border bg-background p-4 text-sm">
-                <Row
-                  label={`${days} ${days === 1 ? "dag" : "dagen"} ${useWeek ? "(week­tarief)" : ""}`}
-                  value={`€${subtotal}`}
-                />
+              <div className="mt-5 rounded-xl border border-border bg-background p-4 text-sm">
+                <Row label={pricing.unitLabel} value={`€${pricing.subtotal}`} />
                 <Row label="Borg (retour bij inlevering)" value={`€${DEPOSIT}`} />
                 <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-base font-semibold">
                   <span>Totaal</span>
@@ -238,7 +342,8 @@ function CustomerDemo() {
 
               <button
                 onClick={() => setDone(true)}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                disabled={pricing.subtotal === 0}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
               >
                 Reserveer nu
                 <ArrowRight className="size-4" />
@@ -265,39 +370,83 @@ function PriceTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DatePickerRow({
+function DateTimeRow({
   label,
   date,
-  onMinus,
-  onPlus,
+  onDayMinus,
+  onDayPlus,
+  onTimeMinus,
+  onTimePlus,
 }: {
   label: string;
   date: Date;
-  onMinus: () => void;
-  onPlus: () => void;
+  onDayMinus: () => void;
+  onDayPlus: () => void;
+  onTimeMinus: () => void;
+  onTimePlus: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
-      <span className="px-2 text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onMinus}
-          aria-label="Eerder"
-          className="grid size-7 place-items-center rounded-md border border-border text-muted-foreground hover:bg-accent"
-        >
-          <ChevronLeft className="size-3.5" />
-        </button>
-        <span className="min-w-[120px] px-2 text-center text-sm font-semibold tabular-nums">
-          {format(date, "EEE d MMM", { locale: nl })}
+    <div className="rounded-xl border border-border bg-background p-2">
+      <div className="flex items-center justify-between">
+        <span className="px-2 text-xs font-medium text-muted-foreground">
+          {label}
         </span>
-        <button
-          onClick={onPlus}
-          aria-label="Later"
-          className="grid size-7 place-items-center rounded-md border border-border text-muted-foreground hover:bg-accent"
-        >
-          <ChevronRight className="size-3.5" />
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <Stepper
+            onMinus={onDayMinus}
+            onPlus={onDayPlus}
+            value={format(date, "EEE d MMM", { locale: nl })}
+            minWidth={110}
+            label="Dag"
+          />
+          <Stepper
+            onMinus={onTimeMinus}
+            onPlus={onTimePlus}
+            value={format(date, "HH:mm")}
+            minWidth={64}
+            label="Tijd"
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function Stepper({
+  onMinus,
+  onPlus,
+  value,
+  minWidth,
+  label,
+}: {
+  onMinus: () => void;
+  onPlus: () => void;
+  value: string;
+  minWidth: number;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={onMinus}
+        aria-label={`${label} eerder`}
+        className="grid size-7 place-items-center rounded-md border border-border text-muted-foreground hover:bg-accent"
+      >
+        <ChevronLeft className="size-3.5" />
+      </button>
+      <span
+        className="px-2 text-center text-sm font-semibold tabular-nums"
+        style={{ minWidth }}
+      >
+        {value}
+      </span>
+      <button
+        onClick={onPlus}
+        aria-label={`${label} later`}
+        className="grid size-7 place-items-center rounded-md border border-border text-muted-foreground hover:bg-accent"
+      >
+        <ChevronRight className="size-3.5" />
+      </button>
     </div>
   );
 }
@@ -314,26 +463,32 @@ function Row({ label, value }: { label: string; value: string }) {
 function SuccessState({
   start,
   end,
+  pricing,
   total,
   onReset,
 }: {
   start: Date;
   end: Date;
+  pricing: PricingResult;
   total: number;
   onReset: () => void;
 }) {
+  const sameDay = isSameDay(start, end);
+  const dateLabel = sameDay
+    ? `${format(start, "EEE d MMM", { locale: nl })} · ${format(start, "HH:mm")} – ${format(end, "HH:mm")}`
+    : `${format(start, "d MMM HH:mm", { locale: nl })} — ${format(end, "d MMM HH:mm", { locale: nl })}`;
+
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
       <div className="grid size-14 place-items-center rounded-full bg-[oklch(0.7_0.13_150)]/20 text-[oklch(0.5_0.14_150)]">
         <Check className="size-6" strokeWidth={3} />
       </div>
       <h3 className="mt-4 text-lg font-semibold">Aanvraag verzonden</h3>
+      <p className="mt-1 text-sm text-muted-foreground">Sloep Aurora</p>
+      <p className="mt-0.5 text-sm font-medium">{dateLabel}</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Sloep Aurora · {format(start, "d MMM", { locale: nl })} —{" "}
-        {format(end, "d MMM", { locale: nl })}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Totaal <span className="font-semibold text-foreground">€{total}</span>
+        {pricing.unitLabel} · totaal{" "}
+        <span className="font-semibold text-foreground">€{total}</span>
       </p>
       <p className="mt-4 max-w-xs text-xs text-muted-foreground">
         In de echte versie krijgt de verhuurder direct een melding en stuurt
