@@ -70,7 +70,7 @@ jobs:
             for i in $(seq 1 15); do
               sleep 2
               if curl --fail --silent --show-error \
-                  -H "Host: bookingbay.178-104-86-251.nip.io" \
+                  -H "Host: www.bookingbay.nl" \
                   http://localhost/api/health > /tmp/health.json; then
                 echo "OK on attempt $i:"
                 cat /tmp/health.json
