@@ -131,7 +131,14 @@ export function Pricing() {
         </div>
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Meer dan 500 items of speciale eisen? <Link href="#" className="text-foreground underline underline-offset-4">Praat met ons</Link> over Enterprise.
+          Meer dan 500 items of speciale eisen?{" "}
+          <Link
+            href="mailto:hallo@bookingbay.nl?subject=Enterprise%20BookingBay"
+            className="text-foreground underline underline-offset-4"
+          >
+            Praat met ons
+          </Link>{" "}
+          over Enterprise.
         </p>
       </div>
     </section>

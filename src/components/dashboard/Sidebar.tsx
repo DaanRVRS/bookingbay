@@ -9,6 +9,7 @@ import {
   Inbox,
   Layers,
   Package,
+  ScrollText,
   Settings,
   Users,
   UserCog,
@@ -48,6 +49,7 @@ const settings: NavItem[] = [
   },
   { href: "/dashboard/site/pages", label: "Pagina's", icon: FileText },
   { href: "/dashboard/team", label: "Team", icon: UserCog },
+  { href: "/dashboard/audit", label: "Activiteitenlog", icon: ScrollText },
   { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
 ];
 

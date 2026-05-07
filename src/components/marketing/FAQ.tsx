@@ -19,7 +19,7 @@ const items = [
   },
   {
     q: "Kunnen klanten direct online betalen?",
-    a: "In de huidige versie sturen klanten een aanvraag via je site. Online betaalde reserveringen staan op de roadmap.",
+    a: "Klanten sturen een aanvraag via je site; jij bevestigt en factureert via je eigen werkwijze. Directe online betaling werken we momenteel uit.",
   },
   {
     q: "Wat als ik wil stoppen?",

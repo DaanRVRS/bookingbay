@@ -166,7 +166,7 @@ function SecondaryStats({ categoryCount, slug }: { categoryCount: number; slug: 
           {slug}.bookingbay.nl
         </Link>
         <p className="mt-2 text-xs text-muted-foreground">
-          Beschikbaar zodra je publieke site live gaat (M2).
+          Open in nieuw tabblad om te zien wat je klanten zien.
         </p>
       </div>
       <div className="rounded-xl border border-border bg-card p-5">
@@ -198,13 +198,13 @@ function EmptyState({ orgName }: { orgName: string }) {
     },
     {
       title: "Maak een klant aan",
-      body: "Snel-add tijdens elke boeking, of importeer vanuit Excel.",
+      body: "Vul snel toe tijdens een boeking, of voeg vooraf je vaste klanten toe.",
       href: "/dashboard/customers",
       icon: Users,
     },
     {
       title: "Boek je eerste reservering",
-      body: "Drag-and-drop in de planning of via 'Nieuwe boeking'.",
+      body: "Klik op een dag in de planning of gebruik 'Nieuwe boeking'.",
       href: "/dashboard/bookings",
       icon: CheckCircle2,
     },

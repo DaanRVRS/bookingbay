@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   addDays,
   addWeeks,
+  differenceInMinutes,
   format,
   isSameDay,
   isToday,
@@ -17,6 +18,7 @@ import { nl } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { BookingStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { STATUS_LABELS } from "@/lib/bookings/schemas";
 
 interface ItemRow {
@@ -43,6 +45,8 @@ interface Props {
   bookings: BookingRow[];
 }
 
+type ViewMode = "week" | "day" | "items";
+
 const itemAccents = [
   "from-primary to-[oklch(0.55_0.18_18)]",
   "from-[oklch(0.55_0.13_200)] to-[oklch(0.45_0.15_220)]",
@@ -60,6 +64,11 @@ const statusStyles: Record<BookingStatus, string> = {
   CANCELED: "bg-destructive/15 text-destructive line-through",
 };
 
+const HOUR_START = 7;
+const HOUR_END = 22;
+const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+const HOUR_HEIGHT = 56;
+
 export function CalendarView({ focusedDate, weekStart, items, bookings }: Props) {
   const router = useRouter();
   const focused = parseISO(focusedDate);
@@ -76,6 +85,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
   }, [items]);
 
   const [selectedDay, setSelectedDay] = useState<Date>(focused);
+  const [view, setView] = useState<ViewMode>("week");
 
   const goto = (d: Date) => {
     const iso = format(d, "yyyy-MM-dd");
@@ -88,11 +98,13 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         <div>
           <p className="text-sm text-muted-foreground">Planning</p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {format(start, "d MMM", { locale: nl })} —{" "}
-            {format(addDays(start, 6), "d MMM yyyy", { locale: nl })}
+            {view === "day"
+              ? format(selectedDay, "EEEE d MMMM yyyy", { locale: nl })
+              : `${format(start, "d MMM", { locale: nl })} — ${format(addDays(start, 6), "d MMM yyyy", { locale: nl })}`}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewSelector view={view} onChange={setView} />
           <Button
             variant="outline"
             size="icon"
@@ -101,11 +113,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => goto(new Date())}
-            className="px-3"
-          >
+          <Button variant="outline" onClick={() => goto(new Date())} className="px-3">
             Vandaag
           </Button>
           <Button
@@ -126,7 +134,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         </div>
       </div>
 
-      {/* Day strip — also acts as the day picker on mobile */}
+      {/* Day strip — also acts as the day picker */}
       <div className="mt-5 grid grid-cols-7 gap-1.5">
         {days.map((d) => {
           const isSelected = isSameDay(d, selectedDay);
@@ -137,7 +145,10 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
           return (
             <button
               key={d.toISOString()}
-              onClick={() => setSelectedDay(d)}
+              onClick={() => {
+                setSelectedDay(d);
+                if (view === "day") goto(d);
+              }}
               className={`group relative flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-xs transition-colors ${
                 isSelected
                   ? "border-primary/40 bg-primary/8 text-foreground"
@@ -164,26 +175,32 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         })}
       </div>
 
-      {/* Mobile / day-list view */}
-      <div className="mt-6 lg:hidden">
-        <DayList
-          day={selectedDay}
-          bookings={bookings}
-          items={items}
-          accentByItemId={accentByItemId}
-        />
-      </div>
-
-      {/* Desktop / week-grid view */}
-      <div className="mt-6 hidden lg:block">
-        <WeekGrid
-          start={start}
-          days={days}
-          bookings={bookings}
-          items={items}
-          accentByItemId={accentByItemId}
-          onDayClick={(d) => setSelectedDay(d)}
-        />
+      <div className="mt-6">
+        {view === "week" && (
+          <WeekTimeGrid
+            days={days}
+            bookings={bookings}
+            items={items}
+            accentByItemId={accentByItemId}
+          />
+        )}
+        {view === "day" && (
+          <DayTimeView
+            day={selectedDay}
+            bookings={bookings}
+            items={items}
+            accentByItemId={accentByItemId}
+          />
+        )}
+        {view === "items" && (
+          <ItemsGrid
+            days={days}
+            bookings={bookings}
+            items={items}
+            accentByItemId={accentByItemId}
+            onDayClick={(d) => setSelectedDay(d)}
+          />
+        )}
       </div>
 
       {/* Mobile floating new-booking button */}
@@ -198,7 +215,180 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
   );
 }
 
-function DayList({
+function ViewSelector({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (v: ViewMode) => void;
+}) {
+  const opts: { id: ViewMode; label: string }[] = [
+    { id: "week", label: "Week" },
+    { id: "day", label: "Dag" },
+    { id: "items", label: "Items" },
+  ];
+  return (
+    <div className="inline-flex rounded-md border border-border bg-card p-0.5 text-sm">
+      {opts.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "rounded px-3 py-1 transition-colors",
+            view === o.id
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function bookingPosition(start: Date, end: Date, day: Date) {
+  const dayStart = startOfDay(day);
+  const dayBoundaryStart = new Date(dayStart);
+  dayBoundaryStart.setHours(HOUR_START, 0, 0, 0);
+  const dayBoundaryEnd = new Date(dayStart);
+  dayBoundaryEnd.setHours(HOUR_END + 1, 0, 0, 0);
+
+  const visibleStart = start < dayBoundaryStart ? dayBoundaryStart : start;
+  const visibleEnd = end > dayBoundaryEnd ? dayBoundaryEnd : end;
+
+  if (visibleStart >= dayBoundaryEnd || visibleEnd <= dayBoundaryStart) return null;
+
+  const top =
+    (differenceInMinutes(visibleStart, dayBoundaryStart) / 60) * HOUR_HEIGHT;
+  const height = Math.max(
+    24,
+    (differenceInMinutes(visibleEnd, visibleStart) / 60) * HOUR_HEIGHT,
+  );
+  return { top, height };
+}
+
+function WeekTimeGrid({
+  days,
+  bookings,
+  items,
+  accentByItemId,
+}: {
+  days: Date[];
+  bookings: BookingRow[];
+  items: ItemRow[];
+  accentByItemId: Map<string, string>;
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
+        Voeg eerst items toe aan je catalogus voor je boekingen kunt plannen.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <div className="min-w-[840px]">
+        {/* Header row */}
+        <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/30 text-xs">
+          <div className="px-2 py-2 text-muted-foreground" />
+          {days.map((d) => (
+            <div
+              key={d.toISOString()}
+              className={cn(
+                "border-l border-border px-2 py-2 text-center",
+                isToday(d) ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <span className="block text-[10px] font-medium tracking-wide uppercase">
+                {format(d, "EEE", { locale: nl })}
+              </span>
+              <span className="block text-sm font-semibold tabular-nums">
+                {format(d, "d")}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Time grid body */}
+        <div
+          className="relative grid grid-cols-[60px_repeat(7,minmax(0,1fr))]"
+          style={{ height: HOURS.length * HOUR_HEIGHT }}
+        >
+          {/* Hour labels */}
+          <div className="relative border-r border-border">
+            {HOURS.map((h, i) => (
+              <div
+                key={h}
+                className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground tabular-nums"
+                style={{ top: i * HOUR_HEIGHT }}
+              >
+                {String(h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns */}
+          {days.map((d) => {
+            const dayBookings = bookings.filter((b) => {
+              const s = parseISO(b.startAt);
+              const e = parseISO(b.endAt);
+              return s < addDays(startOfDay(d), 1) && e > startOfDay(d);
+            });
+            return (
+              <div
+                key={d.toISOString()}
+                className={cn(
+                  "relative border-l border-border",
+                  isToday(d) && "bg-primary/[0.025]",
+                )}
+              >
+                {/* Hour grid lines */}
+                {HOURS.map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute right-0 left-0 border-t border-border/60"
+                    style={{ top: i * HOUR_HEIGHT }}
+                  />
+                ))}
+                {/* Booking blocks */}
+                {dayBookings.map((b) => {
+                  const pos = bookingPosition(
+                    parseISO(b.startAt),
+                    parseISO(b.endAt),
+                    d,
+                  );
+                  if (!pos) return null;
+                  return (
+                    <Link
+                      key={b.id}
+                      href={`/dashboard/bookings/${b.id}`}
+                      className={cn(
+                        "absolute right-1 left-1 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-1.5 py-1 text-[10px] font-medium text-white shadow-sm transition-all hover:brightness-110",
+                        accentByItemId.get(b.itemId) ?? "from-primary to-primary",
+                        b.status === "CANCELED" && "opacity-50 line-through",
+                      )}
+                      style={{ top: pos.top + 1, height: pos.height - 2 }}
+                      title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")}`}
+                    >
+                      <span className="truncate font-semibold">
+                        {format(parseISO(b.startAt), "HH:mm")} {b.itemName}
+                      </span>
+                      <span className="truncate opacity-90">{b.customerName}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DayTimeView({
   day,
   bookings,
   items,
@@ -209,6 +399,14 @@ function DayList({
   items: ItemRow[];
   accentByItemId: Map<string, string>;
 }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
+        Voeg eerst items toe aan je catalogus voor je boekingen kunt plannen.
+      </div>
+    );
+  }
+
   const dayBookings = bookings
     .filter((b) => {
       const s = parseISO(b.startAt);
@@ -217,73 +415,144 @@ function DayList({
       const dayEnd = addDays(dayStart, 1);
       return s < dayEnd && e > dayStart;
     })
-    .sort((a, b) => parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime());
-
-  if (items.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center text-sm text-muted-foreground">
-        Voeg eerst items toe aan je catalogus voor je boekingen kunt plannen.
-      </div>
+    .sort(
+      (a, b) => parseISO(a.startAt).getTime() - parseISO(b.startAt).getTime(),
     );
-  }
 
   return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold tracking-tight">
-        {format(day, "EEEE d MMMM", { locale: nl })}
-      </h2>
-      {dayBookings.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-10 text-center text-sm text-muted-foreground">
-          Geen boekingen op deze dag.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {dayBookings.map((b) => (
-            <li key={b.id}>
-              <Link
-                href={`/dashboard/bookings/${b.id}`}
-                className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 pl-4 transition-shadow hover:shadow-sm"
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      {/* Time column */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
+          {format(day, "EEEE d MMMM", { locale: nl })}
+          {isToday(day) && (
+            <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+              Vandaag
+            </span>
+          )}
+        </div>
+        <div
+          className="relative grid grid-cols-[60px_1fr]"
+          style={{ height: HOURS.length * HOUR_HEIGHT }}
+        >
+          {/* Hour labels */}
+          <div className="relative border-r border-border">
+            {HOURS.map((h, i) => (
+              <div
+                key={h}
+                className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground tabular-nums"
+                style={{ top: i * HOUR_HEIGHT }}
               >
-                <div
-                  className={`absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b ${
-                    accentByItemId.get(b.itemId) ?? "from-primary to-primary/60"
-                  }`}
-                />
-                <div className="flex shrink-0 flex-col">
-                  <span className="text-[12px] font-semibold leading-tight tabular-nums">
-                    {format(parseISO(b.startAt), "HH:mm")}
-                  </span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">
-                    tot {format(parseISO(b.endAt), "HH:mm")}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{b.itemName}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{b.customerName}</p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyles[b.status]}`}
+                {String(h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+          {/* Booking column */}
+          <div className="relative">
+            {HOURS.map((_, i) => (
+              <div
+                key={i}
+                className="absolute right-0 left-0 border-t border-border/60"
+                style={{ top: i * HOUR_HEIGHT }}
+              />
+            ))}
+            {dayBookings.map((b) => {
+              const pos = bookingPosition(
+                parseISO(b.startAt),
+                parseISO(b.endAt),
+                day,
+              );
+              if (!pos) return null;
+              return (
+                <Link
+                  key={b.id}
+                  href={`/dashboard/bookings/${b.id}`}
+                  className={cn(
+                    "absolute right-2 left-2 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:brightness-110",
+                    accentByItemId.get(b.itemId) ?? "from-primary to-primary",
+                    b.status === "CANCELED" && "opacity-50 line-through",
+                  )}
+                  style={{ top: pos.top + 1, height: pos.height - 2 }}
                 >
-                  {STATUS_LABELS[b.status]}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+                  <span className="truncate text-[11px] font-semibold opacity-95">
+                    {format(parseISO(b.startAt), "HH:mm")} –{" "}
+                    {format(parseISO(b.endAt), "HH:mm")}
+                  </span>
+                  <span className="truncate text-sm font-semibold">{b.itemName}</span>
+                  <span className="truncate opacity-90">{b.customerName}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Side list */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between pb-3">
+          <h3 className="text-sm font-semibold">Boekingen vandaag</h3>
+          <span className="text-xs text-muted-foreground">
+            {dayBookings.length}{" "}
+            {dayBookings.length === 1 ? "boeking" : "boekingen"}
+          </span>
+        </div>
+        {dayBookings.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border bg-background/50 px-4 py-8 text-center text-xs text-muted-foreground">
+            Geen boekingen op deze dag.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {dayBookings.map((b) => (
+              <li key={b.id}>
+                <Link
+                  href={`/dashboard/bookings/${b.id}`}
+                  className="group relative flex items-center gap-3 overflow-hidden rounded-lg border border-border bg-background p-2.5 pl-3.5 transition-shadow hover:shadow-sm"
+                >
+                  <div
+                    className={cn(
+                      "absolute top-0 bottom-0 left-0 w-[3px] bg-gradient-to-b",
+                      accentByItemId.get(b.itemId) ?? "from-primary to-primary/60",
+                    )}
+                  />
+                  <div className="flex shrink-0 flex-col">
+                    <span className="text-[11px] font-semibold leading-tight tabular-nums">
+                      {format(parseISO(b.startAt), "HH:mm")}
+                    </span>
+                    <span className="text-[10px] leading-tight text-muted-foreground">
+                      tot {format(parseISO(b.endAt), "HH:mm")}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-medium">{b.itemName}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {b.customerName}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium",
+                      statusStyles[b.status],
+                    )}
+                  >
+                    {STATUS_LABELS[b.status]}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
 
-function WeekGrid({
-  start,
+function ItemsGrid({
   days,
   bookings,
   items,
   accentByItemId,
   onDayClick,
 }: {
-  start: Date;
   days: Date[];
   bookings: BookingRow[];
   items: ItemRow[];
@@ -300,8 +569,6 @@ function WeekGrid({
     );
   }
 
-  // Map: itemId → array of booking-segments per day index
-  // For each booking compute which day-cells it spans.
   const segmentsByItem: Record<
     string,
     {
@@ -309,7 +576,7 @@ function WeekGrid({
       customerName: string;
       status: BookingStatus;
       startDayIndex: number;
-      endDayIndex: number; // inclusive
+      endDayIndex: number;
       startTime: string;
       endTime: string;
     }[]
@@ -343,7 +610,6 @@ function WeekGrid({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
-      {/* Day header */}
       <div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/30 text-xs">
         <div className="px-4 py-2 font-semibold text-muted-foreground">Item</div>
         {days.map((d) => (
@@ -357,12 +623,13 @@ function WeekGrid({
             <span className="block text-[10px] font-medium tracking-wide uppercase">
               {format(d, "EEE", { locale: nl })}
             </span>
-            <span className="block text-sm font-semibold tabular-nums">{format(d, "d")}</span>
+            <span className="block text-sm font-semibold tabular-nums">
+              {format(d, "d")}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Item rows */}
       <ul>
         {items.map((item) => {
           const segs = segmentsByItem[item.id] ?? [];
@@ -380,7 +647,6 @@ function WeekGrid({
                 />
                 <span className="truncate font-medium">{item.name}</span>
               </div>
-              {/* Background empty cells (clickable) */}
               {days.map((d) => (
                 <Link
                   key={d.toISOString()}
@@ -389,7 +655,6 @@ function WeekGrid({
                   aria-label={`Nieuwe boeking ${item.name} op ${format(d, "d MMM", { locale: nl })}`}
                 />
               ))}
-              {/* Booking segments overlaid */}
               <div className="pointer-events-none absolute inset-y-1 left-[180px] right-0 flex flex-col justify-start gap-1 px-1">
                 {segs.map((seg) => {
                   const cols = seg.endDayIndex - seg.startDayIndex + 1;

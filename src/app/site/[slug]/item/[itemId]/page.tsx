@@ -75,7 +75,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
             Aanvragen
           </Link>
           <p className="mt-2 text-xs text-muted-foreground">
-            Geen directe online betaling — wij bevestigen je reservering binnen één werkdag.
+            Je krijgt binnen één werkdag een bevestiging.
           </p>
         </div>
       </div>
