@@ -24,7 +24,14 @@ export function TopBar({
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+    <header
+      className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur"
+      style={{
+        backgroundImage:
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 56' preserveAspectRatio='none'><path d='M0,28 Q120,8 240,28 T480,28 T720,28 T960,28 T1200,28 T1440,28 V56 H0 Z' fill='%23ef5934' fill-opacity='0.04'/><path d='M0,38 Q120,18 240,38 T480,38 T720,38 T960,38 T1200,38 T1440,38 V56 H0 Z' fill='%23ef5934' fill-opacity='0.05'/></svg>\")",
+        backgroundSize: "100% 100%",
+      }}
+    >
       <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger

@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, Globe, Layers, Package, Users } from "lucide-
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Overzicht" };
 
@@ -54,14 +55,20 @@ export default async function DashboardOverviewPage() {
 
   const isEmpty = itemCount === 0 && bookingsThisWeek === 0;
 
+  const firstName = ctx.user.name?.split(" ")[0] ?? "daar";
+  const greeting = pickGreeting(now);
+
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">Overzicht</p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welkom terug, {ctx.user.name?.split(" ")[0] ?? "daar"}
+            {greeting}, {firstName}
           </h1>
+          <p className="text-sm text-muted-foreground">
+            Hier draait je verhuur deze week — alles in één blik.
+          </p>
         </div>
 
         {isEmpty ? (
@@ -74,48 +81,61 @@ export default async function DashboardOverviewPage() {
                 value={bookingsToday}
                 hint="lopende boekingen"
                 icon={CheckCircle2}
+                emphasized
               />
-              <Kpi label="Deze week" value={bookingsThisWeek} hint="totaal boekingen" icon={CheckCircle2} />
+              <Kpi
+                label="Deze week"
+                value={bookingsThisWeek}
+                hint="totaal boekingen"
+                icon={CheckCircle2}
+              />
               <Kpi label="Catalogus" value={itemCount} hint="actieve items" icon={Package} />
               <Kpi label="Klanten" value={customerCount} hint="totaal" icon={Users} />
             </div>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
-                <div className="flex items-center justify-between pb-4">
+              <div className="lg:col-span-2 overflow-hidden rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/8 via-primary/3 to-transparent px-5 py-3">
                   <h2 className="text-base font-semibold">Komende boekingen</h2>
                   <Link
                     href="/dashboard/bookings"
-                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                   >
                     Alle boekingen <ArrowRight className="size-3" />
                   </Link>
                 </div>
-                {upcoming.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
-                    Geen geplande boekingen voor de komende 7 dagen.
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {upcoming.map((b) => (
-                      <li key={b.id} className="flex items-center justify-between py-3 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{b.item.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{b.customer.name}</p>
-                        </div>
-                        <span className="text-xs tabular-nums text-muted-foreground">
-                          {b.startAt.toLocaleString("nl-NL", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="p-5">
+                  {upcoming.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-background/50 px-5 py-10 text-center text-sm text-muted-foreground">
+                      Geen geplande boekingen voor de komende 7 dagen.
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {upcoming.map((b) => (
+                        <li
+                          key={b.id}
+                          className="flex items-center justify-between py-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{b.item.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {b.customer.name}
+                            </p>
+                          </div>
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {b.startAt.toLocaleString("nl-NL", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               <SecondaryStats categoryCount={categoryCount} slug={ctx.organization.slug} />
@@ -127,24 +147,47 @@ export default async function DashboardOverviewPage() {
   );
 }
 
+function pickGreeting(d: Date) {
+  const h = d.getHours();
+  if (h < 6) return "Nog wakker";
+  if (h < 12) return "Goedemorgen";
+  if (h < 18) return "Goedemiddag";
+  return "Goedenavond";
+}
+
 function Kpi({
   label,
   value,
   hint,
   icon: Icon,
+  emphasized,
 }: {
   label: string;
   value: number;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
+  emphasized?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5">
+      {emphasized && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-primary/10 blur-2xl"
+        />
+      )}
       <div className="flex items-center justify-between text-muted-foreground">
-        <p className="text-xs font-medium tracking-wide uppercase">{label}</p>
+        <p className="text-xs font-medium uppercase tracking-wide">{label}</p>
         <Icon className="size-4" />
       </div>
-      <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <p
+        className={cn(
+          "mt-2 text-3xl font-semibold tracking-tight tabular-nums",
+          emphasized && "text-primary",
+        )}
+      >
+        {value}
+      </p>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </div>
   );

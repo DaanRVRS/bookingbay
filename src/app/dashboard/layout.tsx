@@ -24,7 +24,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
 
       <div className="flex flex-1">
-        <aside className="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-64 shrink-0 flex-col border-r border-border bg-card md:flex">
+        <aside
+          className="sticky top-14 hidden h-[calc(100svh-3.5rem)] w-64 shrink-0 flex-col border-r border-border md:flex"
+          style={{
+            background:
+              "linear-gradient(180deg, oklch(0.98 0.015 60) 0%, oklch(0.985 0.008 80) 100%)",
+          }}
+        >
           <div className="border-b border-border px-3 py-3">
             <OrgSwitcher
               active={ctx.organization}
