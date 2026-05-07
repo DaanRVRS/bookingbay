@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ImageIcon } from "lucide-react";
 import { getOrgBySlug, getTenantItem } from "@/lib/tenants/queries";
+import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 
 interface PageProps {
   params: Promise<{ slug: string; itemId: string }>;
@@ -24,11 +25,12 @@ export default async function ItemDetailPage({ params }: PageProps) {
   if (!item) notFound();
 
   const accent = org.primaryColor ?? "#ef5934";
+  const base = await getTenantBasePath(slug);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
       <Link
-        href="/"
+        href={tenantHref(base, "/")}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         ← Terug naar aanbod
@@ -68,7 +70,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
           </div>
 
           <Link
-            href={`/contact?item=${item.id}`}
+            href={tenantHref(base, `/contact?item=${item.id}`)}
             className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:w-auto"
             style={{ background: accent }}
           >

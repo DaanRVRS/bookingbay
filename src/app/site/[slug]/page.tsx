@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog, searchTenantItems } from "@/lib/tenants/queries";
+import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { TenantSearch } from "@/components/tenants/TenantSearch";
 import { getPublishedPage } from "@/lib/pages/queries";
 import { PageRenderer } from "@/components/tenants/PageRenderer";
@@ -19,6 +20,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
 
   const accent = org.primaryColor ?? "#ef5934";
   const trimmed = q.trim();
+  const base = await getTenantBasePath(slug);
 
   // If the org has a custom home page in the page builder (and it has any
   // blocks), render that instead of the hardcoded hero. The catalog still
@@ -99,7 +101,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
                     Bekijk het aanbod
                   </Link>
                   <Link
-                    href="/contact"
+                    href={tenantHref(base, "/contact")}
                     className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium hover:bg-accent"
                   >
                     Stuur een aanvraag
@@ -135,7 +137,11 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
               </h2>
             </div>
             <div className="w-full sm:max-w-xs">
-              <TenantSearch basePath="/" accent={accent} initialQuery={q} />
+              <TenantSearch
+                basePath={tenantHref(base, "/")}
+                accent={accent}
+                initialQuery={q}
+              />
             </div>
           </div>
 
@@ -147,7 +153,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
                   : "Het aanbod wordt nog samengesteld. Stuur ondertussen gerust een aanvraag — we helpen je graag."}
               </p>
               <Link
-                href="/contact"
+                href={tenantHref(base, "/contact")}
                 className="mt-5 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
                 style={{ background: accent }}
               >
@@ -159,7 +165,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
               {visibleItems.map((item) => (
                 <Link
                   key={item.id}
-                  href={`/item/${item.id}`}
+                  href={tenantHref(base, `/item/${item.id}`)}
                   className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">

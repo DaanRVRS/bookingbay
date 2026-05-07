@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Geist } from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
 
@@ -37,6 +38,7 @@ export default async function TenantLayout({
   // Per-org accent — fall back to BookingBay coral.
   const accent = org.primaryColor ?? "#ef5934";
   const navPages = await getNavPages(org.id);
+  const base = await getTenantBasePath(slug);
 
   return (
     <div
@@ -45,7 +47,10 @@ export default async function TenantLayout({
     >
       <header className="border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+          <Link
+            href={tenantHref(base, "/")}
+            className="flex items-center gap-2.5 font-semibold tracking-tight"
+          >
             {org.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={org.logoUrl} alt={org.name} className="h-9 w-auto" />
@@ -61,7 +66,7 @@ export default async function TenantLayout({
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link
-              href="/"
+              href={tenantHref(base, "/")}
               className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground"
             >
               Aanbod
@@ -69,14 +74,14 @@ export default async function TenantLayout({
             {navPages.map((p) => (
               <Link
                 key={p.slug}
-                href={`/${p.slug}`}
+                href={tenantHref(base, `/${p.slug}`)}
                 className="hidden rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground sm:inline-block"
               >
                 {p.title}
               </Link>
             ))}
             <Link
-              href="/contact"
+              href={tenantHref(base, "/contact")}
               className="rounded-md px-4 py-1.5 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
               style={{ background: accent }}
             >

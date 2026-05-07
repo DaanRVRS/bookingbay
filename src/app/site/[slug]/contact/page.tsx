@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mail, Phone } from "lucide-react";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { db } from "@/lib/db";
 import { ContactForm } from "./contact-form";
 
@@ -28,11 +29,12 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
   }
 
   const accent = org.primaryColor ?? "#ef5934";
+  const base = await getTenantBasePath(slug);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
       <Link
-        href="/"
+        href={tenantHref(base, "/")}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         ← Terug naar aanbod
