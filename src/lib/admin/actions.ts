@@ -11,6 +11,7 @@ import {
   IMPERSONATE_COOKIE,
   buildImpersonationCookieValue,
 } from "@/lib/admin/impersonate";
+import { onPaidUntilChanged } from "@/lib/billing/lifecycle";
 
 const PLAN = z.enum(["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"]);
 
@@ -79,6 +80,69 @@ export async function extendTrialAction(
     metadata: { byAdmin: true, days, newEndsAt: next.toISOString() },
   });
 
+  revalidatePath(`/admin/organizations/${organizationId}`);
+  return { ok: true };
+}
+
+/**
+ * Set or extend the paidUntil date on an org. Used by admins after a
+ * payment is received (manual workflow until Mollie is integrated).
+ * Days = number of days to extend from the existing paidUntil (or now).
+ */
+export async function setOrgPaidUntilAction(
+  organizationId: string,
+  days: number,
+): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!Number.isInteger(days) || days < 1 || days > 366 * 5) {
+    return { ok: false, error: "Aantal dagen moet 1-1830 zijn" };
+  }
+
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { paidUntil: true },
+  });
+  if (!org) return { ok: false, error: "Niet gevonden" };
+
+  const base =
+    org.paidUntil && org.paidUntil > new Date() ? org.paidUntil : new Date();
+  const next = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+
+  await db.organization.update({
+    where: { id: organizationId },
+    data: { paidUntil: next },
+  });
+  await onPaidUntilChanged(organizationId);
+
+  await audit({
+    organizationId,
+    actorUserId: me.id,
+    action: "org.payment.extend",
+    resource: "organization",
+    resourceId: organizationId,
+    metadata: { byAdmin: true, days, paidUntil: next.toISOString() },
+  });
+
+  revalidatePath(`/admin/organizations/${organizationId}`);
+  return { ok: true };
+}
+
+export async function clearOrgSuspensionAction(
+  organizationId: string,
+): Promise<ActionResult> {
+  const me = await requireAdmin();
+  await db.organization.update({
+    where: { id: organizationId },
+    data: { suspendedAt: null, paymentReminderStage: 0 },
+  });
+  await audit({
+    organizationId,
+    actorUserId: me.id,
+    action: "org.subscription.unsuspend",
+    resource: "organization",
+    resourceId: organizationId,
+    metadata: { byAdmin: true },
+  });
   revalidatePath(`/admin/organizations/${organizationId}`);
   return { ok: true };
 }

@@ -8,6 +8,7 @@ import { PLAN_LIMITS } from "@/lib/plans";
 import { describeAction } from "@/lib/audit/log";
 import { OrgPlanForm } from "./plan-form";
 import { ExtendTrialForm } from "./extend-trial-form";
+import { PaidUntilForm } from "./paid-until-form";
 import { AdminOrgEditForm } from "./edit-form";
 import { AdminOrgDeleteForm } from "./delete-form";
 import { ImpersonateButton } from "./impersonate-button";
@@ -75,6 +76,24 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
                   {format(org.trialEndsAt, "d MMM yyyy", { locale: nl })}
                 </p>
               )}
+              {org.paidUntil && (
+                <p
+                  className={`mt-1 text-xs ${
+                    org.suspendedAt
+                      ? "text-destructive"
+                      : org.paidUntil < new Date()
+                        ? "text-[oklch(0.55_0.16_70)]"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  Betaald tot{" "}
+                  {format(org.paidUntil, "d MMM yyyy", { locale: nl })}
+                  {org.suspendedAt && " · gesuspendeerd"}
+                  {org.paymentReminderStage > 0 && !org.suspendedAt && (
+                    <> · reminder fase {org.paymentReminderStage}/3</>
+                  )}
+                </p>
+              )}
               {org.subscriptionStatus && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Mollie-status: {org.subscriptionStatus}
@@ -83,6 +102,10 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
             </div>
             <OrgPlanForm organizationId={org.id} currentPlan={org.plan} />
             <ExtendTrialForm organizationId={org.id} />
+            <PaidUntilForm
+              organizationId={org.id}
+              isSuspended={Boolean(org.suspendedAt)}
+            />
           </div>
         </section>
 

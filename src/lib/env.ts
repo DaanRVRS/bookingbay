@@ -32,6 +32,9 @@ const envSchema = z.object({
   // the same as the admin host (admin = bookingbay.<ip>.nip.io, tenants
   // = <slug>.bookingbay.<ip>.nip.io). For dev: lvh.me:3001.
   TENANT_DOMAIN: z.string().optional(),
+  // Shared secret expected in the Authorization header on /api/cron/* hits.
+  // System cron / external scheduler must send: Authorization: Bearer <CRON_SECRET>
+  CRON_SECRET: z.string().optional().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

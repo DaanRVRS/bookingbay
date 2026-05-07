@@ -1,16 +1,27 @@
 import { requireOrg } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { OrgSwitcher } from "@/components/dashboard/OrgSwitcher";
 import { UserMenu } from "@/components/dashboard/UserMenu";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
+import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
 
+  const billing = await db.organization.findUnique({
+    where: { id: ctx.organization.id },
+    select: { paidUntil: true, suspendedAt: true },
+  });
+
   return (
     <div className="flex min-h-svh flex-col">
       <ImpersonationBanner />
+      <SubscriptionBanner
+        paidUntil={billing?.paidUntil ?? null}
+        suspendedAt={billing?.suspendedAt ?? null}
+      />
       <TopBar
         sidebarContent={<Sidebar />}
         orgSwitcherSlot={

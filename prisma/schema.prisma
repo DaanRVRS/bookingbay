@@ -101,6 +101,15 @@ model Organization {
   subscriptionId     String?
   subscriptionStatus String?
   trialEndsAt        DateTime?
+  // The end of the currently paid period. Renewal must arrive on/before
+  // this date — otherwise reminders fire and (after a grace window)
+  // suspendedAt is set automatically.
+  paidUntil          DateTime?
+  // Tracks the latest reminder we sent so the cron doesn't double-mail.
+  // 0 = none, 1 = 3-day, 2 = 1-day, 3 = due-today/expired
+  paymentReminderStage Int     @default(0)
+  // When non-null, the org is past its grace window and feature-suspended.
+  suspendedAt        DateTime?
 
   memberships Membership[]
   invitations Invitation[]
@@ -115,6 +124,8 @@ model Organization {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([paidUntil])
 }
 
 enum Plan {

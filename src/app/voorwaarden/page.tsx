@@ -58,8 +58,7 @@ export default function VoorwaardenPage() {
 
       <Section title="4. Tarieven en betaling">
         <p>
-          Je abonnement loopt per maand of per jaar, afhankelijk van wat je
-          kiest. Tarieven staan op{" "}
+          Tarieven staan op{" "}
           <a className="underline" href="/#pricing">
             onze prijzenpagina
           </a>{" "}
@@ -67,10 +66,23 @@ export default function VoorwaardenPage() {
           jaarlijks indexeren; we melden dat minimaal 30 dagen vooraf.
         </p>
         <p>
-          Bij niet-betaling sturen we een herinnering. Blijft betaling uit, dan
-          mogen we de toegang opschorten en uiteindelijk je account stopzetten.
-          Je gegevens blijven tot 30 dagen na opschorting beschikbaar voor
-          export.
+          <strong>Vooraf betalen.</strong> Je betaalt steeds vooraf voor de
+          komende periode (maand of jaar). Pas na een succesvolle betaling
+          wordt je abonnement (of de verlenging daarvan) actief.
+        </p>
+        <p>
+          <strong>Wat gebeurt er als de betaling mislukt?</strong> Een paar
+          dagen vóór de verlengdatum proberen we automatisch te incasseren. Als
+          dat niet lukt, sturen we je een herinnering en proberen we het in de
+          dagen daarna nog een aantal keer. Lukt het binnen ~7 dagen na de
+          verlengdatum nog niet, dan stopt je abonnement automatisch. Je hoeft
+          niets op te zeggen — geen betaling, geen abonnement.
+        </p>
+        <p>
+          <strong>Weer beginnen.</strong> Wil je later weer terug? Inloggen,
+          betaalmethode aanvullen en je oude data is gewoon weer beschikbaar.
+          Je gegevens bewaren we tot 30 dagen na het einde van het abonnement
+          en zijn in die periode te exporteren.
         </p>
       </Section>
 

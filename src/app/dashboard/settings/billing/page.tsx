@@ -20,6 +20,8 @@ export default async function BillingPage() {
       plan: true,
       trialEndsAt: true,
       subscriptionStatus: true,
+      paidUntil: true,
+      suspendedAt: true,
     },
   });
   if (!org) throw new Error("Organization missing");
@@ -31,7 +33,13 @@ export default async function BillingPage() {
   ]);
 
   const current = planLimits(org.plan);
-  const inTrial = org.trialEndsAt && org.trialEndsAt > new Date();
+  const now = new Date();
+  const inTrial = org.trialEndsAt && org.trialEndsAt > now;
+  const isSuspended = Boolean(org.suspendedAt);
+  const paidUntil = org.paidUntil;
+  const daysLeft = paidUntil
+    ? Math.ceil((paidUntil.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -53,6 +61,30 @@ export default async function BillingPage() {
             {inTrial && org.trialEndsAt && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Trial verloopt op {format(org.trialEndsAt, "d MMMM yyyy", { locale: nl })}
+              </p>
+            )}
+            {paidUntil && (
+              <p
+                className={`mt-1 text-xs ${
+                  isSuspended
+                    ? "text-destructive"
+                    : daysLeft !== null && daysLeft <= 0
+                      ? "text-[oklch(0.5_0.16_70)]"
+                      : daysLeft !== null && daysLeft <= 3
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                }`}
+              >
+                {isSuspended ? (
+                  <>Abonnement gestopt — niet betaald sinds {format(paidUntil, "d MMM yyyy", { locale: nl })}</>
+                ) : daysLeft !== null && daysLeft <= 0 ? (
+                  <>Te laat — verlengdatum was {format(paidUntil, "d MMM yyyy", { locale: nl })}</>
+                ) : (
+                  <>
+                    Betaald tot {format(paidUntil, "d MMMM yyyy", { locale: nl })}
+                    {daysLeft !== null && daysLeft <= 7 && <> · over {daysLeft} dagen</>}
+                  </>
+                )}
               </p>
             )}
           </div>
@@ -85,12 +117,43 @@ export default async function BillingPage() {
         </div>
       </section>
 
+      {/* Hoe betaling werkt */}
+      <section className="rounded-xl border border-border bg-muted/40 p-5 text-sm">
+        <h2 className="text-base font-semibold">Hoe betalen werkt</h2>
+        <ul className="mt-3 space-y-2 text-muted-foreground">
+          <li>
+            <strong className="text-foreground">Vooraf betalen.</strong> Je betaalt
+            steeds voor de komende periode. Pas na ontvangst van de betaling
+            wordt het abonnement (of de verlenging) actief.
+          </li>
+          <li>
+            <strong className="text-foreground">Reminders.</strong> Drie dagen
+            voor de verlengdatum krijg je automatisch een herinnering, daarna
+            één dag voor en één op de dag zelf.
+          </li>
+          <li>
+            <strong className="text-foreground">Niet betaald = automatisch
+            stop.</strong> Lukt de betaling binnen ~7 dagen na de verlengdatum
+            niet, dan stopt het abonnement vanzelf. Je data blijft 30 dagen
+            bewaard zodat je later naadloos kunt herstarten.
+          </li>
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Voor nu doen we facturatie handmatig (Mollie-koppeling volgt). Wil je
+          verlengen of betalen? Mail{" "}
+          <a className="underline" href="mailto:hallo@bookingbay.nl">
+            hallo@bookingbay.nl
+          </a>
+          .
+        </p>
+      </section>
+
       {/* Plan ladder */}
       <section>
         <h2 className="text-base font-semibold">Wissel van plan</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Mollie-betaalkoppeling volgt — voor nu kan een Eigenaar contact opnemen om handmatig
-          te wisselen.
+          Een Eigenaar kan via mail om een wijziging vragen — we passen het
+          dezelfde dag nog door.
         </p>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {PLAN_ORDER.map((p) => (
