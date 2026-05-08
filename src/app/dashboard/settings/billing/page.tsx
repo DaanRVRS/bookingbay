@@ -243,9 +243,9 @@ function PlanCard({
       <h3 className="text-base font-semibold tracking-tight">{limits.label}</h3>
       <p className="mt-1 flex items-baseline gap-1">
         <span className="text-2xl font-semibold tabular-nums">
-          {limits.monthlyPriceEuro === 0 ? "Custom" : `€${limits.monthlyPriceEuro}`}
+          {limits.customPricing ? "Op aanvraag" : `€${limits.monthlyPriceEuro}`}
         </span>
-        {limits.monthlyPriceEuro > 0 && (
+        {!limits.customPricing && (
           <span className="text-xs text-muted-foreground">/ maand</span>
         )}
       </p>
@@ -302,7 +302,33 @@ function PlanCard({
             Prioriteit support
           </span>
         </li>
+        {limits.dedicatedSupport && (
+          <li className="flex items-center gap-2">
+            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+            <span>Eigen account-manager + SLA</span>
+          </li>
+        )}
+        {limits.sso && (
+          <li className="flex items-center gap-2">
+            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+            <span>SSO / SAML login</span>
+          </li>
+        )}
+        {limits.whiteLabel && (
+          <li className="flex items-center gap-2">
+            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+            <span>Volledig white-label (incl. e-mail)</span>
+          </li>
+        )}
       </ul>
+      {limits.customPricing && !isCurrent && (
+        <a
+          href="mailto:hallo@bookingbay.nl?subject=Enterprise%20BookingBay"
+          className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-primary/40 bg-primary/5 px-3 text-xs font-medium text-primary hover:bg-primary/10"
+        >
+          Neem contact op
+        </a>
+      )}
     </div>
   );
 }

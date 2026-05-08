@@ -19,6 +19,7 @@ export const getOrgBySlug = cache(async (slug: string) => {
       itemDisplayStyle: true,
       industry: true,
       plan: true,
+      businessHours: true,
     },
   });
   return org;

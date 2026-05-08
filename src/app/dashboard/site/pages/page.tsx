@@ -81,8 +81,8 @@ export default async function SitePagesPage() {
           <>
             <p className="mt-4 text-xs text-muted-foreground">
               {customPagesCount} van{" "}
-              {Number.isFinite(limits.maxPages) ? limits.maxPages : "onbeperkt"} extra
-              pagina&apos;s gebruikt (home telt niet mee).
+              {Number.isFinite(limits.maxPages) ? limits.maxPages : "onbeperkt"}
+              {" "}extra pagina&apos;s gebruikt (home telt niet mee).
             </p>
             <div className="mt-4">
               <PagesList

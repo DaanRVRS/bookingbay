@@ -62,7 +62,6 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
 
   const primaryColor = watch("primaryColor");
   const logoUrl = watch("logoUrl") ?? "";
-  const itemDisplayStyle = watch("itemDisplayStyle");
   const accent = primaryColor || "#ef5934";
 
   const onSubmit = handleSubmit((values) => {
@@ -168,39 +167,6 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
             error={errors.contactPhone?.message}
             {...register("contactPhone")}
           />
-        </div>
-      </div>
-
-      {/* Display style */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Weergave aanbod</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Hoe items op je site getoond worden in het catalogus-overzicht.
-        </p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {(
-            [
-              { value: "GRID", label: "Raster", body: "Cards in 2-3 kolommen — visueel" },
-              { value: "LIST", label: "Lijst", body: "Compacte rij per item — sneller scannen" },
-            ] as const
-          ).map((opt) => {
-            const selected = itemDisplayStyle === opt.value;
-            return (
-              <button
-                type="button"
-                key={opt.value}
-                onClick={() => setValue("itemDisplayStyle", opt.value)}
-                className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors ${
-                  selected
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border bg-background hover:bg-accent"
-                }`}
-              >
-                <span className="text-sm font-medium">{opt.label}</span>
-                <span className="text-xs text-muted-foreground">{opt.body}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 

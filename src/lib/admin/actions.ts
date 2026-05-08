@@ -15,23 +15,63 @@ import { onPaidUntilChanged } from "@/lib/billing/lifecycle";
 
 const PLAN = z.enum(["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"]);
 
+const PLAN_MODE = z.enum(["keep", "trial", "paid"]);
+
 export async function setOrgPlanAction(
   organizationId: string,
   plan: z.infer<typeof PLAN>,
+  mode: z.infer<typeof PLAN_MODE> = "keep",
+  days: number = 30,
 ): Promise<ActionResult> {
   const me = await requireAdmin();
   const parsed = PLAN.safeParse(plan);
   if (!parsed.success) return { ok: false, error: "Ongeldig plan" };
+  const parsedMode = PLAN_MODE.safeParse(mode);
+  if (!parsedMode.success) return { ok: false, error: "Ongeldige modus" };
+  if (!Number.isInteger(days) || days < 1 || days > 1830) {
+    return { ok: false, error: "Aantal dagen moet 1-1830 zijn" };
+  }
 
   const existing = await db.organization.findUnique({
     where: { id: organizationId },
-    select: { id: true, plan: true, name: true },
+    select: {
+      id: true,
+      plan: true,
+      name: true,
+      trialEndsAt: true,
+      paidUntil: true,
+    },
   });
   if (!existing) return { ok: false, error: "Organisatie niet gevonden" };
 
+  const data: {
+    plan: z.infer<typeof PLAN>;
+    trialEndsAt?: Date | null;
+    paidUntil?: Date | null;
+    suspendedAt?: Date | null;
+    paymentReminderStage?: number;
+    trialReminderStage?: number;
+  } = { plan: parsed.data };
+
+  if (parsedMode.data === "trial") {
+    const next = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    data.trialEndsAt = next;
+    data.paidUntil = null;
+    data.suspendedAt = null;
+    data.paymentReminderStage = 0;
+    data.trialReminderStage = 0;
+  } else if (parsedMode.data === "paid") {
+    const next = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    data.trialEndsAt = null;
+    data.paidUntil = next;
+    data.suspendedAt = null;
+    data.paymentReminderStage = 0;
+    data.trialReminderStage = 0;
+  }
+
   await db.organization.update({
     where: { id: organizationId },
-    data: { plan: parsed.data },
+    data,
   });
 
   await audit({
@@ -40,7 +80,13 @@ export async function setOrgPlanAction(
     action: "org.plan.change",
     resource: "organization",
     resourceId: organizationId,
-    metadata: { from: existing.plan, to: parsed.data, byAdmin: true },
+    metadata: {
+      from: existing.plan,
+      to: parsed.data,
+      mode: parsedMode.data,
+      days: parsedMode.data === "keep" ? null : days,
+      byAdmin: true,
+    },
   });
 
   revalidatePath("/admin/organizations");

@@ -31,6 +31,8 @@ import { itemCreateSchema, type ItemCreateInput } from "@/lib/items/schemas";
 import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/items/actions";
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
+import { BusinessHoursEditor } from "@/components/dashboard/BusinessHoursEditor";
+import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
@@ -46,6 +48,7 @@ interface Existing {
   deposit: number | null;
   quantity: number;
   isActive: boolean;
+  businessHoursOverride: BusinessHours | null;
 }
 
 interface Props {
@@ -78,12 +81,15 @@ export function ItemForm({ categories, existing }: Props) {
       deposit: existing?.deposit ?? null,
       quantity: existing?.quantity ?? 1,
       isActive: existing?.isActive ?? true,
+      businessHoursOverride: existing?.businessHoursOverride ?? null,
     },
   });
 
   const categoryId = watch("categoryId");
   const isActive = watch("isActive");
   const imageUrl = watch("imageUrl") ?? null;
+  const businessHoursOverride =
+    (watch("businessHoursOverride") as BusinessHours | null | undefined) ?? null;
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -197,13 +203,64 @@ export function ItemForm({ categories, existing }: Props) {
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Prijzen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Vul alleen de prijzen in die je gebruikt. Bedragen in euro&apos;s, max. 2 decimalen.
+          Zet aan welke tarieven dit item heeft. Uitgezette tarieven verschijnen
+          niet op de klantsite of in de boeking-flow.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <PriceField label="Per uur" name="pricePerHour" register={register} />
-          <PriceField label="Per dag" name="pricePerDay" register={register} />
-          <PriceField label="Per week" name="pricePerWeek" register={register} />
-          <PriceField label="Borg" name="deposit" register={register} />
+          <PriceField
+            label="Per uur"
+            name="pricePerHour"
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            toggleable
+          />
+          <PriceField
+            label="Per dag"
+            name="pricePerDay"
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            toggleable
+          />
+          <PriceField
+            label="Per week"
+            name="pricePerWeek"
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            toggleable
+          />
+          <PriceField
+            label="Borg"
+            name="deposit"
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            toggleable
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold">Openingstijden override</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Standaard volgt dit item de openingstijden van de organisatie. Zet
+          aan voor een eigen schema (bijv. een boot die alleen overdag mag).
+        </p>
+        <div className="mt-4">
+          <BusinessHoursEditor
+            value={businessHoursOverride}
+            onChange={(next) =>
+              setValue(
+                "businessHoursOverride",
+                next as never,
+                { shouldValidate: false, shouldDirty: true },
+              )
+            }
+            compact
+            toggleLabel="Eigen openingstijden"
+          />
         </div>
       </div>
 
@@ -307,24 +364,67 @@ function PriceField({
   label,
   name,
   register,
+  watch,
+  setValue,
+  toggleable = false,
 }: {
   label: string;
   name: "pricePerHour" | "pricePerDay" | "pricePerWeek" | "deposit";
   register: ReturnType<typeof useForm<ItemFormValues>>["register"];
+  watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
+  setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];
+  toggleable?: boolean;
 }) {
+  const raw = watch(name);
+  const enabled =
+    raw !== null && raw !== undefined && String(raw).trim() !== "";
+
+  const onToggle = () => {
+    if (enabled) {
+      setValue(name, null, { shouldValidate: true, shouldDirty: true });
+    } else {
+      // Re-enable with empty string so the input renders empty rather than "0".
+      setValue(name, "" as unknown as null, { shouldValidate: false, shouldDirty: true });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <div className="flex items-center justify-between">
+        <Label htmlFor={name}>{label}</Label>
+        {toggleable && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              enabled ? "bg-primary" : "bg-muted"
+            }`}
+            aria-pressed={enabled}
+            aria-label={`${label} ${enabled ? "uit" : "aan"}zetten`}
+          >
+            <span
+              className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                enabled ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        )}
+      </div>
       <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+        <span
+          className={`pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm ${
+            toggleable && !enabled ? "text-muted-foreground/40" : "text-muted-foreground"
+          }`}
+        >
           €
         </span>
         <Input
           id={name}
           type="text"
           inputMode="decimal"
-          placeholder="0,00"
+          placeholder={toggleable && !enabled ? "uitgeschakeld" : "0,00"}
           className="pl-7"
+          disabled={toggleable && !enabled}
           {...register(name)}
         />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -839,6 +839,14 @@ function DraggableBooking({
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `${BOOKING_DRAG_PREFIX}${bookingId}` });
 
+  // Track whether a drag actually occurred during this press. dnd-kit clears
+  // isDragging before the synthetic click event fires after pointerup, so
+  // checking isDragging in onClick is too late — the Link already navigated.
+  const wasDragRef = useRef(false);
+  useEffect(() => {
+    if (isDragging) wasDragRef.current = true;
+  }, [isDragging]);
+
   const dragStyle: React.CSSProperties = {
     ...style,
     transform: CSS.Translate.toString(transform),
@@ -857,9 +865,10 @@ function DraggableBooking({
       style={dragStyle}
       title={title}
       onClick={(e) => {
-        // Suppress navigation while dragging — PointerSensor's distance
-        // activation already lets quick clicks through.
-        if (isDragging) e.preventDefault();
+        if (isDragging || wasDragRef.current) {
+          e.preventDefault();
+          wasDragRef.current = false;
+        }
       }}
     >
       {children}

@@ -18,7 +18,15 @@ export interface PlanLimits {
   /** Public REST API */
   apiAccess: boolean;
   prioritySupport: boolean;
+  /** Eigen account-manager + SLA — alleen Enterprise. */
+  dedicatedSupport: boolean;
+  /** SSO/SAML login — alleen Enterprise. */
+  sso: boolean;
+  /** Volledig branding-vrij ('powered by' overal weg, custom from-adres mail). */
+  whiteLabel: boolean;
   monthlyPriceEuro: number;
+  /** True voor tiers met "bel ons / op aanvraag" pricing — verbergt €0/maand. */
+  customPricing: boolean;
   label: string;
 }
 
@@ -34,7 +42,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     alwaysShowPoweredBy: true,
     apiAccess: false,
     prioritySupport: false,
+    dedicatedSupport: false,
+    sso: false,
+    whiteLabel: false,
     monthlyPriceEuro: 19,
+    customPricing: false,
     label: "Starter",
   },
   PROFESSIONAL: {
@@ -48,7 +60,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     alwaysShowPoweredBy: true,
     apiAccess: false,
     prioritySupport: true,
+    dedicatedSupport: false,
+    sso: false,
+    whiteLabel: false,
     monthlyPriceEuro: 49,
+    customPricing: false,
     label: "Professional",
   },
   BUSINESS: {
@@ -62,7 +78,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     alwaysShowPoweredBy: false,
     apiAccess: true,
     prioritySupport: true,
+    dedicatedSupport: false,
+    sso: false,
+    whiteLabel: false,
     monthlyPriceEuro: 99,
+    customPricing: false,
     label: "Business",
   },
   ENTERPRISE: {
@@ -76,14 +96,23 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     alwaysShowPoweredBy: false,
     apiAccess: true,
     prioritySupport: true,
+    dedicatedSupport: true,
+    sso: true,
+    whiteLabel: true,
     monthlyPriceEuro: 0,
+    customPricing: true,
     label: "Enterprise",
   },
 };
 
 export type PlanFeature = keyof Omit<
   PlanLimits,
-  "maxItems" | "maxMembers" | "maxPages" | "monthlyPriceEuro" | "label"
+  | "maxItems"
+  | "maxMembers"
+  | "maxPages"
+  | "monthlyPriceEuro"
+  | "customPricing"
+  | "label"
 >;
 
 export function planLimits(plan: Plan): PlanLimits {

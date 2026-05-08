@@ -23,7 +23,7 @@ export function Logo({ className, href = "/", showWordmark = true }: LogoProps) 
           width={1080}
           height={300}
           priority
-          className="h-9 w-auto"
+          className="h-11 w-auto"
         />
       ) : (
         // Icon only (boot in oranje cirkel)
@@ -33,7 +33,7 @@ export function Logo({ className, href = "/", showWordmark = true }: LogoProps) 
           width={312}
           height={312}
           priority
-          className="size-9"
+          className="size-10"
         />
       )}
     </span>

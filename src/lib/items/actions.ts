@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
@@ -85,6 +86,12 @@ export async function createItemAction(
       deposit: parsed.data.deposit,
       quantity: parsed.data.quantity,
       isActive: parsed.data.isActive,
+      businessHoursOverride:
+        parsed.data.businessHoursOverride === undefined
+          ? undefined
+          : parsed.data.businessHoursOverride === null
+            ? Prisma.JsonNull
+            : (parsed.data.businessHoursOverride as Prisma.InputJsonValue),
     },
     select: { id: true },
   });
@@ -136,6 +143,12 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
       deposit: parsed.data.deposit,
       quantity: parsed.data.quantity,
       isActive: parsed.data.isActive,
+      businessHoursOverride:
+        parsed.data.businessHoursOverride === undefined
+          ? undefined
+          : parsed.data.businessHoursOverride === null
+            ? Prisma.JsonNull
+            : (parsed.data.businessHoursOverride as Prisma.InputJsonValue),
     },
   });
 

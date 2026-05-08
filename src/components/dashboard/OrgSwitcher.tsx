@@ -2,12 +2,11 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { setActiveOrgAction } from "@/lib/orgs/actions";
@@ -85,16 +84,6 @@ export function OrgSwitcher({ active, activeRole, memberships }: Props) {
             </DropdownMenuItem>
           );
         })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => router.push("/onboarding")}
-          className="flex items-center gap-2 text-muted-foreground"
-        >
-          <span className="grid size-6 place-items-center rounded-md border border-dashed border-border">
-            <Plus className="size-3.5" />
-          </span>
-          <span>Nieuwe werkruimte</span>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

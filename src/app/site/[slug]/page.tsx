@@ -6,6 +6,10 @@ import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { TenantSearch } from "@/components/tenants/TenantSearch";
 import { getPublishedPage } from "@/lib/pages/queries";
 import { PageRenderer } from "@/components/tenants/PageRenderer";
+import {
+  safeParseBusinessHours,
+  DAY_LABELS_NL,
+} from "@/lib/business-hours/schemas";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -122,6 +126,34 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
               </div>
             </section>
           )}
+
+          {/* Opening hours (if configured) */}
+          {(() => {
+            const hours = safeParseBusinessHours(org.businessHours);
+            if (!hours) return null;
+            return (
+              <section className="border-b border-border py-12">
+                <div className="mx-auto max-w-2xl px-4 sm:px-6">
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    Openingstijden
+                  </h2>
+                  <ul className="mt-5 divide-y divide-border rounded-xl border border-border bg-card">
+                    {hours.map((d, i) => (
+                      <li
+                        key={i}
+                        className="flex items-center justify-between px-4 py-2.5 text-sm"
+                      >
+                        <span className="font-medium">{DAY_LABELS_NL[i]}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {d.closed ? "Gesloten" : `${d.open} – ${d.close}`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            );
+          })()}
         </>
       )}
 

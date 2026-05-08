@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessHoursSchema } from "@/lib/business-hours/schemas";
 
 const decimal = z
   .union([z.string(), z.number()])
@@ -24,6 +25,8 @@ export const itemCreateSchema = z.object({
   deposit: decimal,
   quantity: z.coerce.number().int().min(1).max(9999).default(1),
   isActive: z.coerce.boolean().default(true),
+  // Per-item override op de openingstijden. Null = volg organisatie.
+  businessHoursOverride: businessHoursSchema.nullable().optional(),
 });
 
 export const itemUpdateSchema = itemCreateSchema.extend({
