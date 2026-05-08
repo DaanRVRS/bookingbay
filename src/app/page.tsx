@@ -3,6 +3,7 @@ import { HeroSection } from "@/components/marketing/HeroSection";
 import { UseCases } from "@/components/marketing/UseCases";
 import { Features } from "@/components/marketing/Features";
 import { DemoSection } from "@/components/marketing/DemoSection";
+import { HelpStrip } from "@/components/marketing/HelpStrip";
 import { Pricing } from "@/components/marketing/Pricing";
 import { FAQ } from "@/components/marketing/FAQ";
 import { CtaStrip } from "@/components/marketing/CtaStrip";
@@ -17,6 +18,7 @@ export default function HomePage() {
         <UseCases />
         <Features />
         <DemoSection />
+        <HelpStrip />
         <Pricing />
         <FAQ />
         <CtaStrip />

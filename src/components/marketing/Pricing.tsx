@@ -18,6 +18,7 @@ const plans = [
       "Tot 25 items",
       "2 gebruikers",
       "Subdomein op bookingbay.nl",
+      "Boekings-widget voor je eigen website",
       "Basis customizer",
       "E-mail support",
     ],
@@ -130,7 +131,12 @@ export function Pricing() {
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-muted-foreground">
+        <p className="mt-8 text-center text-xs text-muted-foreground">
+          Alle plannen bevatten de <strong className="text-foreground">boekings-widget</strong>{" "}
+          en je <strong className="text-foreground">eigen klantsite</strong> op bookingbay.nl —
+          ook op Starter.
+        </p>
+        <p className="mt-3 text-center text-sm text-muted-foreground">
           Meer dan 500 items of speciale eisen?{" "}
           <Link
             href="/contact?topic=anders"

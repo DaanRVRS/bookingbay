@@ -18,6 +18,10 @@ const items = [
     a: "Elke organisatie krijgt automatisch een sub-domein op bookingbay.nl. Op een betaald plan kan je je eigen domein koppelen. Je past kleur, logo en teksten aan in de dashboard-customizer.",
   },
   {
+    q: "Ik heb al een eigen website. Kan ik BookingBay daar inbouwen?",
+    a: "Ja. Bij elk plan (ook Starter) zit een boekings-widget die je op je bestaande site kan plaatsen — een klein stukje code dat je in elke website-bouwer kan plakken. Geen technische kennis? Wij installeren 'm gratis voor je. Plan even een hulpgesprek via /contact.",
+  },
+  {
     q: "Kunnen klanten direct online betalen?",
     a: "Klanten sturen een aanvraag via je site; jij bevestigt en factureert via je eigen werkwijze. Directe online betaling werken we momenteel uit.",
   },
