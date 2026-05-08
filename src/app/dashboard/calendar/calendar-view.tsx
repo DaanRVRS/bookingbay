@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,10 +16,22 @@ import {
 } from "date-fns";
 import { nl } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 import type { BookingStatus } from "@prisma/client";
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { STATUS_LABELS } from "@/lib/bookings/schemas";
+import { moveBookingAction } from "@/lib/bookings/actions";
 
 interface ItemRow {
   id: string;
@@ -69,6 +81,40 @@ const HOUR_END = 22;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
 const HOUR_HEIGHT = 56;
 
+const BOOKING_DRAG_PREFIX = "booking__";
+const SLOT_DROP_PREFIX = "slot__"; // slot__YYYY-MM-DD__HH (hour bucket within a day)
+const CELL_DROP_PREFIX = "cell__"; // cell__<itemId>__YYYY-MM-DD (items grid)
+
+type DropTarget =
+  | { kind: "slot"; day: Date; hour: number }
+  | { kind: "cell"; itemId: string; day: Date };
+
+function slotDropId(day: Date, hour: number) {
+  return `${SLOT_DROP_PREFIX}${format(day, "yyyy-MM-dd")}__${hour}`;
+}
+function cellDropId(itemId: string, day: Date) {
+  return `${CELL_DROP_PREFIX}${itemId}__${format(day, "yyyy-MM-dd")}`;
+}
+function parseDropTarget(id: string): DropTarget | null {
+  if (id.startsWith(SLOT_DROP_PREFIX)) {
+    const rest = id.slice(SLOT_DROP_PREFIX.length);
+    const [date, hourStr] = rest.split("__");
+    const hour = Number(hourStr);
+    if (!date || !Number.isFinite(hour)) return null;
+    return { kind: "slot", day: parseISO(date), hour };
+  }
+  if (id.startsWith(CELL_DROP_PREFIX)) {
+    const rest = id.slice(CELL_DROP_PREFIX.length);
+    const lastSep = rest.lastIndexOf("__");
+    if (lastSep === -1) return null;
+    const itemId = rest.slice(0, lastSep);
+    const date = rest.slice(lastSep + 2);
+    if (!itemId || !date) return null;
+    return { kind: "cell", itemId, day: parseISO(date) };
+  }
+  return null;
+}
+
 export function CalendarView({ focusedDate, weekStart, items, bookings }: Props) {
   const router = useRouter();
   const focused = parseISO(focusedDate);
@@ -84,12 +130,74 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
     return map;
   }, [items]);
 
+  const bookingById = useMemo(() => {
+    const map = new Map<string, BookingRow>();
+    for (const b of bookings) map.set(b.id, b);
+    return map;
+  }, [bookings]);
+
   const [selectedDay, setSelectedDay] = useState<Date>(focused);
   const [view, setView] = useState<ViewMode>("week");
+  const [, startTransition] = useTransition();
+
+  const sensors = useSensors(
+    // 6px activation distance keeps clicks (no movement) flowing through to
+    // the underlying <Link> for navigation.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
 
   const goto = (d: Date) => {
     const iso = format(d, "yyyy-MM-dd");
     router.push(`/dashboard/calendar?date=${iso}`);
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    if (!activeId.startsWith(BOOKING_DRAG_PREFIX)) return;
+    const bookingId = activeId.slice(BOOKING_DRAG_PREFIX.length);
+    const booking = bookingById.get(bookingId);
+    if (!booking) return;
+
+    const target = parseDropTarget(String(over.id));
+    if (!target) return;
+
+    const oldStart = parseISO(booking.startAt);
+    let newStart: Date;
+    let newItemId: string | undefined;
+    if (target.kind === "slot") {
+      newStart = new Date(target.day);
+      // Keep the original minute precision: a 10:30 booking dropped on the
+      // 13:00 slot moves to 13:30.
+      newStart.setHours(target.hour, oldStart.getMinutes(), 0, 0);
+    } else {
+      newStart = new Date(target.day);
+      newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
+      newItemId = target.itemId;
+    }
+
+    const newStartIso = newStart.toISOString();
+    if (
+      booking.startAt === newStartIso &&
+      (!newItemId || newItemId === booking.itemId)
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await moveBookingAction({
+        id: bookingId,
+        newStartAt: newStartIso,
+        newItemId,
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Boeking verplaatst");
+      router.refresh();
+    });
   };
 
   return (
@@ -175,33 +283,35 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         })}
       </div>
 
-      <div className="mt-6">
-        {view === "week" && (
-          <WeekTimeGrid
-            days={days}
-            bookings={bookings}
-            items={items}
-            accentByItemId={accentByItemId}
-          />
-        )}
-        {view === "day" && (
-          <DayTimeView
-            day={selectedDay}
-            bookings={bookings}
-            items={items}
-            accentByItemId={accentByItemId}
-          />
-        )}
-        {view === "items" && (
-          <ItemsGrid
-            days={days}
-            bookings={bookings}
-            items={items}
-            accentByItemId={accentByItemId}
-            onDayClick={(d) => setSelectedDay(d)}
-          />
-        )}
-      </div>
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <div className="mt-6">
+          {view === "week" && (
+            <WeekTimeGrid
+              days={days}
+              bookings={bookings}
+              items={items}
+              accentByItemId={accentByItemId}
+            />
+          )}
+          {view === "day" && (
+            <DayTimeView
+              day={selectedDay}
+              bookings={bookings}
+              items={items}
+              accentByItemId={accentByItemId}
+            />
+          )}
+          {view === "items" && (
+            <ItemsGrid
+              days={days}
+              bookings={bookings}
+              items={items}
+              accentByItemId={accentByItemId}
+              onDayClick={(d) => setSelectedDay(d)}
+            />
+          )}
+        </div>
+      </DndContext>
 
       {/* Mobile floating new-booking button */}
       <Link
@@ -344,13 +454,20 @@ function WeekTimeGrid({
                   isToday(d) && "bg-primary/[0.025]",
                 )}
               >
-                {/* Hour grid lines */}
-                {HOURS.map((_, i) => (
+                {/* Hour grid lines + per-hour drop slots */}
+                {HOURS.map((h, i) => (
                   <div
-                    key={i}
+                    key={h}
                     className="absolute right-0 left-0 border-t border-border/60"
-                    style={{ top: i * HOUR_HEIGHT }}
-                  />
+                    style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                  >
+                    <HourSlotDroppable
+                      day={d}
+                      hour={h}
+                      className="inset-0"
+                      style={{ height: HOUR_HEIGHT }}
+                    />
+                  </div>
                 ))}
                 {/* Booking blocks */}
                 {dayBookings.map((b) => {
@@ -361,8 +478,9 @@ function WeekTimeGrid({
                   );
                   if (!pos) return null;
                   return (
-                    <Link
+                    <DraggableBooking
                       key={b.id}
+                      bookingId={b.id}
                       href={`/dashboard/bookings/${b.id}`}
                       className={cn(
                         "absolute right-1 left-1 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-1.5 py-1 text-[10px] font-medium text-white shadow-sm transition-all hover:brightness-110",
@@ -370,13 +488,13 @@ function WeekTimeGrid({
                         b.status === "CANCELED" && "opacity-50 line-through",
                       )}
                       style={{ top: pos.top + 1, height: pos.height - 2 }}
-                      title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")}`}
+                      title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")} — sleep om te verplaatsen`}
                     >
                       <span className="truncate font-semibold">
                         {format(parseISO(b.startAt), "HH:mm")} {b.itemName}
                       </span>
                       <span className="truncate opacity-90">{b.customerName}</span>
-                    </Link>
+                    </DraggableBooking>
                   );
                 })}
               </div>
@@ -449,12 +567,19 @@ function DayTimeView({
           </div>
           {/* Booking column */}
           <div className="relative">
-            {HOURS.map((_, i) => (
+            {HOURS.map((h, i) => (
               <div
-                key={i}
+                key={h}
                 className="absolute right-0 left-0 border-t border-border/60"
-                style={{ top: i * HOUR_HEIGHT }}
-              />
+                style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+              >
+                <HourSlotDroppable
+                  day={day}
+                  hour={h}
+                  className="inset-0"
+                  style={{ height: HOUR_HEIGHT }}
+                />
+              </div>
             ))}
             {dayBookings.map((b) => {
               const pos = bookingPosition(
@@ -464,8 +589,9 @@ function DayTimeView({
               );
               if (!pos) return null;
               return (
-                <Link
+                <DraggableBooking
                   key={b.id}
+                  bookingId={b.id}
                   href={`/dashboard/bookings/${b.id}`}
                   className={cn(
                     "absolute right-2 left-2 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:brightness-110",
@@ -473,6 +599,7 @@ function DayTimeView({
                     b.status === "CANCELED" && "opacity-50 line-through",
                   )}
                   style={{ top: pos.top + 1, height: pos.height - 2 }}
+                  title="Sleep om te verplaatsen"
                 >
                   <span className="truncate text-[11px] font-semibold opacity-95">
                     {format(parseISO(b.startAt), "HH:mm")} –{" "}
@@ -480,7 +607,7 @@ function DayTimeView({
                   </span>
                   <span className="truncate text-sm font-semibold">{b.itemName}</span>
                   <span className="truncate opacity-90">{b.customerName}</span>
-                </Link>
+                </DraggableBooking>
               );
             })}
           </div>
@@ -649,12 +776,13 @@ function ItemsGrid({
                 <span className="truncate font-medium">{item.name}</span>
               </div>
               {days.map((d) => (
-                <Link
-                  key={d.toISOString()}
-                  href={`/dashboard/bookings/new?item=${item.id}&start=${format(d, "yyyy-MM-dd")}`}
-                  className="border-l border-border transition-colors hover:bg-accent/40"
-                  aria-label={`Nieuwe boeking ${item.name} op ${format(d, "d MMM", { locale: nl })}`}
-                />
+                <CellDroppable key={d.toISOString()} itemId={item.id} day={d}>
+                  <Link
+                    href={`/dashboard/bookings/new?item=${item.id}&start=${format(d, "yyyy-MM-dd")}`}
+                    className="block size-full"
+                    aria-label={`Nieuwe boeking ${item.name} op ${format(d, "d MMM", { locale: nl })}`}
+                  />
+                </CellDroppable>
               ))}
               <div className="pointer-events-none absolute inset-y-1 left-[180px] right-0 flex flex-col justify-start gap-1 px-1">
                 {segs.map((seg) => {
@@ -662,8 +790,9 @@ function ItemsGrid({
                   const left = `calc(${(seg.startDayIndex / 7) * 100}% + 2px)`;
                   const width = `calc(${(cols / 7) * 100}% - 4px)`;
                   return (
-                    <Link
+                    <DraggableBooking
                       key={seg.bookingId}
+                      bookingId={seg.bookingId}
                       href={`/dashboard/bookings/${seg.bookingId}`}
                       className={`pointer-events-auto absolute flex items-center gap-1.5 truncate rounded-md bg-gradient-to-r ${
                         accentByItemId.get(item.id) ?? "from-primary to-primary"
@@ -671,11 +800,11 @@ function ItemsGrid({
                         seg.status === "CANCELED" ? "opacity-50 line-through" : ""
                       }`}
                       style={{ left, width, top: 4, height: "calc(100% - 8px)" }}
-                      title={`${seg.customerName} · ${seg.startTime} – ${seg.endTime}`}
+                      title={`${seg.customerName} · ${seg.startTime} – ${seg.endTime} — sleep om te verplaatsen`}
                     >
                       <span className="truncate">{seg.customerName}</span>
                       <span className="ml-auto shrink-0 opacity-80">{seg.startTime}</span>
-                    </Link>
+                    </DraggableBooking>
                   );
                 })}
               </div>
@@ -687,3 +816,103 @@ function ItemsGrid({
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Drag-and-drop helpers                                               */
+/* ------------------------------------------------------------------ */
+
+function DraggableBooking({
+  bookingId,
+  children,
+  href,
+  className,
+  style,
+  title,
+}: {
+  bookingId: string;
+  children: React.ReactNode;
+  href: string;
+  className?: string;
+  style?: React.CSSProperties;
+  title?: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: `${BOOKING_DRAG_PREFIX}${bookingId}` });
+
+  const dragStyle: React.CSSProperties = {
+    ...style,
+    transform: CSS.Translate.toString(transform),
+    cursor: "grab",
+    zIndex: isDragging ? 30 : undefined,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
+  return (
+    <Link
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      href={href}
+      className={cn(className, "touch-none select-none active:cursor-grabbing")}
+      style={dragStyle}
+      title={title}
+      onClick={(e) => {
+        // Suppress navigation while dragging — PointerSensor's distance
+        // activation already lets quick clicks through.
+        if (isDragging) e.preventDefault();
+      }}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function HourSlotDroppable({
+  day,
+  hour,
+  className,
+  style,
+}: {
+  day: Date;
+  hour: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: slotDropId(day, hour) });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "absolute right-0 left-0 transition-colors",
+        isOver && "bg-primary/15 ring-1 ring-inset ring-primary/40",
+        className,
+      )}
+      style={style}
+      aria-hidden
+    />
+  );
+}
+
+function CellDroppable({
+  itemId,
+  day,
+  children,
+}: {
+  itemId: string;
+  day: Date;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: cellDropId(itemId, day) });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "border-l border-border transition-colors",
+        isOver ? "bg-primary/15" : "hover:bg-accent/40",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
