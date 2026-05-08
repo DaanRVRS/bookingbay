@@ -111,6 +111,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 }
 
 export function emailLayout(content: string): string {
+  // Logo is gehost als publiek bestand zodat e-mailclients het kunnen
+  // ophalen. Geen inline base64 — e-mails blijven klein.
+  const logoUrl = `${env.APP_URL}/logo.png`;
   return `
 <!doctype html>
 <html lang="nl">
@@ -125,10 +128,7 @@ export function emailLayout(content: string): string {
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-radius:16px;border:1px solid #e3e6ed;overflow:hidden">
           <tr>
             <td style="padding:32px 40px 24px 40px">
-              <div style="display:inline-flex;align-items:center;gap:10px">
-                <div style="width:36px;height:36px;background:linear-gradient(135deg,#ef5934,#dc3a3a);border-radius:10px;display:inline-block;text-align:center;line-height:36px;color:#fff;font-weight:600">B</div>
-                <span style="font-size:17px;font-weight:600;color:#1a2238">Booking<span style="color:#ef5934">Bay</span></span>
-              </div>
+              <img src="${logoUrl}" alt="BookingBay" height="36" style="display:block;height:36px;width:auto" />
             </td>
           </tr>
           <tr>

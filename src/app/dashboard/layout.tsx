@@ -8,6 +8,7 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
+import { TrialPill } from "@/components/dashboard/TrialPill";
 import {
   getUnreadCount,
   listNotificationsForUser,
@@ -19,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const [billing, unreadCount, recentNotifications] = await Promise.all([
     db.organization.findUnique({
       where: { id: ctx.organization.id },
-      select: { paidUntil: true, suspendedAt: true },
+      select: { paidUntil: true, suspendedAt: true, trialEndsAt: true },
     }),
     getUnreadCount(ctx.user.id),
     listNotificationsForUser(ctx.user.id, 8),
@@ -43,6 +44,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }
         rightSlot={
           <>
+            <TrialPill
+              trialEndsAt={billing?.trialEndsAt ?? null}
+              paidUntil={billing?.paidUntil ?? null}
+            />
             <NotificationBell
               unreadCount={unreadCount}
               recent={recentNotifications.map((n) => ({

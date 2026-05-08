@@ -139,16 +139,20 @@ function renderRenewalEmail(
   `);
 }
 
-async function sendRenewalEmail(
+async function notifyRenewal(
   org: RecipientOrg,
   variant: "in-3-days" | "tomorrow" | "today" | "expired",
 ) {
+  // Pull owner+admin user records (we need both id for in-app notifications
+  // and email for transactional mail).
   const owners = await db.membership.findMany({
     where: { organizationId: org.id, role: { in: ["OWNER", "ADMIN"] } },
-    select: { user: { select: { email: true } } },
-    take: 5,
+    select: { user: { select: { id: true, email: true } } },
+    take: 10,
   });
-  const recipients = owners.map((m) => m.user.email).filter(Boolean);
+  const recipients = owners
+    .map((m) => m.user)
+    .filter((u): u is { id: string; email: string } => Boolean(u?.email));
   if (recipients.length === 0) return;
 
   const subject = {
@@ -158,10 +162,46 @@ async function sendRenewalEmail(
     expired: `Je BookingBay-abonnement is verlopen`,
   }[variant];
 
+  const bellTitle = {
+    "in-3-days": "Verlenging over 3 dagen",
+    tomorrow: "Verlenging morgen",
+    today: "Vandaag verlengt je abonnement",
+    expired: "Je abonnement is verlopen",
+  }[variant];
+
+  const bellBody = {
+    "in-3-days":
+      "Zorg dat je betaalmethode klopt — je abonnement verlengt over 3 dagen.",
+    tomorrow:
+      "Korte heads-up: morgen verlengt je BookingBay-abonnement.",
+    today:
+      "Vandaag is de verlengdatum. Geen actie nodig als je betaalmethode klopt.",
+    expired:
+      "We konden de betaling niet verwerken — je abonnement is gestopt. Vul je betaalmethode aan om te hervatten.",
+  }[variant];
+
   const html = renderRenewalEmail(org, variant);
-  await Promise.all(
-    recipients.map((to) => sendEmail({ to, subject, html })),
-  );
+
+  // Run e-mail + in-app notifications in parallel. Per-recipient errors
+  // are swallowed by sendEmail/createMany so one failure won't take down
+  // the whole batch.
+  await Promise.all([
+    ...recipients.map((u) =>
+      sendEmail({ to: u.email, subject, html }),
+    ),
+    db.notification.createMany({
+      data: recipients.map((u) => ({
+        userId: u.id,
+        organizationId: org.id,
+        type: "billing",
+        title: bellTitle,
+        body: bellBody,
+        ctaUrl: "/dashboard/settings/billing",
+        ctaLabel:
+          variant === "expired" ? "Abonnement hervatten" : "Naar facturatie",
+      })),
+    }),
+  ]);
 }
 
 /* -------------------- Cron driver -------------------- */
@@ -218,7 +258,7 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
       // Move the stage forward and send the corresponding email.
       const variant =
         stage === 1 ? "in-3-days" : stage === 2 ? "tomorrow" : "today";
-      await sendRenewalEmail(org, variant);
+      await notifyRenewal(org, variant);
       await db.organization.update({
         where: { id: org.id },
         data: { paymentReminderStage: stage },
@@ -251,7 +291,7 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
       where: { id: org.id },
       data: { suspendedAt: now },
     });
-    await sendRenewalEmail(org, "expired");
+    await notifyRenewal(org, "expired");
     await audit({
       organizationId: org.id,
       action: "org.subscription.suspended",
