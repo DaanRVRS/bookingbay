@@ -66,12 +66,18 @@ export function BlockEditor({
   categories,
   reviews,
   items,
+  onPromoteChild,
 }: {
   block: Block;
   onChange: (patch: Partial<Block>) => void;
   categories: CategoryRef[];
   reviews: ReviewRef[];
   items: ItemRef[];
+  /**
+   * Only meaningful when block.type === "container". Lifts a child block
+   * out of the container into the top-level page-block list.
+   */
+  onPromoteChild?: (childId: string) => void;
 }) {
   switch (block.type) {
     case "hero":
@@ -1323,16 +1329,24 @@ export function BlockEditor({
       );
 
     case "container":
-      return <ContainerEditor block={block} onChange={onChange} />;
+      return (
+        <ContainerEditor
+          block={block}
+          onChange={onChange}
+          onPromoteChild={onPromoteChild}
+        />
+      );
   }
 }
 
 function ContainerEditor({
   block,
   onChange,
+  onPromoteChild,
 }: {
   block: ContainerBlock;
   onChange: (patch: Partial<Block>) => void;
+  onPromoteChild?: (childId: string) => void;
 }) {
   const updateChild = (childId: string, patch: Partial<NonContainerBlock>) => {
     const children = block.children.map((c) =>
@@ -1495,6 +1509,17 @@ function ContainerEditor({
                 >
                   ✎
                 </button>
+                {onPromoteChild && (
+                  <button
+                    type="button"
+                    onClick={() => onPromoteChild(child.id)}
+                    className="grid size-7 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Verplaats naar canvas"
+                    title="Verplaats naar canvas (uit container)"
+                  >
+                    ↗
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => removeChild(child.id)}

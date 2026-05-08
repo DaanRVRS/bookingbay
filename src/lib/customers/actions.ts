@@ -13,6 +13,7 @@ import {
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
+import { assertOrgActive } from "@/lib/billing/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -28,6 +29,8 @@ export async function createCustomerAction(
 ): Promise<ActionResult<{ id: string; name: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const blocked = await assertOrgActive(ctx.organization.id);
+  if (blocked) return blocked;
 
   const parsed = customerCreateSchema.safeParse(input);
   if (!parsed.success) {

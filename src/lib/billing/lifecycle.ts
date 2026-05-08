@@ -319,3 +319,227 @@ export async function onPaidUntilChanged(organizationId: string) {
     data: { paymentReminderStage: 0, suspendedAt: null },
   });
 }
+
+/* ============================================================ */
+/* Trial reminders (parallel logic, separate stage column)      */
+/* ============================================================ */
+
+interface TrialOrg {
+  id: string;
+  name: string;
+  trialEndsAt: Date | null;
+  plan: Plan;
+}
+
+function renderTrialEmail(
+  org: TrialOrg,
+  variant: "in-3-days" | "tomorrow" | "today" | "expired",
+) {
+  const limits = planLimits(org.plan);
+  const dateLabel = org.trialEndsAt
+    ? format(org.trialEndsAt, "EEEE d MMMM", { locale: nl })
+    : "binnenkort";
+
+  const headline = {
+    "in-3-days": "Je trial loopt over 3 dagen af",
+    tomorrow: "Je trial loopt morgen af",
+    today: "Vandaag is de laatste dag van je trial",
+    expired: "Je trial is afgelopen",
+  }[variant];
+
+  const body = {
+    "in-3-days": `
+      <p>Hoi,</p>
+      <p>
+        Je 14-daagse trial van <strong>${org.name}</strong> loopt af op
+        <strong>${dateLabel}</strong>. Bevalt het? Kies een plan
+        (vanaf €${limits.monthlyPriceEuro} / mnd) en je werkruimte gaat
+        zonder onderbreking door.
+      </p>
+    `,
+    tomorrow: `
+      <p>Hoi,</p>
+      <p>
+        Korte heads-up: je trial loopt <strong>morgen</strong> af
+        (${dateLabel}). Even kiezen of je doorgaat?
+      </p>
+    `,
+    today: `
+      <p>Hoi,</p>
+      <p>
+        Vandaag is de laatste dag van je trial. Kies vandaag nog een plan
+        om <strong>${org.name}</strong> in de lucht te houden.
+      </p>
+    `,
+    expired: `
+      <p>Hoi,</p>
+      <p>
+        Je trial van <strong>${org.name}</strong> is afgelopen. Je data
+        blijft bewaard — kies een plan om weer items, klanten en boekingen
+        toe te voegen.
+      </p>
+    `,
+  }[variant];
+
+  return emailLayout(`
+    <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">${headline}</h1>
+    ${body}
+    <div style="margin:28px 0">
+      ${btn(`${env.APP_URL}/dashboard/settings/billing`, "Kies een plan")}
+    </div>
+    <p style="font-size:13px;color:#6b7280;margin-top:24px">
+      Vragen?
+      <a href="mailto:hallo@bookingbay.nl" style="color:#ef5934">Stuur ons een mail</a>
+      — dan denken we mee.
+    </p>
+  `);
+}
+
+async function notifyTrialEnding(
+  org: TrialOrg,
+  variant: "in-3-days" | "tomorrow" | "today" | "expired",
+) {
+  const owners = await db.membership.findMany({
+    where: { organizationId: org.id, role: { in: ["OWNER", "ADMIN"] } },
+    select: { user: { select: { id: true, email: true } } },
+    take: 10,
+  });
+  const recipients = owners
+    .map((m) => m.user)
+    .filter((u): u is { id: string; email: string } => Boolean(u?.email));
+  if (recipients.length === 0) return;
+
+  const subject = {
+    "in-3-days": "Je trial loopt over 3 dagen af",
+    tomorrow: "Trial-herinnering: morgen afgelopen",
+    today: "Laatste dag van je trial",
+    expired: "Je trial is afgelopen",
+  }[variant];
+  const bellTitle = {
+    "in-3-days": "Trial loopt af over 3 dagen",
+    tomorrow: "Trial loopt morgen af",
+    today: "Vandaag laatste trial-dag",
+    expired: "Trial afgelopen",
+  }[variant];
+  const bellBody = {
+    "in-3-days": `Kies binnen 3 dagen een plan om ${org.name} door te laten draaien.`,
+    tomorrow: "Morgen afgelopen — kies een plan om door te kunnen.",
+    today: "Vandaag is de laatste dag — kies een plan om je werkruimte te behouden.",
+    expired: "Je trial is voorbij. Kies een plan om weer items en boekingen toe te voegen.",
+  }[variant];
+
+  const html = renderTrialEmail(org, variant);
+
+  await Promise.all([
+    ...recipients.map((u) => sendEmail({ to: u.email, subject, html })),
+    db.notification.createMany({
+      data: recipients.map((u) => ({
+        userId: u.id,
+        organizationId: org.id,
+        type: "billing",
+        title: bellTitle,
+        body: bellBody,
+        ctaUrl: "/dashboard/settings/billing",
+        ctaLabel: "Kies een plan",
+      })),
+    }),
+  ]);
+}
+
+export interface TrialCheckSummary {
+  reminded3Days: number;
+  reminded1Day: number;
+  remindedToday: number;
+  remindedExpired: number;
+  total: number;
+}
+
+/**
+ * Trial-end reminder pass. Idempotent: trialReminderStage prevents
+ * double-fire. Stage 4 is added so we can flag "expired" once after the
+ * trial ran out (still no paidUntil).
+ */
+export async function runTrialChecks(
+  now: Date = new Date(),
+): Promise<TrialCheckSummary> {
+  const summary: TrialCheckSummary = {
+    reminded3Days: 0,
+    reminded1Day: 0,
+    remindedToday: 0,
+    remindedExpired: 0,
+    total: 0,
+  };
+
+  const cutoffPast = new Date(now.getTime() - 5 * MS_PER_DAY);
+  const cutoffFuture = new Date(now.getTime() + 5 * MS_PER_DAY);
+
+  const orgs = await db.organization.findMany({
+    where: {
+      trialEndsAt: { not: null, gte: cutoffPast, lte: cutoffFuture },
+      paidUntil: null,
+      suspendedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      plan: true,
+      trialEndsAt: true,
+      trialReminderStage: true,
+    },
+  });
+
+  summary.total = orgs.length;
+
+  for (const org of orgs) {
+    if (!org.trialEndsAt) continue;
+    const stage = expectedStage(org.trialEndsAt, now);
+    if (stage > org.trialReminderStage) {
+      const variant =
+        stage === 1 ? "in-3-days" : stage === 2 ? "tomorrow" : "today";
+      await notifyTrialEnding(org, variant);
+      await db.organization.update({
+        where: { id: org.id },
+        data: { trialReminderStage: stage },
+      });
+      await audit({
+        organizationId: org.id,
+        action: `org.trial.reminder.${variant}`,
+        resource: "organization",
+        resourceId: org.id,
+        metadata: { trialEndsAt: org.trialEndsAt.toISOString() },
+      });
+      if (stage === 1) summary.reminded3Days++;
+      else if (stage === 2) summary.reminded1Day++;
+      else summary.remindedToday++;
+    }
+  }
+
+  // Stage 4: trial ran out + still no paidUntil, fire once.
+  const expiredCutoff = new Date(now.getTime() - 2 * MS_PER_DAY);
+  const expiredOrgs = await db.organization.findMany({
+    where: {
+      trialEndsAt: { not: null, lt: now, gte: expiredCutoff },
+      paidUntil: null,
+      suspendedAt: null,
+      trialReminderStage: { lt: 4 },
+    },
+    select: { id: true, name: true, plan: true, trialEndsAt: true },
+  });
+  for (const org of expiredOrgs) {
+    await notifyTrialEnding(org, "expired");
+    await db.organization.update({
+      where: { id: org.id },
+      data: { trialReminderStage: 4 },
+    });
+    await audit({
+      organizationId: org.id,
+      action: "org.trial.reminder.expired",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { trialEndsAt: org.trialEndsAt?.toISOString() },
+    });
+    summary.remindedExpired++;
+  }
+
+  return summary;
+}

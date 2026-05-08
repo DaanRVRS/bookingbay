@@ -223,6 +223,36 @@ export function Builder({
     );
   };
 
+  /**
+   * Lift a child block out of its container into the top-level blocks list,
+   * placed directly after the container itself. Used by the container
+   * editor's "Verplaats naar canvas" button.
+   */
+  const promoteContainerChild = (containerId: string, childId: string) => {
+    setBlocks((prev) => {
+      const containerIdx = prev.findIndex((b) => b.id === containerId);
+      if (containerIdx === -1) return prev;
+      const container = prev[containerIdx];
+      if (container.type !== "container") return prev;
+      const child = container.children.find((c) => c.id === childId);
+      if (!child) return prev;
+      const updatedContainer: Block = {
+        ...container,
+        children: container.children.filter((c) => c.id !== childId),
+      };
+      const next = [...prev];
+      next[containerIdx] = updatedContainer;
+      next.splice(containerIdx + 1, 0, child as Block);
+      return next;
+    });
+    setSelectedId(childId);
+    setTimeout(() => {
+      document
+        .getElementById(`block-${childId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  };
+
   const removeBlock = (id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
     if (selectedId === id) setSelectedId(null);
@@ -470,6 +500,9 @@ export function Builder({
                         onChange={(patch) => updateBlock(block.id, patch)}
                         onRemove={() => removeBlock(block.id)}
                         onDuplicate={() => duplicateBlock(block.id)}
+                        onPromoteChild={(childId) =>
+                          promoteContainerChild(block.id, childId)
+                        }
                         categories={categories}
                         reviews={reviews}
                         items={items}
@@ -677,6 +710,7 @@ function BlockCard({
   onChange,
   onRemove,
   onDuplicate,
+  onPromoteChild,
   categories,
   reviews,
   items,
@@ -688,6 +722,7 @@ function BlockCard({
   onChange: (patch: Partial<Block>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
+  onPromoteChild: (childId: string) => void;
   categories: CategoryRef[];
   reviews: ReviewRef[];
   items: ItemRef[];
@@ -783,6 +818,7 @@ function BlockCard({
             categories={categories}
             reviews={reviews}
             items={items}
+            onPromoteChild={onPromoteChild}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import { planAllows, assertPageQuotaOk } from "@/lib/plans";
 import type { Plan } from "@prisma/client";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
+import { assertOrgActive } from "@/lib/billing/guard";
 import {
   pageCreateSchema,
   pageMetaUpdateSchema,
@@ -41,6 +42,8 @@ export async function createPageAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const blocked = await assertOrgActive(ctx.organization.id);
+  if (blocked) return blocked;
 
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },

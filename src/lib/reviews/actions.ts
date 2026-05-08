@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
+import { assertOrgActive } from "@/lib/billing/guard";
 import type { ActionResult } from "@/lib/auth/schemas";
 import {
   reviewCreateSchema,
@@ -29,6 +30,8 @@ export async function createReviewAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const blocked = await assertOrgActive(ctx.organization.id);
+  if (blocked) return blocked;
 
   const parsed = reviewCreateSchema.safeParse(input);
   if (!parsed.success) {

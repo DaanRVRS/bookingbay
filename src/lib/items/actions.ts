@@ -14,6 +14,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import { planLimits } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
+import { assertOrgActive } from "@/lib/billing/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -37,6 +38,8 @@ export async function createItemAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const blocked = await assertOrgActive(ctx.organization.id);
+  if (blocked) return blocked;
 
   const parsed = itemCreateSchema.safeParse(input);
   if (!parsed.success) {

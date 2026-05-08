@@ -13,6 +13,7 @@ import {
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
+import { assertOrgActive } from "@/lib/billing/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -28,6 +29,8 @@ export async function createCategoryAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const blocked = await assertOrgActive(ctx.organization.id);
+  if (blocked) return blocked;
 
   const parsed = categoryCreateSchema.safeParse(input);
   if (!parsed.success) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { runBillingChecks } from "@/lib/billing/lifecycle";
+import { runBillingChecks, runTrialChecks } from "@/lib/billing/lifecycle";
 
 // Run this on the server. No caching, no static optimization.
 export const runtime = "nodejs";
@@ -31,8 +31,11 @@ export async function GET(req: Request) {
   }
 
   try {
-    const summary = await runBillingChecks();
-    return NextResponse.json({ ok: true, summary });
+    const [billing, trial] = await Promise.all([
+      runBillingChecks(),
+      runTrialChecks(),
+    ]);
+    return NextResponse.json({ ok: true, billing, trial });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/billing-checks] failed:", err);
