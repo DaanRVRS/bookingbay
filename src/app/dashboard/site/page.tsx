@@ -1,6 +1,9 @@
-import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ExternalLink, FileText } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import { planAllows } from "@/lib/plans";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { SiteCustomizerForm } from "./site-customizer-form";
 import { EmbedSnippet } from "./embed-snippet";
@@ -16,25 +19,21 @@ export default async function SitePage() {
       id: true,
       name: true,
       slug: true,
-      heroTitle: true,
-      heroSubtitle: true,
-      aboutText: true,
       primaryColor: true,
       logoUrl: true,
       contactEmail: true,
       contactPhone: true,
       itemDisplayStyle: true,
+      plan: true,
     },
   });
   if (!org) throw new Error("Organization not found");
 
-  // Build the public URL — use NEXTAUTH_URL host as the admin host and
-  // assume tenant slugs live as a subdomain of it.
-  const adminHost = (process.env.NEXTAUTH_URL ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const protocol = (process.env.NEXTAUTH_URL ?? "").startsWith("https") ? "https" : "http";
-  const tenantUrl = adminHost
-    ? `${protocol}://${org.slug}.${adminHost}`
-    : `/site/${org.slug}`;
+  // Tenant URL = <slug>.<TENANT_DOMAIN>. TENANT_DOMAIN strips a leading
+  // "www." (see env.ts) so we never end up with reuvers.www.bookingbay.nl.
+  const protocol = env.APP_URL.startsWith("https") ? "https" : "http";
+  const tenantUrl = `${protocol}://${org.slug}.${env.TENANT_DOMAIN}`;
+  const builderEnabled = planAllows(org.plan, "pageBuilder");
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -59,12 +58,29 @@ export default async function SitePage() {
           {tenantUrl}
         </p>
 
+        {/* Page builder shortcut — primary way to edit the homepage now */}
+        {builderEnabled && (
+          <Link
+            href="/dashboard/site/pages"
+            className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Bewerk je homepagina &amp; pagina&apos;s</p>
+              <p className="text-xs text-muted-foreground">
+                Hero, tekst, foto-slider, prijslijst, reviews — alles in de
+                drag-and-drop page-builder.
+              </p>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground" />
+          </Link>
+        )}
+
         <div className="mt-6">
           <SiteCustomizerForm
             initial={{
-              heroTitle: org.heroTitle ?? "",
-              heroSubtitle: org.heroSubtitle ?? "",
-              aboutText: org.aboutText ?? "",
               primaryColor: org.primaryColor ?? "",
               logoUrl: org.logoUrl,
               contactEmail: org.contactEmail ?? "",
@@ -78,7 +94,7 @@ export default async function SitePage() {
         <div className="mt-6">
           <EmbedSnippet
             slug={org.slug}
-            baseUrl={`${protocol}://${adminHost}`}
+            baseUrl={`${protocol}://${env.TENANT_DOMAIN}`}
           />
         </div>
       </div>

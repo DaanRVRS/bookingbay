@@ -10,7 +10,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/auth/FormField";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
 import { updateSiteAction } from "@/lib/orgs/site-actions";
@@ -21,9 +20,6 @@ type FormValues = z.input<typeof siteCustomizerSchema>;
 interface Props {
   orgName: string;
   initial: {
-    heroTitle: string;
-    heroSubtitle: string;
-    aboutText: string;
     primaryColor: string;
     logoUrl: string | null;
     contactEmail: string;
@@ -41,7 +37,8 @@ const COLOR_PRESETS = [
   { label: "Sand", value: "#a3743b" },
 ];
 
-export function SiteCustomizerForm({ initial, orgName }: Props) {
+export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
+  void _orgName;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -55,9 +52,6 @@ export function SiteCustomizerForm({ initial, orgName }: Props) {
   } = useForm<FormValues, unknown, SiteCustomizerInput>({
     resolver: zodResolver(siteCustomizerSchema),
     defaultValues: {
-      heroTitle: initial.heroTitle,
-      heroSubtitle: initial.heroSubtitle,
-      aboutText: initial.aboutText,
       primaryColor: initial.primaryColor,
       logoUrl: initial.logoUrl ?? "",
       contactEmail: initial.contactEmail,
@@ -154,56 +148,6 @@ export function SiteCustomizerForm({ initial, orgName }: Props) {
         </div>
       </div>
 
-      {/* Hero */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Hero-sectie</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          De grote tekst bovenaan je site. Houd 't kort en concreet.
-        </p>
-
-        <div className="mt-5 flex flex-col gap-4">
-          <FormField
-            label="Hero-titel"
-            placeholder={`Bijv. "${orgName} — vaar de Friese meren op"`}
-            error={errors.heroTitle?.message}
-            {...register("heroTitle")}
-          />
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="heroSubtitle">Hero-subtitel</Label>
-            <Textarea
-              id="heroSubtitle"
-              rows={2}
-              placeholder="Eén of twee zinnen — wat verhuur je en voor wie?"
-              aria-invalid={Boolean(errors.heroSubtitle)}
-              {...register("heroSubtitle")}
-            />
-            {errors.heroSubtitle?.message && (
-              <p className="text-xs font-medium text-destructive">{errors.heroSubtitle.message}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* About */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Over ons</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Optionele introductie-tekst onder de hero. Lege regels worden afgebroken.
-        </p>
-        <div className="mt-4 flex flex-col gap-1.5">
-          <Textarea
-            id="aboutText"
-            rows={6}
-            placeholder="Wij zijn een verhuurbedrijf in… al sinds…"
-            aria-invalid={Boolean(errors.aboutText)}
-            {...register("aboutText")}
-          />
-          {errors.aboutText?.message && (
-            <p className="text-xs font-medium text-destructive">{errors.aboutText.message}</p>
-          )}
-        </div>
-      </div>
-
       {/* Contact */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Contactgegevens</h2>
@@ -231,7 +175,7 @@ export function SiteCustomizerForm({ initial, orgName }: Props) {
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Weergave aanbod</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Hoe items op je site getoond worden.
+          Hoe items op je site getoond worden in het catalogus-overzicht.
         </p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {(

@@ -4,6 +4,7 @@ import { describeAction } from "@/lib/audit/log";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { BroadcastForm } from "./broadcast-form";
+import { DeleteBroadcastButton } from "./delete-broadcast-button";
 
 export const metadata = { title: "Broadcast" };
 
@@ -71,22 +72,33 @@ export default async function AdminBroadcastPage() {
                 };
                 const actor = b.actorUserId ? actorById.get(b.actorUserId) : null;
                 return (
-                  <li key={b.id} className="flex flex-col gap-1 px-5 py-3 text-sm">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="truncate font-medium">
-                        {meta.title ?? describeAction("admin.broadcast")}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                        {format(b.createdAt, "d MMM HH:mm", { locale: nl })}
-                      </span>
+                  <li
+                    key={b.id}
+                    className="flex flex-wrap items-start gap-3 px-5 py-3 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate font-medium">
+                          {meta.title ?? describeAction("admin.broadcast")}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {format(b.createdAt, "d MMM HH:mm", { locale: nl })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {meta.recipients ?? 0} ontvangers
+                        {typeof meta.emailsAttempted === "number" &&
+                          meta.emailsAttempted > 0 &&
+                          ` · ${meta.emailsAttempted} e-mails`}
+                        {actor && ` · door ${actor.name ?? actor.email}`}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {meta.recipients ?? 0} ontvangers
-                      {typeof meta.emailsAttempted === "number" &&
-                        meta.emailsAttempted > 0 &&
-                        ` · ${meta.emailsAttempted} e-mails`}
-                      {actor && ` · door ${actor.name ?? actor.email}`}
-                    </p>
+                    {meta.title && (
+                      <DeleteBroadcastButton
+                        title={meta.title}
+                        at={b.createdAt.toISOString()}
+                      />
+                    )}
                   </li>
                 );
               })}

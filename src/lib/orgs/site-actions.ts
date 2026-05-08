@@ -25,9 +25,6 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
   await db.organization.update({
     where: { id: ctx.organization.id },
     data: {
-      heroTitle: parsed.data.heroTitle || null,
-      heroSubtitle: parsed.data.heroSubtitle || null,
-      aboutText: parsed.data.aboutText || null,
       primaryColor: parsed.data.primaryColor || null,
       logoUrl: parsed.data.logoUrl || null,
       contactEmail: parsed.data.contactEmail || null,

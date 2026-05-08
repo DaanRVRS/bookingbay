@@ -87,9 +87,19 @@ export default async function AdminOverviewPage() {
             </h2>
           </div>
           {dueReminders.length === 0 ? (
-            <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-              Niets staat open voor vandaag. Goed bezig.
-            </p>
+            <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center text-xs text-muted-foreground">
+              <p>Niets staat open voor vandaag.</p>
+              <p>
+                Reminders maak je per organisatie aan:{" "}
+                <Link
+                  href="/admin/organizations"
+                  className="font-medium text-primary hover:underline"
+                >
+                  open een organisatie
+                </Link>{" "}
+                → CRM-sectie → &ldquo;Plan een follow-up&rdquo;.
+              </p>
+            </div>
           ) : (
             <ul className="divide-y divide-border">
               {dueReminders.slice(0, 8).map((r) => {

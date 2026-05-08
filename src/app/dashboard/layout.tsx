@@ -1,5 +1,6 @@
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { OrgSwitcher } from "@/components/dashboard/OrgSwitcher";
 import { UserMenu } from "@/components/dashboard/UserMenu";
@@ -81,7 +82,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="block truncate">
               Plan: <span className="text-foreground font-medium">{ctx.organization.plan}</span>
             </span>
-            <span className="block truncate">{ctx.organization.slug}.bookingbay.nl</span>
+            <span className="block truncate">
+              {ctx.organization.slug}.{env.TENANT_DOMAIN}
+            </span>
           </div>
         </aside>
 

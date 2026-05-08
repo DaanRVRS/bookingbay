@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Globe, Layers, Package, Users } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -201,12 +202,12 @@ function SecondaryStats({ categoryCount, slug }: { categoryCount: number; slug: 
           Klantsite
         </p>
         <Link
-          href={`https://${slug}.bookingbay.nl`}
+          href={`${env.APP_URL.startsWith("https") ? "https" : "http"}://${slug}.${env.TENANT_DOMAIN}`}
           target="_blank"
           className="mt-2 flex items-center gap-2 text-sm font-medium hover:underline"
         >
           <Globe className="size-4 text-muted-foreground" />
-          {slug}.bookingbay.nl
+          {slug}.{env.TENANT_DOMAIN}
         </Link>
         <p className="mt-2 text-xs text-muted-foreground">
           Open in nieuw tabblad om te zien wat je klanten zien.

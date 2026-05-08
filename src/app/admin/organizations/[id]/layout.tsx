@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { OrgSubNav } from "./sub-nav";
 
 export default async function AdminOrgLayout({
@@ -26,15 +27,8 @@ export default async function AdminOrgLayout({
   });
   if (!org) notFound();
 
-  const adminHost = (process.env.NEXTAUTH_URL ?? "")
-    .replace(/^https?:\/\//, "")
-    .replace(/\/$/, "");
-  const protocol = (process.env.NEXTAUTH_URL ?? "").startsWith("https")
-    ? "https"
-    : "http";
-  const tenantUrl = adminHost
-    ? `${protocol}://${org.slug}.${adminHost}`
-    : `/site/${org.slug}`;
+  const protocol = env.APP_URL.startsWith("https") ? "https" : "http";
+  const tenantUrl = `${protocol}://${org.slug}.${env.TENANT_DOMAIN}`;
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">

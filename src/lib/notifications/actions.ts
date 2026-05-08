@@ -9,6 +9,47 @@ import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import type { ActionResult } from "@/lib/auth/schemas";
 
+/**
+ * Deletes all Notification rows that match a previously-sent broadcast.
+ * A broadcast doesn't have its own primary key (we fan-out one row per
+ * recipient), so we identify it by (title + createdAt-window). Used to
+ * un-send a broadcast from /admin/broadcast.
+ */
+export async function deleteBroadcastAction(input: {
+  title: string;
+  /** Reference timestamp (ISO) — typically the audit log entry's createdAt. */
+  at: string;
+}): Promise<ActionResult<{ deleted: number }>> {
+  const me = await requireAdmin();
+  const at = new Date(input.at);
+  if (Number.isNaN(at.getTime())) return { ok: false, error: "Ongeldige datum" };
+  if (!input.title) return { ok: false, error: "Titel is verplicht" };
+
+  // Match within a 90-second window around the timestamp — fan-out happens
+  // in parallel so individual rows can drift a few seconds.
+  const winStart = new Date(at.getTime() - 90_000);
+  const winEnd = new Date(at.getTime() + 90_000);
+
+  const result = await db.notification.deleteMany({
+    where: {
+      type: "broadcast",
+      title: input.title,
+      createdAt: { gte: winStart, lte: winEnd },
+    },
+  });
+
+  await audit({
+    actorUserId: me.id,
+    action: "admin.broadcast.delete",
+    resource: "notification",
+    metadata: { title: input.title, deleted: result.count },
+  });
+
+  revalidatePath("/admin/broadcast");
+  revalidatePath("/dashboard/notifications");
+  return { ok: true, data: { deleted: result.count } };
+}
+
 export async function markNotificationReadAction(id: string): Promise<ActionResult> {
   const user = await requireUser();
   const existing = await db.notification.findFirst({

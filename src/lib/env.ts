@@ -58,7 +58,14 @@ if (!rootDomain) {
 
 // Resolve the actual sender address — EMAIL_FROM > RESEND_FROM > default
 const emailFrom = data.EMAIL_FROM || data.RESEND_FROM || "BookingBay <noreply@example.com>";
-const tenantDomain = data.TENANT_DOMAIN || rootDomain;
+
+// Tenant subdomains live below the apex host. If the admin runs on
+// www.bookingbay.nl we must NOT prepend the slug to "www.bookingbay.nl"
+// (that gives reuvers.www.bookingbay.nl which doesn't resolve). Strip the
+// "www." prefix so tenants land at <slug>.bookingbay.nl. An explicit
+// TENANT_DOMAIN env var still wins.
+const stripWww = (host: string) => host.replace(/^www\./i, "");
+const tenantDomain = data.TENANT_DOMAIN || stripWww(rootDomain);
 
 export const env = {
   ...data,

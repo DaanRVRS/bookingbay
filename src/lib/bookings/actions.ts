@@ -242,6 +242,101 @@ interface AvailabilityCheckInput {
   excludeBookingId?: string;
 }
 
+/**
+ * Lightweight move-booking action used by the calendar drag-and-drop.
+ * Preserves the booking's duration; optionally re-assigns to a different
+ * item. Does conflict-checking against the new item, but never against
+ * the booking being moved itself.
+ */
+export async function moveBookingAction(input: {
+  id: string;
+  newStartAt: string;
+  newItemId?: string;
+}): Promise<ActionResult> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "bookings:manage");
+
+  const existing = await db.booking.findFirst({
+    where: { id: input.id, organizationId: ctx.organization.id },
+    select: {
+      id: true,
+      itemId: true,
+      startAt: true,
+      endAt: true,
+      status: true,
+    },
+  });
+  if (!existing) return { ok: false, error: "Boeking niet gevonden" };
+
+  const newStartAt = new Date(input.newStartAt);
+  if (Number.isNaN(newStartAt.getTime())) {
+    return { ok: false, error: "Ongeldige nieuwe starttijd" };
+  }
+  const durationMs = existing.endAt.getTime() - existing.startAt.getTime();
+  const newEndAt = new Date(newStartAt.getTime() + durationMs);
+  const newItemId = input.newItemId ?? existing.itemId;
+
+  // No-op? Skip the database round-trip.
+  if (
+    newItemId === existing.itemId &&
+    newStartAt.getTime() === existing.startAt.getTime()
+  ) {
+    return { ok: true };
+  }
+
+  const item = await db.item.findFirst({
+    where: { id: newItemId, organizationId: ctx.organization.id },
+    select: { id: true, quantity: true, name: true },
+  });
+  if (!item) return { ok: false, error: "Item niet gevonden" };
+
+  if (existing.status !== "CANCELED") {
+    const availability = await checkAvailability({
+      organizationId: ctx.organization.id,
+      itemId: item.id,
+      itemQuantity: item.quantity,
+      startAt: newStartAt,
+      endAt: newEndAt,
+      excludeBookingId: existing.id,
+    });
+    if (!availability.available) {
+      return { ok: false, error: availability.message ?? "Conflict in deze periode" };
+    }
+  }
+
+  await db.booking.update({
+    where: { id: existing.id },
+    data: {
+      itemId: newItemId,
+      startAt: newStartAt,
+      endAt: newEndAt,
+    },
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.move",
+    resource: "booking",
+    resourceId: existing.id,
+    metadata: {
+      from: {
+        itemId: existing.itemId,
+        startAt: existing.startAt.toISOString(),
+      },
+      to: {
+        itemId: newItemId,
+        startAt: newStartAt.toISOString(),
+      },
+    },
+  });
+
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${existing.id}`);
+  return { ok: true };
+}
+
 export async function checkBookingAvailability(input: AvailabilityCheckInput) {
   const ctx = await requireOrg();
   const item = await db.item.findFirst({
