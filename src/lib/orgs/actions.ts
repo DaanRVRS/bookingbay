@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireUser, ACTIVE_ORG_COOKIE } from "@/lib/auth/session";
 import { onboardingSchema, type OnboardingInput } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { autoLinkProspectByEmail } from "@/lib/admin/prospects/actions";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -68,6 +69,9 @@ export async function createOrganizationAction(
     });
     return created;
   });
+
+  // Auto-link any matching prospect (best-effort, never blocks).
+  if (user.email) await autoLinkProspectByEmail(user.email, org.id);
 
   // Activate this org for the user
   const cookieStore = await cookies();

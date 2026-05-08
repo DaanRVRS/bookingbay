@@ -92,6 +92,20 @@ export const ACTION_LABELS: Record<string, string> = {
   "crm.status.change": "CRM-status gewijzigd",
   "crm.tags.update": "CRM-tags bijgewerkt",
   "crm.reminder.notified": "Reminder-notificatie verstuurd",
+  "prospect.create": "Prospect aangemaakt",
+  "prospect.update": "Prospect bewerkt",
+  "prospect.delete": "Prospect verwijderd",
+  "prospect.status.change": "Prospect-status gewijzigd",
+  "prospect.tags.update": "Prospect-tags bijgewerkt",
+  "prospect.interaction.create": "Prospect-interactie gelogd",
+  "prospect.interaction.delete": "Prospect-interactie verwijderd",
+  "prospect.reminder.create": "Prospect-reminder aangemaakt",
+  "prospect.reminder.complete": "Prospect-reminder afgerond",
+  "prospect.reminder.reopen": "Prospect-reminder heropend",
+  "prospect.reminder.delete": "Prospect-reminder verwijderd",
+  "prospect.reminder.notified": "Prospect-reminder notificatie verstuurd",
+  "prospect.convert": "Prospect gekoppeld aan organisatie",
+  "prospect.convert.auto": "Prospect automatisch gekoppeld bij register",
 };
 
 export function describeAction(action: string): string {
