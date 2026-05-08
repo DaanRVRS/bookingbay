@@ -50,10 +50,10 @@ const plans = [
     features: [
       "Onbeperkte items",
       "Onbeperkte gebruikers",
-      "API-toegang",
-      "Custom CSS",
-      "Telefonische support",
-      "SLA-garantie",
+      "Onbeperkt pagina's in builder",
+      "Eigen domein + SSL",
+      "Verberg \"Powered by BookingBay\"",
+      "Prioriteit support",
     ],
   },
 ];
@@ -133,7 +133,7 @@ export function Pricing() {
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Meer dan 500 items of speciale eisen?{" "}
           <Link
-            href="mailto:hallo@bookingbay.nl?subject=Enterprise%20BookingBay"
+            href="/contact?topic=anders"
             className="text-foreground underline underline-offset-4"
           >
             Praat met ons

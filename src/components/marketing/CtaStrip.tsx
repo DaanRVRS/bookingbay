@@ -39,7 +39,7 @@ export function CtaStrip() {
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
           <Link
-            href="mailto:hallo@bookingbay.nl"
+            href="/contact?topic=demo"
             className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium text-foreground transition-colors hover:bg-accent"
           >
             Boek een demo

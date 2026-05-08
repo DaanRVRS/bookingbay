@@ -16,7 +16,7 @@ const cols = [
     links: [
       { href: "/over", label: "Over ons" },
       { href: "/blog", label: "Blog" },
-      { href: "mailto:hallo@bookingbay.nl", label: "Contact" },
+      { href: "/contact", label: "Contact" },
     ],
   },
   {

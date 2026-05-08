@@ -283,21 +283,23 @@ function PlanCard({
           </span>
         </li>
         <li className="flex items-center gap-2">
-          {limits.apiAccess ? (
-            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
-          ) : (
-            <X className="size-3 text-muted-foreground" />
-          )}
-          <span className={limits.apiAccess ? "" : "text-muted-foreground"}>API-toegang</span>
-        </li>
-        <li className="flex items-center gap-2">
           {!limits.alwaysShowPoweredBy ? (
             <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
           ) : (
             <X className="size-3 text-muted-foreground" />
           )}
           <span className={!limits.alwaysShowPoweredBy ? "" : "text-muted-foreground"}>
-            Verberg "Powered by"
+            Verberg &quot;Powered by&quot;
+          </span>
+        </li>
+        <li className="flex items-center gap-2">
+          {limits.prioritySupport ? (
+            <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+          ) : (
+            <X className="size-3 text-muted-foreground" />
+          )}
+          <span className={limits.prioritySupport ? "" : "text-muted-foreground"}>
+            Prioriteit support
           </span>
         </li>
       </ul>
