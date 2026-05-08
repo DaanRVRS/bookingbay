@@ -12,6 +12,7 @@ import { PaidUntilForm } from "./paid-until-form";
 import { AdminOrgEditForm } from "./edit-form";
 import { AdminOrgDeleteForm } from "./delete-form";
 import { ImpersonateButton } from "./impersonate-button";
+import { CrmSection } from "./crm-section";
 
 export const metadata = { title: "Organisatie" };
 
@@ -35,6 +36,11 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
     },
   });
   if (!org) notFound();
+  // Pull CRM fields explicitly — they're outside the include above.
+  const crm = await db.organization.findUnique({
+    where: { id },
+    select: { crmStatus: true, crmTags: true },
+  });
 
   const recentLogs = await db.auditLog.findMany({
     where: { organizationId: id },
@@ -51,6 +57,12 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
         <Stat label="Boekingen" value={org._count.bookings} />
         <Stat label="Leads" value={org._count.leads} />
       </div>
+
+      <CrmSection
+        organizationId={org.id}
+        crmStatus={crm?.crmStatus ?? "active"}
+        crmTags={crm?.crmTags ?? []}
+      />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         {/* Plan + trial */}

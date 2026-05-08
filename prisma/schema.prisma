@@ -29,6 +29,9 @@ model User {
   passwordResets    PasswordReset[]
   notifications     Notification[]  @relation("NotificationsToUser")
   notificationsSent Notification[]  @relation("NotificationsByUser")
+  interactionsLogged OrgInteraction[] @relation("InteractionByActor")
+  remindersCreated   OrgReminder[]    @relation("ReminderByCreator")
+  remindersAssigned  OrgReminder[]    @relation("ReminderByAssignee")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -113,6 +116,11 @@ model Organization {
   // When non-null, the org is past its grace window and feature-suspended.
   suspendedAt        DateTime?
 
+  // Platform-CRM (only used by BookingBay admins): customer pipeline status
+  // + free-form tags. UI lives in /admin/organizations/[id].
+  crmStatus String @default("active")
+  crmTags   Json   @default("[]")
+
   memberships Membership[]
   invitations Invitation[]
   categories  Category[]
@@ -125,11 +133,14 @@ model Organization {
   pages       Page[]
   reviews     Review[]
   notifications Notification[]
+  crmInteractions OrgInteraction[]
+  crmReminders    OrgReminder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([paidUntil])
+  @@index([crmStatus])
 }
 
 enum Plan {
@@ -377,6 +388,56 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
   @@index([userId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Platform CRM — only used by BookingBay-internal admins to track customer
+// (organization) interactions, follow-up reminders, status pipeline.
+// ----------------------------------------------------------------------------
+
+model OrgInteraction {
+  id             String   @id @default(cuid())
+  organizationId String
+  // Which BookingBay-admin logged this interaction.
+  actorUserId    String?
+  // "call" | "email" | "meeting" | "note"
+  type           String
+  subject        String
+  body           String?
+  // When the interaction actually happened (separate from createdAt logging).
+  occurredAt     DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("InteractionByActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, occurredAt])
+}
+
+model OrgReminder {
+  id               String    @id @default(cuid())
+  organizationId   String
+  createdById      String?
+  assignedToUserId String?
+  title            String
+  notes            String?
+  dueAt            DateTime
+  completedAt      DateTime?
+  // Has the daily cron already fanned out a notification for this reminder?
+  notifiedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ReminderByCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("ReminderByAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([completedAt, dueAt])
+  @@index([organizationId, completedAt])
+  @@index([assignedToUserId, completedAt])
 }
 
 // ----------------------------------------------------------------------------

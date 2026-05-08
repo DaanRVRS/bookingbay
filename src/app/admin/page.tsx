@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Building2, Calendar, Inbox, Mail, Package, Users } from "lucide-react";
+import { Bell, Building2, Calendar, Inbox, Mail, Package, Users } from "lucide-react";
 import { format, subDays, subMonths } from "date-fns";
 import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
+import { listDueReminders } from "@/lib/admin/crm/queries";
 
 export const metadata = { title: "Overzicht" };
 
@@ -21,6 +22,7 @@ export default async function AdminOverviewPage() {
     usersThisWeek,
     recentOrgs,
     planBreakdown,
+    dueReminders,
   ] = await Promise.all([
     db.organization.count(),
     db.user.count(),
@@ -45,7 +47,10 @@ export default async function AdminOverviewPage() {
       by: ["plan"],
       _count: { _all: true },
     }),
+    listDueReminders(now),
   ]);
+
+  const overdueCount = dueReminders.filter((r) => r.dueAt < now).length;
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -62,6 +67,65 @@ export default async function AdminOverviewPage() {
           <Stat icon={Calendar} label="Boekingen" value={bookingCount} />
           <Stat icon={Inbox} label="Leads" value={leadCount} />
         </div>
+
+        {/* CRM follow-ups widget */}
+        <section className="mt-6 rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between pb-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Bell
+                className={`size-4 ${overdueCount > 0 ? "text-destructive" : "text-muted-foreground"}`}
+              />
+              CRM follow-ups vandaag
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {dueReminders.length}
+              </span>
+              {overdueCount > 0 && (
+                <span className="rounded-md bg-destructive/15 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+                  {overdueCount} te laat
+                </span>
+              )}
+            </h2>
+          </div>
+          {dueReminders.length === 0 ? (
+            <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+              Niets staat open voor vandaag. Goed bezig.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {dueReminders.slice(0, 8).map((r) => {
+                const overdue = r.dueAt < now;
+                return (
+                  <li key={r.id} className="py-2">
+                    <Link
+                      href={`/admin/organizations/${r.organization.id}`}
+                      className="flex items-center gap-3 text-sm hover:bg-accent/40 rounded-md -mx-2 px-2 py-1"
+                    >
+                      <span
+                        className={`size-1.5 shrink-0 rounded-full ${overdue ? "bg-destructive" : "bg-primary"}`}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{r.title}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {r.organization.name}
+                          {r.assignedTo && (
+                            <> · {r.assignedTo.name ?? r.assignedTo.email}</>
+                          )}
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 text-xs tabular-nums ${
+                          overdue ? "font-medium text-destructive" : "text-muted-foreground"
+                        }`}
+                      >
+                        {format(r.dueAt, "EEE d MMM HH:mm", { locale: nl })}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           <section className="rounded-xl border border-border bg-card p-5 lg:col-span-2">

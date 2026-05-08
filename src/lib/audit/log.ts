@@ -81,6 +81,15 @@ export const ACTION_LABELS: Record<string, string> = {
   "admin.impersonate.start": "Inloggen-als gestart",
   "admin.impersonate.stop": "Inloggen-als gestopt",
   "admin.broadcast": "Broadcast verstuurd",
+  "crm.interaction.create": "CRM-interactie gelogd",
+  "crm.interaction.delete": "CRM-interactie verwijderd",
+  "crm.reminder.create": "Reminder aangemaakt",
+  "crm.reminder.complete": "Reminder afgerond",
+  "crm.reminder.reopen": "Reminder heropend",
+  "crm.reminder.delete": "Reminder verwijderd",
+  "crm.status.change": "CRM-status gewijzigd",
+  "crm.tags.update": "CRM-tags bijgewerkt",
+  "crm.reminder.notified": "Reminder-notificatie verstuurd",
 };
 
 export function describeAction(action: string): string {
