@@ -62,9 +62,9 @@ export default async function ContactPage({ searchParams }: PageProps) {
               <ContactMethod
                 icon={MessageCircle}
                 label="Klantsupport"
-                value="Voor bestaande klanten"
-                href="/dashboard"
-                hint="Log in en kijk in je dashboard onder Instellingen → Plan & facturatie."
+                value="Open een ticket"
+                href="/dashboard/support"
+                hint="Bestaande klant? Log in en open direct een support-ticket — we reageren binnen één werkdag."
               />
             </aside>
           </div>

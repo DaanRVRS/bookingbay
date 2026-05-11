@@ -8,6 +8,7 @@ import {
   FileText,
   Inbox,
   Layers,
+  LifeBuoy,
   MessageSquareQuote,
   Package,
   ScrollText,
@@ -53,6 +54,7 @@ const settings: NavItem[] = [
   { href: "/dashboard/team", label: "Team", icon: UserCog },
   { href: "/dashboard/audit", label: "Activiteitenlog", icon: ScrollText },
   { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
+  { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
 ];
 
 export function Sidebar() {

@@ -110,6 +110,10 @@ export const ACTION_LABELS: Record<string, string> = {
   "prospect.reminder.notified": "Prospect-reminder notificatie verstuurd",
   "prospect.convert": "Prospect gekoppeld aan organisatie",
   "prospect.convert.auto": "Prospect automatisch gekoppeld bij register",
+  "support.ticket.create": "Support-ticket aangemaakt",
+  "support.ticket.reply.user": "Reactie op support-ticket (klant)",
+  "support.ticket.reply.staff": "Reactie op support-ticket (BookingBay)",
+  "support.ticket.update": "Support-ticket bijgewerkt",
 };
 
 export function describeAction(action: string): string {

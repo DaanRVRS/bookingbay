@@ -6,6 +6,7 @@ import type { ActionResult } from "@/lib/auth/schemas";
 import { leadSchema, type LeadInput } from "./schemas";
 import { isEmailBlocked } from "./blocklist";
 import { audit } from "@/lib/audit/log";
+import { notifyNewLead } from "@/lib/discord/notifications";
 
 export async function createLeadAction(input: LeadInput): Promise<ActionResult> {
   const parsed = leadSchema.safeParse(input);
@@ -66,6 +67,16 @@ export async function createLeadAction(input: LeadInput): Promise<ActionResult> 
     resource: "lead",
     resourceId: lead.id,
     metadata: { name: parsed.data.name, email: parsed.data.email.toLowerCase() },
+  });
+
+  await notifyNewLead({
+    leadId: lead.id,
+    orgName: org.name,
+    orgSlug: org.slug,
+    customerName: parsed.data.name,
+    customerEmail: parsed.data.email.toLowerCase(),
+    message: parsed.data.message,
+    itemName: itemRef?.name ?? null,
   });
 
   // Notify the organization owner via the configured contact email

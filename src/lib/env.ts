@@ -35,6 +35,16 @@ const envSchema = z.object({
   // Shared secret expected in the Authorization header on /api/cron/* hits.
   // System cron / external scheduler must send: Authorization: Bearer <CRON_SECRET>
   CRON_SECRET: z.string().optional().default(""),
+  // Discord webhooks — separate channels for support en CRM, met een
+  // optionele generieke fallback voor setups die alles in één kanaal willen.
+  //  - DISCORD_WEBHOOK_URL_SUPPORT: tickets + replies
+  //  - DISCORD_WEBHOOK_URL_CRM:     leads, signups, payment-issues, prospect-events
+  //  - DISCORD_WEBHOOK_URL:         fallback voor beide bij ontbrekende waarde
+  // Get one via Server Settings → Integrations → Webhooks in Discord. Empty
+  // = silently skip (in dev wordt het payload-object naar console gelogd).
+  DISCORD_WEBHOOK_URL: z.string().url().optional().or(z.literal("")).default(""),
+  DISCORD_WEBHOOK_URL_SUPPORT: z.string().url().optional().or(z.literal("")).default(""),
+  DISCORD_WEBHOOK_URL_CRM: z.string().url().optional().or(z.literal("")).default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

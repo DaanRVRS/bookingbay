@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   LayoutDashboard,
+  LifeBuoy,
   Megaphone,
   ScrollText,
   Target,
@@ -16,6 +17,7 @@ const TABS = [
   { href: "/admin", label: "Overzicht", icon: LayoutDashboard, exact: true },
   { href: "/admin/organizations", label: "Organisaties", icon: Building2 },
   { href: "/admin/crm", label: "CRM", icon: Target },
+  { href: "/admin/support", label: "Support", icon: LifeBuoy },
   { href: "/admin/users", label: "Gebruikers", icon: Users },
   { href: "/admin/broadcast", label: "Broadcast", icon: Megaphone },
   { href: "/admin/audit", label: "Audit log", icon: ScrollText },

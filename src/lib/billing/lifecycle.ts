@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit/log";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import { planLimits } from "@/lib/plans";
+import { notifyPaymentIssue } from "@/lib/discord/notifications";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { Plan } from "@prisma/client";
@@ -270,6 +271,16 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
         resourceId: org.id,
         metadata: { paidUntil: org.paidUntil.toISOString() },
       });
+      await notifyPaymentIssue({
+        orgId: org.id,
+        orgName: org.name,
+        stage:
+          stage === 1
+            ? "reminder-3d"
+            : stage === 2
+              ? "reminder-1d"
+              : "reminder-today",
+      });
       if (stage === 1) summary.reminded3Days++;
       else if (stage === 2) summary.reminded1Day++;
       else summary.remindedToday++;
@@ -301,6 +312,15 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
         paidUntil: org.paidUntil?.toISOString(),
         graceDays: GRACE_DAYS,
       },
+    });
+    const daysOverdue = org.paidUntil
+      ? Math.max(0, Math.floor((now.getTime() - org.paidUntil.getTime()) / MS_PER_DAY))
+      : undefined;
+    await notifyPaymentIssue({
+      orgId: org.id,
+      orgName: org.name,
+      stage: "suspended",
+      daysOverdue,
     });
     summary.suspended++;
   }

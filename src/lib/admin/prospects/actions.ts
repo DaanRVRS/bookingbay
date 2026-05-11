@@ -7,6 +7,10 @@ import { requireAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { PROSPECT_STATUSES, safeTags } from "./queries";
+import {
+  notifyNewProspect,
+  notifyProspectStatusChange,
+} from "@/lib/discord/notifications";
 
 const STATUS_VALUES = PROSPECT_STATUSES.map((s) => s.value);
 
@@ -55,6 +59,16 @@ export async function createProspectAction(
     resource: "prospect",
     resourceId: created.id,
     metadata: { name: parsed.data.name, email: parsed.data.email || null },
+  });
+
+  await notifyNewProspect({
+    prospectId: created.id,
+    name: parsed.data.name,
+    companyName: parsed.data.companyName || null,
+    email: parsed.data.email ? parsed.data.email.toLowerCase() : null,
+    source: parsed.data.source || null,
+    ownerName: me.name,
+    ownerEmail: me.email,
   });
 
   revalidatePath("/admin/crm");
@@ -117,9 +131,12 @@ export async function setProspectStatusAction(
   }
   const existing = await db.adminProspect.findUnique({
     where: { id },
-    select: { id: true, status: true },
+    select: { id: true, status: true, name: true, companyName: true },
   });
   if (!existing) return { ok: false, error: "Niet gevonden" };
+  if (existing.status === status) {
+    return { ok: true };
+  }
 
   await db.adminProspect.update({
     where: { id },
@@ -132,6 +149,16 @@ export async function setProspectStatusAction(
     resource: "prospect",
     resourceId: id,
     metadata: { from: existing.status, to: status },
+  });
+
+  await notifyProspectStatusChange({
+    prospectId: id,
+    name: existing.name,
+    companyName: existing.companyName,
+    fromStatus: existing.status,
+    toStatus: status,
+    actorName: me.name,
+    actorEmail: me.email,
   });
 
   revalidatePath("/admin/crm");

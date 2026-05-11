@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
+import { notifyReminderDue } from "@/lib/discord/notifications";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 
@@ -90,6 +91,17 @@ export async function runCrmNotifications(
       resourceId: r.id,
       metadata: { recipients: recipients.length, overdue },
     });
+    await notifyReminderDue({
+      kind: "org",
+      reminderId: r.id,
+      title: r.title,
+      notes: r.notes,
+      dueAt: r.dueAt,
+      overdue,
+      contextLabel: `Klant · ${r.organization.name}`,
+      contextUrl: ctaUrl,
+      assigneeLabel: null,
+    });
   }
 
   // ----- Prospect reminders fan-out -----
@@ -131,6 +143,17 @@ export async function runCrmNotifications(
       resource: "prospect-reminder",
       resourceId: r.id,
       metadata: { recipients: recipients.length, overdue },
+    });
+    await notifyReminderDue({
+      kind: "prospect",
+      reminderId: r.id,
+      title: r.title,
+      notes: r.notes,
+      dueAt: r.dueAt,
+      overdue,
+      contextLabel: `Prospect · ${contextLabel}`,
+      contextUrl: ctaUrl,
+      assigneeLabel: null,
     });
   }
 

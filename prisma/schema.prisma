@@ -37,6 +37,8 @@ model User {
   prospectInteractionsLogged ProspectInteraction[] @relation("ProspectInteractionByActor")
   prospectRemindersCreated   ProspectReminder[]    @relation("ProspectReminderByCreator")
   prospectRemindersAssigned  ProspectReminder[]    @relation("ProspectReminderByAssignee")
+  supportTicketsCreated      SupportTicket[]        @relation("SupportTicketByCreator")
+  supportTicketMessages      SupportTicketMessage[] @relation("SupportTicketMessageByAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -148,6 +150,7 @@ model Organization {
   crmInteractions OrgInteraction[]
   crmReminders    OrgReminder[]
   convertedFromProspects AdminProspect[]
+  supportTickets         SupportTicket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -567,6 +570,73 @@ model Review {
 // ----------------------------------------------------------------------------
 // Audit log (lightweight)
 // ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// Support tickets — klanten openen een ticket vanuit het dashboard, BookingBay-
+// admins beantwoorden vanuit /admin/support. Beide kanten kunnen replyen tot
+// de ticket is gesloten. Discord-webhook fired bij nieuwe ticket en reply.
+// ----------------------------------------------------------------------------
+
+model SupportTicket {
+  id             String   @id @default(cuid())
+  organizationId String
+  createdById    String?
+  subject        String
+  // "general" | "billing" | "bug" | "feature" | "other"
+  category       String   @default("general")
+  status         SupportTicketStatus   @default(OPEN)
+  priority       SupportTicketPriority @default(NORMAL)
+  // Bumped on every new message, used for sorting "needs attention" lists.
+  lastMessageAt  DateTime @default(now())
+  // Set when the staff side last replied — used to surface "wachten op klant".
+  lastStaffReplyAt DateTime?
+  // Set when the user/customer side last replied — surfaces "wachten op support".
+  lastUserReplyAt  DateTime?
+  closedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SupportTicketByCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  messages     SupportTicketMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status, lastMessageAt])
+  @@index([status, lastMessageAt])
+}
+
+model SupportTicketMessage {
+  id            String  @id @default(cuid())
+  ticketId      String
+  authorUserId  String?
+  // True wanneer de auteur een BookingBay-admin is (staff-side reply).
+  // Zo kunnen we klant- vs. support-bubbels stylen zonder elke keer
+  // isAdmin van de auteur op te halen.
+  isStaff       Boolean @default(false)
+  body          String
+
+  ticket  SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author  User?         @relation("SupportTicketMessageByAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+enum SupportTicketStatus {
+  OPEN
+  AWAITING_USER
+  AWAITING_SUPPORT
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
 
 model AuditLog {
   id             String   @id @default(cuid())
