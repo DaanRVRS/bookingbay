@@ -77,6 +77,33 @@ export async function markAllNotificationsReadAction(): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function deleteNotificationAction(
+  id: string,
+): Promise<ActionResult> {
+  const user = await requireUser();
+  // deleteMany met user-scoped where voorkomt dat een user een ander
+  // z'n notification kan wissen.
+  const result = await db.notification.deleteMany({
+    where: { id, userId: user.id },
+  });
+  if (result.count === 0) {
+    return { ok: false, error: "Niet gevonden" };
+  }
+  revalidatePath("/dashboard/notifications");
+  return { ok: true };
+}
+
+export async function deleteAllNotificationsAction(): Promise<
+  ActionResult<{ deleted: number }>
+> {
+  const user = await requireUser();
+  const result = await db.notification.deleteMany({
+    where: { userId: user.id },
+  });
+  revalidatePath("/dashboard/notifications");
+  return { ok: true, data: { deleted: result.count } };
+}
+
 const broadcastSchema = z.object({
   title: z.string().min(2, "Titel is verplicht").max(120),
   body: z.string().min(2, "Bericht is verplicht").max(4000),

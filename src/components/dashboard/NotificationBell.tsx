@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
@@ -12,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  deleteAllNotificationsAction,
+  deleteNotificationAction,
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from "@/lib/notifications/actions";
@@ -50,6 +53,37 @@ export function NotificationBell({
     });
   };
 
+  const onDeleteOne = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startTransition(async () => {
+      const res = await deleteNotificationAction(id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const onDeleteAll = () => {
+    if (
+      !window.confirm(
+        "Alle notificaties wissen? Dit kan niet ongedaan worden gemaakt.",
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await deleteAllNotificationsAction();
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`${res.data?.deleted ?? 0} notificaties gewist`);
+      router.refresh();
+    });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -66,16 +100,29 @@ export function NotificationBell({
       <DropdownMenuContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
           <p className="text-sm font-semibold">Notificaties</p>
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={onMarkAll}
-              disabled={pending}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              <Check className="size-3" /> Alles gelezen
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={onMarkAll}
+                disabled={pending}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                <Check className="size-3" /> Alles gelezen
+              </button>
+            )}
+            {recent.length > 0 && (
+              <button
+                type="button"
+                onClick={onDeleteAll}
+                disabled={pending}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-destructive disabled:opacity-50"
+                title="Alles wissen"
+              >
+                <Trash2 className="size-3" /> Wis alles
+              </button>
+            )}
+          </div>
         </div>
         {recent.length === 0 ? (
           <div className="px-4 py-8 text-center text-xs text-muted-foreground">
@@ -116,7 +163,7 @@ export function NotificationBell({
                 </div>
               );
               return (
-                <li key={n.id}>
+                <li key={n.id} className="group relative">
                   {n.ctaUrl ? (
                     <Link
                       href={n.ctaUrl}
@@ -134,6 +181,16 @@ export function NotificationBell({
                       {Inner}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={(e) => onDeleteOne(e, n.id)}
+                    disabled={pending}
+                    aria-label="Wis melding"
+                    title="Wis melding"
+                    className="absolute right-2 top-2 grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                  >
+                    <X className="size-3.5" />
+                  </button>
                 </li>
               );
             })}

@@ -1,13 +1,11 @@
-import Link from "next/link";
-import { Bell, Check } from "lucide-react";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { Bell } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import {
   getUnreadCount,
   listNotificationsForUser,
 } from "@/lib/notifications/queries";
 import { MarkAllReadButton } from "./mark-all-read-button";
+import { NotificationList } from "./notification-list";
 
 export const metadata = { title: "Notificaties" };
 
@@ -43,55 +41,23 @@ export default async function NotificationsPage() {
             </p>
           </div>
         ) : (
-          <ul className="mt-6 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-            {items.map((n) => {
-              const Inner = (
-                <div className="flex flex-col gap-1 px-5 py-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                      {!n.readAt && (
-                        <span
-                          aria-hidden
-                          className="size-1.5 rounded-full bg-primary"
-                        />
-                      )}
-                      {n.title}
-                    </p>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {format(n.createdAt, "d MMM yyyy · HH:mm", { locale: nl })}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                    {n.body}
-                  </p>
-                  {n.createdBy && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Door {n.createdBy.name ?? n.createdBy.email}
-                    </p>
-                  )}
-                  {n.ctaUrl && n.ctaLabel && (
-                    <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-                      {n.ctaLabel} →
-                    </span>
-                  )}
-                </div>
-              );
-              return (
-                <li
-                  key={n.id}
-                  className={n.readAt ? "" : "bg-primary/4"}
-                >
-                  {n.ctaUrl ? (
-                    <Link href={n.ctaUrl} className="block hover:bg-accent">
-                      {Inner}
-                    </Link>
-                  ) : (
-                    Inner
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <NotificationList
+            items={items.map((n) => ({
+              id: n.id,
+              title: n.title,
+              body: n.body,
+              ctaUrl: n.ctaUrl,
+              ctaLabel: n.ctaLabel,
+              readAt: n.readAt?.toISOString() ?? null,
+              createdAt: n.createdAt.toISOString(),
+              createdBy: n.createdBy
+                ? {
+                    name: n.createdBy.name ?? null,
+                    email: n.createdBy.email,
+                  }
+                : null,
+            }))}
+          />
         )}
       </div>
     </div>

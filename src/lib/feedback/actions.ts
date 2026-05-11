@@ -20,6 +20,8 @@ const submitSchema = z
 
 export type SubmitFeedbackInput = z.infer<typeof submitSchema>;
 
+const FEEDBACK_COOLDOWN_MS = 60 * 60 * 1000; // 1 uur
+
 export async function submitFeedbackAction(
   input: SubmitFeedbackInput,
 ): Promise<ActionResult> {
@@ -28,6 +30,31 @@ export async function submitFeedbackAction(
   if (!parsed.success) {
     const first = parsed.error.issues[0]?.message ?? "Ongeldige invoer";
     return { ok: false, error: first };
+  }
+
+  // Throttle: max 1 feedback per uur per user. De signup-prompt is
+  // bovendien al gated door feedbackRequestedAt, dus dit voorkomt vooral
+  // spam vanuit het vrijwillige formulier.
+  const recent = await db.userFeedback.findFirst({
+    where: {
+      userId: user.id,
+      createdAt: { gte: new Date(Date.now() - FEEDBACK_COOLDOWN_MS) },
+    },
+    select: { createdAt: true },
+  });
+  if (recent) {
+    const minutesLeft = Math.max(
+      1,
+      Math.ceil(
+        (FEEDBACK_COOLDOWN_MS -
+          (Date.now() - recent.createdAt.getTime())) /
+          60_000,
+      ),
+    );
+    return {
+      ok: false,
+      error: `Je hebt zojuist al feedback gegeven — probeer over ${minutesLeft} min opnieuw.`,
+    };
   }
 
   await db.userFeedback.create({
