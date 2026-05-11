@@ -7,9 +7,12 @@ import { requireAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { PROSPECT_STATUSES, safeTags } from "./queries";
+import { env } from "@/lib/env";
 import {
+  notifyInteractionLogged,
   notifyNewProspect,
   notifyProspectStatusChange,
+  notifyReminderCreated,
 } from "@/lib/discord/notifications";
 
 const STATUS_VALUES = PROSPECT_STATUSES.map((s) => s.value);
@@ -249,6 +252,28 @@ export async function createProspectInteractionAction(
     metadata: { prospectId: parsed.data.prospectId, type: parsed.data.type },
   });
 
+  const prospect = await db.adminProspect.findUnique({
+    where: { id: parsed.data.prospectId },
+    select: { name: true, companyName: true },
+  });
+  const prospectLabel = prospect
+    ? prospect.companyName
+      ? `${prospect.name} (${prospect.companyName})`
+      : prospect.name
+    : parsed.data.prospectId;
+  await notifyInteractionLogged({
+    kind: "prospect",
+    interactionId: created.id,
+    type: parsed.data.type,
+    subject: parsed.data.subject,
+    body: parsed.data.body || null,
+    occurredAt,
+    contextLabel: `Prospect · ${prospectLabel}`,
+    contextUrl: `${env.APP_URL}/admin/crm/${parsed.data.prospectId}`,
+    actorName: me.name,
+    actorEmail: me.email,
+  });
+
   revalidatePath(`/admin/crm/${parsed.data.prospectId}`);
   return { ok: true, data: { id: created.id } };
 }
@@ -313,6 +338,36 @@ export async function createProspectReminderAction(
     resource: "prospect-reminder",
     resourceId: created.id,
     metadata: { title: parsed.data.title, dueAt: dueAt.toISOString() },
+  });
+
+  const [prospect, assignee] = await Promise.all([
+    db.adminProspect.findUnique({
+      where: { id: parsed.data.prospectId },
+      select: { name: true, companyName: true },
+    }),
+    parsed.data.assignedToUserId
+      ? db.user.findUnique({
+          where: { id: parsed.data.assignedToUserId },
+          select: { name: true, email: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  const prospectLabel = prospect
+    ? prospect.companyName
+      ? `${prospect.name} (${prospect.companyName})`
+      : prospect.name
+    : parsed.data.prospectId;
+  await notifyReminderCreated({
+    kind: "prospect",
+    reminderId: created.id,
+    title: parsed.data.title,
+    notes: parsed.data.notes || null,
+    dueAt,
+    contextLabel: `Prospect · ${prospectLabel}`,
+    contextUrl: `${env.APP_URL}/admin/crm/${parsed.data.prospectId}`,
+    actorName: me.name,
+    actorEmail: me.email,
+    assigneeLabel: assignee ? (assignee.name ?? assignee.email) : null,
   });
 
   revalidatePath(`/admin/crm/${parsed.data.prospectId}`);

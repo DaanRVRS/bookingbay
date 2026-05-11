@@ -141,8 +141,8 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
   const [, startTransition] = useTransition();
 
   const sensors = useSensors(
-    // 6px activation distance keeps clicks (no movement) flowing through to
-    // the underlying <Link> for navigation.
+    // 6px activation distance: bewegingen onder die threshold tellen niet
+    // als drag → onClick op de booking-card navigeert naar de edit-page.
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
@@ -836,15 +836,28 @@ function DraggableBooking({
   style?: React.CSSProperties;
   title?: string;
 }) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `${BOOKING_DRAG_PREFIX}${bookingId}` });
 
   // Track whether a drag actually occurred during this press. dnd-kit clears
-  // isDragging before the synthetic click event fires after pointerup, so
-  // checking isDragging in onClick is too late — the Link already navigated.
+  // isDragging before the click event fires after pointerup, so checking
+  // isDragging alone in onClick is unreliable. Set on isDragging→true,
+  // cleared by the click handler after it suppresses the navigation. We
+  // also clear it via a short timeout in case no click event fires
+  // (e.g. dropped on a different element).
   const wasDragRef = useRef(false);
   useEffect(() => {
-    if (isDragging) wasDragRef.current = true;
+    if (isDragging) {
+      wasDragRef.current = true;
+    } else if (wasDragRef.current) {
+      // Drag has ended — schedule a clear so a regular click later still
+      // navigates. 200ms is well past the synthetic click window.
+      const id = window.setTimeout(() => {
+        wasDragRef.current = false;
+      }, 200);
+      return () => window.clearTimeout(id);
+    }
   }, [isDragging]);
 
   const dragStyle: React.CSSProperties = {
@@ -856,23 +869,38 @@ function DraggableBooking({
   };
 
   return (
-    <Link
+    // Plain div instead of <Link> — we control navigation manually so a
+    // drop never accidentally triggers Next.js' SPA navigation. The
+    // trade-off is geen prefetch + geen rechtsklik-open-in-new-tab. Voor
+    // booking-cards is dat acceptabel.
+    <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      href={href}
+      role="button"
+      tabIndex={0}
+      aria-label={title}
       className={cn(className, "touch-none select-none active:cursor-grabbing")}
       style={dragStyle}
       title={title}
       onClick={(e) => {
         if (isDragging || wasDragRef.current) {
           e.preventDefault();
+          e.stopPropagation();
           wasDragRef.current = false;
+          return;
+        }
+        router.push(href);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(href);
         }
       }}
     >
       {children}
-    </Link>
+    </div>
   );
 }
 

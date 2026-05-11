@@ -13,18 +13,36 @@ import {
   getUnreadCount,
   listNotificationsForUser,
 } from "@/lib/notifications/queries";
+import { maybeFireSignupFeedbackPrompt } from "@/lib/feedback/actions";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
+  // Fire the signup-feedback prompt if applicable (idempotent — fires once
+  // ~5 min after signup, gated by feedbackRequestedAt on the user).
+  await maybeFireSignupFeedbackPrompt(ctx.user.id);
 
-  const [billing, unreadCount, recentNotifications] = await Promise.all([
+  const [billing, unreadCount, recentNotifications, openLeads, ticketsAwaitingUser] = await Promise.all([
     db.organization.findUnique({
       where: { id: ctx.organization.id },
       select: { paidUntil: true, suspendedAt: true, trialEndsAt: true },
     }),
     getUnreadCount(ctx.user.id),
     listNotificationsForUser(ctx.user.id, 8),
+    db.lead.count({
+      where: { organizationId: ctx.organization.id, handledAt: null },
+    }),
+    db.supportTicket.count({
+      where: {
+        organizationId: ctx.organization.id,
+        status: "AWAITING_USER",
+      },
+    }),
   ]);
+
+  const sidebarCounts = {
+    openLeads,
+    ticketsNeedingAttention: ticketsAwaitingUser,
+  };
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -34,7 +52,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         suspendedAt={billing?.suspendedAt ?? null}
       />
       <TopBar
-        sidebarContent={<Sidebar />}
+        sidebarContent={<Sidebar counts={sidebarCounts} />}
         orgSwitcherSlot={
           <OrgSwitcher
             active={ctx.organization}
@@ -81,7 +99,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             />
           </div>
           <div className="flex-1 overflow-y-auto">
-            <Sidebar />
+            <Sidebar counts={sidebarCounts} />
           </div>
           <div className="border-t border-border px-4 py-3 text-[11px] text-muted-foreground">
             <span className="block truncate">

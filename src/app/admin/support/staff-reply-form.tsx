@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { replyTicketAction } from "@/lib/support/actions";
+import { staffReplyTicketAction } from "@/lib/support/actions";
 
 export function StaffReplyForm({ ticketId }: { ticketId: string }) {
   const router = useRouter();
@@ -17,7 +17,7 @@ export function StaffReplyForm({ ticketId }: { ticketId: string }) {
     e.preventDefault();
     if (!body.trim()) return;
     startTransition(async () => {
-      const res = await replyTicketAction({ ticketId, body });
+      const res = await staffReplyTicketAction({ ticketId, body });
       if (!res.ok) {
         toast.error(res.error);
         return;

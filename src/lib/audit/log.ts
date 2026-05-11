@@ -114,6 +114,19 @@ export const ACTION_LABELS: Record<string, string> = {
   "support.ticket.reply.user": "Reactie op support-ticket (klant)",
   "support.ticket.reply.staff": "Reactie op support-ticket (BookingBay)",
   "support.ticket.update": "Support-ticket bijgewerkt",
+  "org.customdomain.set": "Custom-domein ingesteld",
+  "org.customdomain.verify": "Custom-domein geverifieerd",
+  "org.customdomain.remove": "Custom-domein verwijderd",
+  "poll.create": "Poll aangemaakt",
+  "poll.publish": "Poll gepubliceerd",
+  "poll.close": "Poll gesloten",
+  "poll.delete": "Poll verwijderd",
+  "poll.vote": "Poll-stem geregistreerd",
+  "feedback.submit": "Feedback ontvangen",
+  "user.2fa.enabled": "2FA ingeschakeld",
+  "user.2fa.disabled": "2FA uitgeschakeld",
+  "user.2fa.backup-code-used": "2FA backup-code gebruikt",
+  "user.2fa.backup-codes-regenerated": "2FA backup-codes vernieuwd",
 };
 
 export function describeAction(action: string): string {

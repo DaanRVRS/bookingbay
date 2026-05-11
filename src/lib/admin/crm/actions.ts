@@ -7,6 +7,11 @@ import { requireAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { CRM_STATUSES, safeTags } from "./queries";
+import { env } from "@/lib/env";
+import {
+  notifyInteractionLogged,
+  notifyReminderCreated,
+} from "@/lib/discord/notifications";
 
 const interactionSchema = z.object({
   organizationId: z.string().min(1),
@@ -52,6 +57,23 @@ export async function createInteractionAction(
     resource: "interaction",
     resourceId: created.id,
     metadata: { type: parsed.data.type, subject: parsed.data.subject },
+  });
+
+  const org = await db.organization.findUnique({
+    where: { id: parsed.data.organizationId },
+    select: { name: true },
+  });
+  await notifyInteractionLogged({
+    kind: "org",
+    interactionId: created.id,
+    type: parsed.data.type,
+    subject: parsed.data.subject,
+    body: parsed.data.body || null,
+    occurredAt,
+    contextLabel: `Klant · ${org?.name ?? parsed.data.organizationId}`,
+    contextUrl: `${env.APP_URL}/admin/organizations/${parsed.data.organizationId}`,
+    actorName: me.name,
+    actorEmail: me.email,
   });
 
   revalidatePath(`/admin/organizations/${parsed.data.organizationId}`);
@@ -121,6 +143,31 @@ export async function createReminderAction(
     resource: "reminder",
     resourceId: created.id,
     metadata: { title: parsed.data.title, dueAt: dueAt.toISOString() },
+  });
+
+  const [org, assignee] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: parsed.data.organizationId },
+      select: { name: true },
+    }),
+    parsed.data.assignedToUserId
+      ? db.user.findUnique({
+          where: { id: parsed.data.assignedToUserId },
+          select: { name: true, email: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  await notifyReminderCreated({
+    kind: "org",
+    reminderId: created.id,
+    title: parsed.data.title,
+    notes: parsed.data.notes || null,
+    dueAt,
+    contextLabel: `Klant · ${org?.name ?? parsed.data.organizationId}`,
+    contextUrl: `${env.APP_URL}/admin/organizations/${parsed.data.organizationId}`,
+    actorName: me.name,
+    actorEmail: me.email,
+    assigneeLabel: assignee ? (assignee.name ?? assignee.email) : null,
   });
 
   revalidatePath(`/admin/organizations/${parsed.data.organizationId}`);

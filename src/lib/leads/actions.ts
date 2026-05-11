@@ -79,6 +79,33 @@ export async function createLeadAction(input: LeadInput): Promise<ActionResult> 
     itemName: itemRef?.name ?? null,
   });
 
+  // Fan-out bell-notification to org-OWNERS/ADMINS — so the lead pops up in
+  // hun notification-bell, niet alleen in de configured contactEmail-inbox.
+  const orgAdmins = await db.membership.findMany({
+    where: {
+      organizationId: org.id,
+      role: { in: ["OWNER", "ADMIN", "MANAGER"] },
+    },
+    select: { userId: true },
+  });
+  if (orgAdmins.length > 0) {
+    const bodyPreview =
+      parsed.data.message.length > 200
+        ? parsed.data.message.slice(0, 200) + "…"
+        : parsed.data.message;
+    await db.notification.createMany({
+      data: orgAdmins.map((m) => ({
+        userId: m.userId,
+        organizationId: org.id,
+        type: "lead",
+        title: `Nieuwe lead: ${parsed.data.name}`,
+        body: itemRef ? `${itemRef.name} · ${bodyPreview}` : bodyPreview,
+        ctaUrl: "/dashboard/leads",
+        ctaLabel: "Open leads",
+      })),
+    });
+  }
+
   // Notify the organization owner via the configured contact email
   const recipient = org.contactEmail;
   if (recipient) {

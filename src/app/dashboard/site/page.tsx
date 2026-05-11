@@ -3,10 +3,11 @@ import { ArrowRight, ExternalLink, FileText } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { planAllows } from "@/lib/plans";
+import { planAllows, planLimits } from "@/lib/plans";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { SiteCustomizerForm } from "./site-customizer-form";
 import { EmbedSnippet } from "./embed-snippet";
+import { CustomDomainSection } from "./custom-domain-section";
 
 export const metadata = { title: "Klantsite" };
 
@@ -25,6 +26,8 @@ export default async function SitePage() {
       contactPhone: true,
       itemDisplayStyle: true,
       plan: true,
+      customDomain: true,
+      customDomainVerifiedAt: true,
     },
   });
   if (!org) throw new Error("Organization not found");
@@ -88,6 +91,19 @@ export default async function SitePage() {
               itemDisplayStyle: org.itemDisplayStyle,
             }}
             orgName={org.name}
+          />
+        </div>
+
+        <div className="mt-6">
+          <CustomDomainSection
+            initialDomain={org.customDomain}
+            initialVerifiedAt={
+              org.customDomainVerifiedAt
+                ? org.customDomainVerifiedAt.toISOString()
+                : null
+            }
+            cnameTarget={env.CUSTOM_DOMAIN_CNAME_TARGET}
+            planAllows={planLimits(org.plan).customDomain}
           />
         </div>
 

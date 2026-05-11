@@ -50,6 +50,15 @@ export function LoginForm() {
         toast.error(res.error);
         return;
       }
+      // 2FA branches — server has set the pending-handoff cookie.
+      if (res.data?.twoFactor === "verify") {
+        router.push(`/login/2fa?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (res.data?.twoFactor === "setup") {
+        router.push(`/login/2fa/setup?next=${encodeURIComponent(next)}`);
+        return;
+      }
       toast.success("Welkom terug");
       router.replace(next);
       router.refresh();

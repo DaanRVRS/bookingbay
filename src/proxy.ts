@@ -27,6 +27,39 @@ function getTenantSlug(host: string): string | null {
   return prefix.split(".")[0] || null;
 }
 
+// In-memory cache for custom-domain → slug lookups. 5 min TTL. Lives per
+// Node process; herstart van pm2 resette 'm. Negative results worden ook
+// gecached om DB-hits voor random scanners te beperken.
+const customHostCache = new Map<string, { slug: string | null; expires: number }>();
+const CUSTOM_HOST_TTL_MS = 5 * 60_000;
+
+async function resolveCustomHost(
+  host: string,
+  origin: string,
+): Promise<string | null> {
+  const lower = host.toLowerCase();
+  const cached = customHostCache.get(lower);
+  if (cached && cached.expires > Date.now()) return cached.slug;
+  try {
+    const res = await fetch(
+      `${origin}/api/internal/host-lookup?host=${encodeURIComponent(lower)}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) {
+      customHostCache.set(lower, { slug: null, expires: Date.now() + 60_000 });
+      return null;
+    }
+    const data = (await res.json()) as { slug: string | null };
+    customHostCache.set(lower, {
+      slug: data.slug,
+      expires: Date.now() + CUSTOM_HOST_TTL_MS,
+    });
+    return data.slug;
+  } catch {
+    return null;
+  }
+}
+
 function isPassThroughPath(path: string): boolean {
   return (
     path.startsWith("/_next/") ||
@@ -36,7 +69,7 @@ function isPassThroughPath(path: string): boolean {
   );
 }
 
-export default auth((req: NextRequest) => {
+export default auth(async (req: NextRequest) => {
   const host = req.headers.get("host") ?? "";
   const path = req.nextUrl.pathname;
 
@@ -51,11 +84,28 @@ export default auth((req: NextRequest) => {
   if (isPassThroughPath(path)) return NextResponse.next();
   if (path.startsWith("/site/")) return NextResponse.next();
 
+  // Standaard subdomein-pattern (slug.<TENANT_DOMAIN>)
   const slug = getTenantSlug(host);
   if (slug) {
     const url = req.nextUrl.clone();
     url.pathname = `/site/${slug}${path === "/" ? "" : path}`;
     return NextResponse.rewrite(url);
+  }
+
+  // Custom-domain pattern: host is iets dat niet matched met admin of
+  // tenant-subdomein. Vraag de host-lookup of er een verified mapping is.
+  const lower = host.toLowerCase();
+  const isPlatformHost =
+    lower === ADMIN_HOST.toLowerCase() ||
+    lower === "localhost" ||
+    lower.startsWith("localhost:");
+  if (!isPlatformHost) {
+    const customSlug = await resolveCustomHost(host, req.nextUrl.origin);
+    if (customSlug) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/site/${customSlug}${path === "/" ? "" : path}`;
+      return NextResponse.rewrite(url);
+    }
   }
 
   // Auth.js's authorized callback already handles dashboard/onboarding redirects

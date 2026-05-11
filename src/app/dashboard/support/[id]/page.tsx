@@ -10,6 +10,7 @@ import {
   TICKET_CATEGORIES,
 } from "@/lib/support/schemas";
 import { ReplyForm } from "../reply-form";
+import { TicketAutoRefresh } from "../ticket-auto-refresh";
 
 export const metadata = { title: "Ticket" };
 
@@ -31,6 +32,11 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
+      <TicketAutoRefresh
+        ticketId={ticket.id}
+        initialMessageCount={ticket.messages.length}
+        initialLastStaffReplyAt={ticket.lastStaffReplyAt?.toISOString() ?? null}
+      />
       <div className="mx-auto max-w-3xl">
         <PageHeader
           title={ticket.subject}
@@ -56,7 +62,10 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
         <ol className="mt-6 flex flex-col gap-3">
           {ticket.messages.map((m) => {
-            const isStaff = m.isStaff;
+            // Defensief: messages die door de ticket-opener zelf zijn gepost
+            // tellen altijd als user-side, ook als isStaff=true in de DB
+            // staat (oude data van voor de staff/user-split bug-fix).
+            const isStaff = m.isStaff && m.authorUserId !== ticket.createdById;
             return (
               <li
                 key={m.id}

@@ -336,6 +336,165 @@ export function notifyProspectStatusChange(args: ProspectStatusChangeArgs) {
   );
 }
 
+interface ReminderCreatedArgs {
+  kind: "org" | "prospect";
+  reminderId: string;
+  title: string;
+  notes?: string | null;
+  dueAt: Date;
+  contextLabel: string;
+  contextUrl: string;
+  actorName: string | null;
+  actorEmail: string;
+  assigneeLabel?: string | null;
+}
+
+export function notifyReminderCreated(args: ReminderCreatedArgs) {
+  return notifyDiscord(
+    {
+      username: "BookingBay · CRM",
+      embeds: [
+        {
+          title: `📌 Follow-up gepland — ${args.title}`,
+          description: args.notes ? truncate(args.notes, 1900) : undefined,
+          color: DISCORD_COLORS.info,
+          url: args.contextUrl,
+          fields: [
+            { name: "Type", value: args.kind === "org" ? "Klant" : "Prospect", inline: true },
+            { name: "Context", value: args.contextLabel, inline: true },
+            { name: "Due", value: args.dueAt.toISOString(), inline: false },
+            ...(args.assigneeLabel
+              ? [{ name: "Toegewezen aan", value: args.assigneeLabel, inline: true }]
+              : []),
+            {
+              name: "Door",
+              value: args.actorName
+                ? `${args.actorName} (${args.actorEmail})`
+                : args.actorEmail,
+              inline: true,
+            },
+          ],
+          footer: { text: `reminder-id: ${args.reminderId}` },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    },
+    "crm",
+  );
+}
+
+interface InteractionLoggedArgs {
+  kind: "org" | "prospect";
+  interactionId: string;
+  type: string; // "call" | "email" | "meeting" | "note"
+  subject: string;
+  body?: string | null;
+  occurredAt: Date;
+  contextLabel: string;
+  contextUrl: string;
+  actorName: string | null;
+  actorEmail: string;
+}
+
+const INTERACTION_EMOJI: Record<string, string> = {
+  call: "📞",
+  email: "✉️",
+  meeting: "🤝",
+  note: "📝",
+};
+
+export function notifyInteractionLogged(args: InteractionLoggedArgs) {
+  const emoji = INTERACTION_EMOJI[args.type] ?? "📌";
+  return notifyDiscord(
+    {
+      username: "BookingBay · CRM",
+      embeds: [
+        {
+          title: `${emoji} ${args.subject}`,
+          description: args.body ? truncate(args.body, 1900) : undefined,
+          color: DISCORD_COLORS.neutral,
+          url: args.contextUrl,
+          fields: [
+            { name: "Type", value: args.type, inline: true },
+            { name: "Context", value: args.contextLabel, inline: true },
+            {
+              name: "Door",
+              value: args.actorName
+                ? `${args.actorName} (${args.actorEmail})`
+                : args.actorEmail,
+              inline: true,
+            },
+            { name: "Wanneer", value: args.occurredAt.toISOString(), inline: false },
+          ],
+          footer: { text: `interaction-id: ${args.interactionId}` },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    },
+    "crm",
+  );
+}
+
+interface CrmDailyDigestArgs {
+  date: Date;
+  newProspects: number;
+  newLeads: number;
+  newSignups: number;
+  interactionsLogged: number;
+  remindersCreated: number;
+  remindersCompleted: number;
+  remindersOpenToday: number;
+  remindersOverdue: number;
+  statusChanges: number;
+  newTickets: number;
+}
+
+export function notifyCrmDailyDigest(args: CrmDailyDigestArgs) {
+  const dateLabel = args.date.toISOString().slice(0, 10);
+  const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
+  const push = (name: string, value: number, inline = true) => {
+    if (value > 0) fields.push({ name, value: String(value), inline });
+  };
+  push("Nieuwe prospects", args.newProspects);
+  push("Nieuwe leads", args.newLeads);
+  push("Nieuwe signups", args.newSignups);
+  push("Interacties gelogd", args.interactionsLogged);
+  push("Follow-ups gepland", args.remindersCreated);
+  push("Follow-ups afgerond", args.remindersCompleted);
+  push("Status-changes", args.statusChanges);
+  push("Nieuwe tickets", args.newTickets);
+  push("Open follow-ups vandaag", args.remindersOpenToday);
+  if (args.remindersOverdue > 0)
+    fields.push({
+      name: "🔴 Te laat",
+      value: String(args.remindersOverdue),
+      inline: true,
+    });
+
+  return notifyDiscord(
+    {
+      username: "BookingBay · CRM",
+      embeds: [
+        {
+          title: `📊 CRM-dagrapport — ${dateLabel}`,
+          description:
+            fields.length === 0
+              ? "Geen activiteit vandaag."
+              : "Wat er vandaag is gebeurd in de CRM:",
+          color:
+            args.remindersOverdue > 0
+              ? DISCORD_COLORS.warning
+              : DISCORD_COLORS.info,
+          fields,
+          footer: { text: "Dagelijkse digest" },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    },
+    "crm",
+  );
+}
+
 interface ReminderDueArgs {
   kind: "org" | "prospect";
   reminderId: string;

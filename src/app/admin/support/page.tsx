@@ -12,7 +12,6 @@ import {
   STATUS_LABELS,
   TICKET_CATEGORIES,
 } from "@/lib/support/schemas";
-import { TestDiscordButton } from "./test-discord-button";
 
 export const metadata = { title: "Support" };
 
@@ -54,10 +53,6 @@ export default async function AdminSupportPage({ searchParams }: PageProps) {
               te reageren of de status te wijzigen.
             </p>
           </div>
-        </div>
-
-        <div className="mt-6">
-          <TestDiscordButton />
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">

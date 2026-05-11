@@ -3,7 +3,10 @@ import { db } from "@/lib/db";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
-import { notifyReminderDue } from "@/lib/discord/notifications";
+import {
+  notifyCrmDailyDigest,
+  notifyReminderDue,
+} from "@/lib/discord/notifications";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 
@@ -215,6 +218,9 @@ export async function runCrmNotifications(
     );
   }
 
+  // ----- Daily Discord digest (only when today had activity) -----
+  await postCrmDailyDigest(now, rows.length);
+
   return {
     orgRemindersFanned: newlyDueOrg.length,
     prospectRemindersFanned: newlyDueProspect.length,
@@ -222,6 +228,96 @@ export async function runCrmNotifications(
     emailsSent,
     recipients: admins.length,
   };
+}
+
+/**
+ * Posts a single CRM digest embed to Discord at the end of the daily cron.
+ * Skips entirely when zero activity happened today AND no open follow-ups —
+ * geen zin om elk dag een leeg "0/0/0/0" embed te sturen.
+ *
+ * "Vandaag" = vanaf de start van de huidige UTC-dag t/m `now`.
+ */
+async function postCrmDailyDigest(now: Date, openFollowupsTotal: number) {
+  const startOfDay = new Date(now);
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const [
+    newProspects,
+    newLeads,
+    newSignups,
+    interactionsOrg,
+    interactionsProspect,
+    remindersOrgCreated,
+    remindersProspectCreated,
+    remindersOrgCompleted,
+    remindersProspectCompleted,
+    statusChanges,
+    newTickets,
+    overdueOrg,
+    overdueProspect,
+  ] = await Promise.all([
+    db.adminProspect.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.lead.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.organization.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.orgInteraction.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.prospectInteraction.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.orgReminder.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.prospectReminder.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.orgReminder.count({
+      where: { completedAt: { gte: startOfDay } },
+    }),
+    db.prospectReminder.count({
+      where: { completedAt: { gte: startOfDay } },
+    }),
+    db.auditLog.count({
+      where: {
+        createdAt: { gte: startOfDay },
+        action: { in: ["crm.status.change", "prospect.status.change"] },
+      },
+    }),
+    db.supportTicket.count({ where: { createdAt: { gte: startOfDay } } }),
+    db.orgReminder.count({
+      where: { completedAt: null, dueAt: { lt: startOfDay } },
+    }),
+    db.prospectReminder.count({
+      where: { completedAt: null, dueAt: { lt: startOfDay } },
+    }),
+  ]);
+
+  const interactionsLogged = interactionsOrg + interactionsProspect;
+  const remindersCreated = remindersOrgCreated + remindersProspectCreated;
+  const remindersCompleted =
+    remindersOrgCompleted + remindersProspectCompleted;
+  const remindersOverdue = overdueOrg + overdueProspect;
+
+  const anyActivity =
+    newProspects +
+      newLeads +
+      newSignups +
+      interactionsLogged +
+      remindersCreated +
+      remindersCompleted +
+      statusChanges +
+      newTickets >
+    0;
+
+  if (!anyActivity && openFollowupsTotal === 0 && remindersOverdue === 0) {
+    return;
+  }
+
+  await notifyCrmDailyDigest({
+    date: now,
+    newProspects,
+    newLeads,
+    newSignups,
+    interactionsLogged,
+    remindersCreated,
+    remindersCompleted,
+    remindersOpenToday: openFollowupsTotal,
+    remindersOverdue,
+    statusChanges,
+    newTickets,
+  });
 }
 
 function renderSummaryEmail(rows: SummaryRow[], now: Date): string {

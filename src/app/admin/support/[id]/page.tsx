@@ -82,7 +82,9 @@ export default async function AdminTicketDetailPage({ params }: PageProps) {
 
         <ol className="mt-6 flex flex-col gap-3">
           {ticket.messages.map((m) => {
-            const isStaff = m.isStaff;
+            // Defensief: messages van de ticket-opener tellen altijd als
+            // user-side, ook al staat isStaff=true in oude data.
+            const isStaff = m.isStaff && m.authorUserId !== ticket.createdById;
             return (
               <li
                 key={m.id}

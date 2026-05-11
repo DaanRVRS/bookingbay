@@ -1,12 +1,18 @@
 import { CheckCircle2 } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import { ProfileForm } from "./profile-form";
 import { PasswordForm } from "./password-form";
+import { TwoFactorSection } from "./two-factor-section";
 
 export const metadata = { title: "Profiel" };
 
 export default async function ProfileSettingsPage() {
   const user = await requireUser();
+  const twofa = await db.user.findUnique({
+    where: { id: user.id },
+    select: { twoFactorEnabledAt: true, isAdmin: true },
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,6 +56,12 @@ export default async function ProfileSettingsPage() {
           <PasswordForm />
         </div>
       </section>
+
+      <TwoFactorSection
+        enabled={!!twofa?.twoFactorEnabledAt}
+        enabledAt={twofa?.twoFactorEnabledAt?.toISOString() ?? null}
+        isAdmin={!!twofa?.isAdmin}
+      />
     </div>
   );
 }

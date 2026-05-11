@@ -35,6 +35,14 @@ const envSchema = z.object({
   // Shared secret expected in the Authorization header on /api/cron/* hits.
   // System cron / external scheduler must send: Authorization: Bearer <CRON_SECRET>
   CRON_SECRET: z.string().optional().default(""),
+  // Het host-adres waar klanten een CNAME naartoe moeten zetten voor hun
+  // custom-domein. Default = TENANT_DOMAIN (b.v. "bookingbay.nl"). Overschrijf
+  // alleen als je een dedicated edge-host hebt (b.v. "edge.bookingbay.nl").
+  CUSTOM_DOMAIN_CNAME_TARGET: z.string().optional().default(""),
+  // Interne shared-secret die Caddy meestuurt bij de on-demand-TLS ask:
+  // GET /api/internal/caddy-ask?domain=...  → 200 als toegestaan. Voorkomt
+  // dat random hosts cert-requests triggeren.
+  CADDY_ASK_TOKEN: z.string().optional().default(""),
   // Discord webhooks — separate channels for support en CRM, met een
   // optionele generieke fallback voor setups die alles in één kanaal willen.
   //  - DISCORD_WEBHOOK_URL_SUPPORT: tickets + replies
@@ -77,10 +85,16 @@ const emailFrom = data.EMAIL_FROM || data.RESEND_FROM || "BookingBay <noreply@ex
 const stripWww = (host: string) => host.replace(/^www\./i, "");
 const tenantDomain = data.TENANT_DOMAIN || stripWww(rootDomain);
 
+// CNAME-doel voor klanten met custom-domein. Default = TENANT_DOMAIN
+// (gestript van eventueel poortnummer voor productie).
+const cnameTarget =
+  data.CUSTOM_DOMAIN_CNAME_TARGET || tenantDomain.split(":")[0];
+
 export const env = {
   ...data,
   APP_URL: baseUrl,
   ROOT_DOMAIN: rootDomain,
   TENANT_DOMAIN: tenantDomain,
+  CUSTOM_DOMAIN_CNAME_TARGET: cnameTarget,
   EMAIL_FROM: emailFrom,
 };

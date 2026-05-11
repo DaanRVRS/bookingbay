@@ -94,6 +94,27 @@ export async function createTicketAction(
     authorEmail: ctx.user.email,
   });
 
+  // Fan-out bell-notification to every platform admin so we see the ticket
+  // pop up in /dashboard/notifications.
+  const admins = await db.user.findMany({
+    where: { isAdmin: true },
+    select: { id: true },
+  });
+  if (admins.length > 0) {
+    await db.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        organizationId: ctx.organization.id,
+        type: "support-ticket",
+        title: `Nieuwe ticket: ${parsed.data.subject}`,
+        body: `${ctx.organization.name} · ${ctx.user.name ?? ctx.user.email}`,
+        ctaUrl: `/admin/support/${ticket.id}`,
+        ctaLabel: "Bekijk ticket",
+        createdById: ctx.user.id,
+      })),
+    });
+  }
+
   await sendEmail({
     to: SUPPORT_NOTIFY_EMAIL,
     subject: `[Ticket] ${parsed.data.subject} — ${ctx.organization.name}`,
@@ -140,8 +161,15 @@ export async function createTicketAction(
   return { ok: true, data: { ticketId: ticket.id } };
 }
 
-export async function replyTicketAction(
+/**
+ * Posts a reply on a ticket. The `asStaff` flag is set by the *page* that
+ * triggered the action — `/dashboard/support` always replies as user even
+ * when the caller has `isAdmin`, omdat ze daar als klant van hun eigen org
+ * werken. `/admin/support` calls de staff-variant.
+ */
+async function postReplyInternal(
   input: ReplyTicketInput,
+  asStaff: boolean,
 ): Promise<ActionResult> {
   const user = await requireUser();
   const parsed = replyTicketSchema.safeParse(input);
@@ -165,9 +193,12 @@ export async function replyTicketAction(
     return { ok: false, error: "Deze ticket is gesloten" };
   }
 
-  // Authorization: either an admin (staff reply) or a member of the org.
-  let isStaff = !!user.isAdmin;
-  if (!isStaff) {
+  // Authorization differs by reply mode:
+  //  - staff-mode: caller must be a platform admin
+  //  - user-mode:  caller must be a member of the ticket's org
+  if (asStaff) {
+    if (!user.isAdmin) return { ok: false, error: "Geen rechten voor staff-reply" };
+  } else {
     const member = await db.membership.findUnique({
       where: {
         userId_organizationId: {
@@ -179,6 +210,7 @@ export async function replyTicketAction(
     });
     if (!member) return { ok: false, error: "Geen toegang tot deze ticket" };
   }
+  const isStaff = asStaff;
 
   const now = new Date();
   await db.$transaction(async (tx) => {
@@ -264,11 +296,67 @@ export async function replyTicketAction(
     });
   }
 
+  // Fan-out bell-notifications to the other party so they see it in the bell.
+  if (isStaff) {
+    // Staff replied → notify the ticket creator (the klant).
+    if (ticket.createdBy) {
+      await db.notification.create({
+        data: {
+          userId: ticket.createdBy.id,
+          organizationId: ticket.organizationId,
+          type: "support-reply",
+          title: `Antwoord op je ticket: ${ticket.subject}`,
+          body:
+            parsed.data.body.length > 240
+              ? parsed.data.body.slice(0, 240) + "…"
+              : parsed.data.body,
+          ctaUrl: `/dashboard/support/${ticket.id}`,
+          ctaLabel: "Open ticket",
+          createdById: user.id,
+        },
+      });
+    }
+  } else {
+    // User replied → notify all platform admins.
+    const admins = await db.user.findMany({
+      where: { isAdmin: true },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      await db.notification.createMany({
+        data: admins.map((a) => ({
+          userId: a.id,
+          organizationId: ticket.organizationId,
+          type: "support-reply",
+          title: `Reply op ticket: ${ticket.subject}`,
+          body: `${ticket.organization.name} · ${user.name ?? user.email}`,
+          ctaUrl: `/admin/support/${ticket.id}`,
+          ctaLabel: "Bekijk ticket",
+          createdById: user.id,
+        })),
+      });
+    }
+  }
+
   revalidatePath(`/dashboard/support/${ticket.id}`);
   revalidatePath("/dashboard/support");
   revalidatePath(`/admin/support/${ticket.id}`);
   revalidatePath("/admin/support");
   return { ok: true };
+}
+
+/** Klant-side reply (called from /dashboard/support). Always non-staff. */
+export async function replyTicketAction(
+  input: ReplyTicketInput,
+): Promise<ActionResult> {
+  return postReplyInternal(input, false);
+}
+
+/** Staff-side reply (called from /admin/support). Vereist isAdmin. */
+export async function staffReplyTicketAction(
+  input: ReplyTicketInput,
+): Promise<ActionResult> {
+  return postReplyInternal(input, true);
 }
 
 export async function adminUpdateTicketAction(

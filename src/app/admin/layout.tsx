@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { Logo } from "@/components/marketing/Logo";
 import { AdminNav } from "./admin-nav";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
+import { countOpenTicketsForAdmin } from "@/lib/support/queries";
 
 export const metadata = {
   title: { default: "Admin", template: "%s · Admin" },
@@ -12,6 +13,7 @@ export const metadata = {
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const me = await requireAdmin();
+  const openTickets = await countOpenTicketsForAdmin();
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -39,7 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
           </div>
         </div>
-        <AdminNav />
+        <AdminNav badges={{ openTickets }} />
       </header>
 
       <main className="flex-1 bg-muted/30">{children}</main>

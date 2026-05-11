@@ -26,39 +26,51 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   match?: (path: string) => boolean;
-  badge?: string;
+  badge?: number;
 }
 
-const primary: NavItem[] = [
-  { href: "/dashboard", label: "Overzicht", icon: HomeIcon, match: (p) => p === "/dashboard" },
-  { href: "/dashboard/calendar", label: "Planning", icon: Calendar },
-  { href: "/dashboard/bookings", label: "Boekingen", icon: CheckCircle2 },
-  { href: "/dashboard/leads", label: "Leads", icon: Inbox },
-  { href: "/dashboard/customers", label: "Klanten", icon: Users },
-];
+export interface SidebarCounts {
+  /** Aantal nog niet-afgehandelde leads (handledAt = null). */
+  openLeads?: number;
+  /** Aantal tickets waar de klant op moet reageren (AWAITING_USER). */
+  ticketsNeedingAttention?: number;
+}
 
-const catalog: NavItem[] = [
-  { href: "/dashboard/items", label: "Items", icon: Package },
-  { href: "/dashboard/categories", label: "Categorieën", icon: Layers },
-];
-
-const settings: NavItem[] = [
-  {
-    href: "/dashboard/site",
-    label: "Klantsite",
-    icon: Globe,
-    match: (p) => p === "/dashboard/site",
-  },
-  { href: "/dashboard/site/pages", label: "Pagina's", icon: FileText },
-  { href: "/dashboard/reviews", label: "Reviews", icon: MessageSquareQuote },
-  { href: "/dashboard/team", label: "Team", icon: UserCog },
-  { href: "/dashboard/audit", label: "Activiteitenlog", icon: ScrollText },
-  { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
-  { href: "/dashboard/support", label: "Support", icon: LifeBuoy },
-];
-
-export function Sidebar() {
+export function Sidebar({ counts }: { counts?: SidebarCounts }) {
   const pathname = usePathname();
+
+  const primary: NavItem[] = [
+    { href: "/dashboard", label: "Overzicht", icon: HomeIcon, match: (p) => p === "/dashboard" },
+    { href: "/dashboard/calendar", label: "Planning", icon: Calendar },
+    { href: "/dashboard/bookings", label: "Boekingen", icon: CheckCircle2 },
+    { href: "/dashboard/leads", label: "Leads", icon: Inbox, badge: counts?.openLeads },
+    { href: "/dashboard/customers", label: "Klanten", icon: Users },
+  ];
+
+  const catalog: NavItem[] = [
+    { href: "/dashboard/items", label: "Items", icon: Package },
+    { href: "/dashboard/categories", label: "Categorieën", icon: Layers },
+  ];
+
+  const settings: NavItem[] = [
+    {
+      href: "/dashboard/site",
+      label: "Klantsite",
+      icon: Globe,
+      match: (p) => p === "/dashboard/site",
+    },
+    { href: "/dashboard/site/pages", label: "Pagina's", icon: FileText },
+    { href: "/dashboard/reviews", label: "Reviews", icon: MessageSquareQuote },
+    { href: "/dashboard/team", label: "Team", icon: UserCog },
+    { href: "/dashboard/audit", label: "Activiteitenlog", icon: ScrollText },
+    { href: "/dashboard/settings", label: "Instellingen", icon: Settings },
+    {
+      href: "/dashboard/support",
+      label: "Support",
+      icon: LifeBuoy,
+      badge: counts?.ticketsNeedingAttention,
+    },
+  ];
 
   return (
     <nav className="flex flex-col gap-6 px-3 py-4 text-sm">
@@ -102,9 +114,15 @@ function NavGroup({
           >
             <item.icon className="size-4 shrink-0" />
             <span className="truncate">{item.label}</span>
-            {item.badge && (
-              <span className="ml-auto rounded-md bg-background px-1.5 py-0.5 text-[10px] font-medium">
-                {item.badge}
+            {item.badge !== undefined && item.badge > 0 && (
+              <span
+                className={`ml-auto grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/15 text-primary"
+                }`}
+              >
+                {item.badge > 99 ? "99+" : item.badge}
               </span>
             )}
           </Link>

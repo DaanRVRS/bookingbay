@@ -18,6 +18,7 @@ import {
   type ResetPasswordInput,
   type ActionResult,
 } from "./schemas";
+import { gateTwoFactor } from "@/lib/twofa/actions";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -108,15 +109,51 @@ export async function registerAction(input: RegisterInput): Promise<ActionResult
   return { ok: true };
 }
 
-export async function loginAction(input: LoginInput): Promise<ActionResult> {
+export async function loginAction(
+  input: LoginInput,
+): Promise<ActionResult<{ twoFactor?: "verify" | "setup" }>> {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
   }
 
+  const email = parsed.data.email.toLowerCase();
+
+  // Validate password BEFORE signIn so we can branch on 2FA without
+  // leaking a half-authenticated session cookie.
+  const user = await db.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      passwordHash: true,
+      isAdmin: true,
+      twoFactorEnabledAt: true,
+    },
+  });
+  if (!user?.passwordHash) {
+    return { ok: false, error: "E-mail of wachtwoord onjuist" };
+  }
+  const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!valid) {
+    return { ok: false, error: "E-mail of wachtwoord onjuist" };
+  }
+
+  // Gate: TOTP-verified user → "verify" step. Admin without 2FA yet →
+  // "setup" step (forced). Anyone else → normal signIn.
+  const gate = await gateTwoFactor({
+    id: user.id,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    twoFactorEnabledAt: user.twoFactorEnabledAt,
+  });
+  if (gate.status !== "ok") {
+    return { ok: true, data: { twoFactor: gate.status } };
+  }
+
   try {
     await signIn("credentials", {
-      email: parsed.data.email.toLowerCase(),
+      email,
       password: parsed.data.password,
       redirect: false,
     });

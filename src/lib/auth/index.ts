@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
+import { verifyHandoffToken } from "@/lib/twofa/core";
 
 declare module "next-auth" {
   interface Session {
@@ -55,6 +56,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Allow login but force verification flow if email not verified.
         // The middleware/dashboard layout should redirect unverified users to /verify-email.
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          emailVerified: user.emailVerified,
+        };
+      },
+    }),
+    Credentials({
+      // Handoff provider: signs the user in *after* a successful 2FA
+      // challenge. The token is an HMAC-signed userId set by the server in
+      // an HttpOnly cookie at the end of password-validation, so this
+      // provider cannot be invoked directly by a user.
+      id: "2fa-handoff",
+      name: "2FA handoff",
+      credentials: {
+        token: { label: "Handoff token", type: "text" },
+      },
+      async authorize(creds) {
+        const token = typeof creds?.token === "string" ? creds.token : null;
+        const payload = verifyHandoffToken(token ?? undefined);
+        if (!payload) return null;
+        // Only "verify" tokens are accepted here — "setup" tokens must
+        // first go through confirmSetupAction which then re-signs as
+        // "verify" before signing in.
+        if (payload.mode !== "verify") return null;
+        const user = await db.user.findUnique({
+          where: { id: payload.userId },
+        });
+        if (!user) return null;
         return {
           id: user.id,
           email: user.email,
