@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Headset } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import { requireAdmin } from "@/lib/auth/session";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/support/schemas";
 import { StaffReplyForm } from "../staff-reply-form";
 import { TicketAdminControls } from "../ticket-admin-controls";
+import { TicketAutoRefresh } from "@/app/dashboard/support/ticket-auto-refresh";
 
 export const metadata = { title: "Ticket" };
 
@@ -80,33 +81,53 @@ export default async function AdminTicketDetailPage({ params }: PageProps) {
           />
         </div>
 
+        <TicketAutoRefresh
+          ticketId={ticket.id}
+          initialMessageCount={ticket.messages.length}
+          initialLastStaffReplyAt={ticket.lastStaffReplyAt?.toISOString() ?? null}
+          initialLastUserReplyAt={ticket.lastUserReplyAt?.toISOString() ?? null}
+          mode="staff"
+        />
+
         <ol className="mt-6 flex flex-col gap-3">
           {ticket.messages.map((m) => {
-            // Defensief: messages van de ticket-opener tellen altijd als
-            // user-side, ook al staat isStaff=true in oude data.
-            const isStaff = m.isStaff && m.authorUserId !== ticket.createdById;
+            const isStaff = m.isStaff;
             return (
               <li
                 key={m.id}
-                className={`rounded-xl border px-5 py-4 ${
+                className={`overflow-hidden rounded-xl border ${
                   isStaff
-                    ? "border-primary/30 bg-primary/5"
+                    ? "border-primary/50 bg-primary/10"
                     : "border-border bg-card"
                 }`}
               >
-                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {isStaff
-                      ? `BookingBay support · ${m.author?.name ?? m.author?.email ?? ""}`
-                      : (m.author?.name ?? m.author?.email ?? "—")}
+                <div
+                  className={`flex items-center justify-between gap-2 px-5 py-2 text-xs ${
+                    isStaff
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted/40 text-muted-foreground"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    {isStaff ? (
+                      <>
+                        <Headset className="size-3.5" />
+                        BookingBay Support
+                        <span className="font-normal opacity-70">
+                          · {m.author?.name ?? m.author?.email ?? ""}
+                        </span>
+                      </>
+                    ) : (
+                      m.author?.name ?? m.author?.email ?? "—"
+                    )}
                   </span>
-                  <span>
+                  <span className="tabular-nums opacity-70">
                     {format(parseISO(m.createdAt.toISOString()), "d MMM HH:mm", {
                       locale: nl,
                     })}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                <p className="px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                   {m.body}
                 </p>
               </li>

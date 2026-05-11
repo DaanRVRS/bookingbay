@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Headset } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import { requireOrg } from "@/lib/auth/session";
@@ -36,6 +37,8 @@ export default async function TicketDetailPage({ params }: PageProps) {
         ticketId={ticket.id}
         initialMessageCount={ticket.messages.length}
         initialLastStaffReplyAt={ticket.lastStaffReplyAt?.toISOString() ?? null}
+        initialLastUserReplyAt={ticket.lastUserReplyAt?.toISOString() ?? null}
+        mode="klant"
       />
       <div className="mx-auto max-w-3xl">
         <PageHeader
@@ -62,32 +65,40 @@ export default async function TicketDetailPage({ params }: PageProps) {
 
         <ol className="mt-6 flex flex-col gap-3">
           {ticket.messages.map((m) => {
-            // Defensief: messages die door de ticket-opener zelf zijn gepost
-            // tellen altijd als user-side, ook als isStaff=true in de DB
-            // staat (oude data van voor de staff/user-split bug-fix).
-            const isStaff = m.isStaff && m.authorUserId !== ticket.createdById;
+            const isStaff = m.isStaff;
             return (
               <li
                 key={m.id}
-                className={`rounded-xl border px-5 py-4 ${
+                className={`overflow-hidden rounded-xl border ${
                   isStaff
-                    ? "border-primary/30 bg-primary/5"
+                    ? "border-primary/50 bg-primary/10"
                     : "border-border bg-card"
                 }`}
               >
-                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {isStaff
-                      ? "BookingBay support"
-                      : (m.author?.name ?? m.author?.email ?? "—")}
+                <div
+                  className={`flex items-center justify-between gap-2 px-5 py-2 text-xs ${
+                    isStaff
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted/40 text-muted-foreground"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    {isStaff ? (
+                      <>
+                        <Headset className="size-3.5" />
+                        BookingBay Support
+                      </>
+                    ) : (
+                      m.author?.name ?? m.author?.email ?? "—"
+                    )}
                   </span>
-                  <span>
+                  <span className="tabular-nums opacity-70">
                     {format(parseISO(m.createdAt.toISOString()), "d MMM HH:mm", {
                       locale: nl,
                     })}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                <p className="px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                   {m.body}
                 </p>
               </li>

@@ -12,25 +12,34 @@ interface PollResponse {
   status: string;
 }
 
-const POLL_INTERVAL_MS = 12_000;
+const POLL_INTERVAL_MS = 5_000;
 
 /**
- * Polls the ticket-poll endpoint every 12s. When the server reports a new
- * staff reply (lastStaffReplyAt verandert), play a chime + refresh de pagina
- * zodat de nieuwe message in beeld komt. Geen sound bij eigen reply.
+ * Polls the ticket-poll endpoint every 5s. When a NEW message from the
+ * "other" side arrives, play a chime + refresh the page.
+ *
+ *  - mode="klant"  : klant viewt /dashboard/support/[id] → chime bij
+ *                    nieuwe staff-reply (lastStaffReplyAt changed).
+ *  - mode="staff"  : admin viewt /admin/support/[id] → chime bij nieuwe
+ *                    user-reply (lastUserReplyAt changed).
  */
 export function TicketAutoRefresh({
   ticketId,
   initialMessageCount,
   initialLastStaffReplyAt,
+  initialLastUserReplyAt,
+  mode = "klant",
 }: {
   ticketId: string;
   initialMessageCount: number;
   initialLastStaffReplyAt: string | null;
+  initialLastUserReplyAt?: string | null;
+  mode?: "klant" | "staff";
 }) {
   const router = useRouter();
   const lastCountRef = useRef(initialMessageCount);
   const lastStaffAtRef = useRef(initialLastStaffReplyAt);
+  const lastUserAtRef = useRef(initialLastUserReplyAt ?? null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,18 +55,28 @@ export function TicketAutoRefresh({
         const staffReplyChanged =
           data.lastStaffReplyAt &&
           data.lastStaffReplyAt !== lastStaffAtRef.current;
+        const userReplyChanged =
+          data.lastUserReplyAt &&
+          data.lastUserReplyAt !== lastUserAtRef.current;
         const newMessages = data.messageCount > lastCountRef.current;
 
         lastCountRef.current = data.messageCount;
         lastStaffAtRef.current = data.lastStaffReplyAt;
+        lastUserAtRef.current = data.lastUserReplyAt;
 
-        if (staffReplyChanged && newMessages) {
+        const otherSideReplied =
+          (mode === "klant" && staffReplyChanged) ||
+          (mode === "staff" && userReplyChanged);
+
+        if (otherSideReplied && newMessages) {
           playChime();
-          toast.success("Nieuwe reactie van support");
+          toast.success(
+            mode === "klant"
+              ? "Nieuwe reactie van support"
+              : "Nieuwe reactie van klant",
+          );
           router.refresh();
         } else if (newMessages) {
-          // Other side of the conversation updated (probably our own send
-          // landed) — just refresh, no sound.
           router.refresh();
         }
       } catch {
@@ -70,14 +89,13 @@ export function TicketAutoRefresh({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [ticketId, router]);
+  }, [ticketId, router, mode]);
 
   return null;
 }
 
 /**
  * Two-note chime via Web Audio. Geen extern audio-bestand nodig.
- * Falt silently terug op niets als de browser audio blokkeert.
  */
 function playChime() {
   try {
@@ -105,7 +123,6 @@ function playChime() {
       osc.start(n.t);
       osc.stop(n.t + 0.4);
     }
-    // Close context after the sound finishes so we don't leak audio nodes.
     window.setTimeout(() => ctx.close().catch(() => {}), 800);
   } catch {
     // No-op
