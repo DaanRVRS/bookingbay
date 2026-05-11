@@ -14,6 +14,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import {
   adminUpdateTicketSchema,
+  CATEGORY_PRIORITY,
   createTicketSchema,
   replyTicketSchema,
   type AdminUpdateTicketInput,
@@ -45,6 +46,10 @@ export async function createTicketAction(
     };
   }
 
+  // Priority server-side bepaald op basis van categorie. Klant heeft hier
+  // geen invloed op — admin kan handmatig opschalen via ticket-beheer.
+  const autoPriority = CATEGORY_PRIORITY[parsed.data.category] ?? "NORMAL";
+
   const ticket = await db.$transaction(async (tx) => {
     const t = await tx.supportTicket.create({
       data: {
@@ -52,7 +57,7 @@ export async function createTicketAction(
         createdById: ctx.user.id,
         subject: parsed.data.subject,
         category: parsed.data.category,
-        priority: parsed.data.priority,
+        priority: autoPriority,
         status: "AWAITING_SUPPORT",
         lastUserReplyAt: new Date(),
       },
@@ -78,7 +83,7 @@ export async function createTicketAction(
     metadata: {
       subject: parsed.data.subject,
       category: parsed.data.category,
-      priority: parsed.data.priority,
+      priority: autoPriority,
     },
   });
 
@@ -88,7 +93,7 @@ export async function createTicketAction(
     subject: parsed.data.subject,
     body: parsed.data.body,
     category: parsed.data.category,
-    priority: parsed.data.priority,
+    priority: autoPriority,
     orgName: ctx.organization.name,
     authorName: ctx.user.name,
     authorEmail: ctx.user.email,
@@ -124,7 +129,7 @@ export async function createTicketAction(
         <strong>${escapeHtml(ctx.organization.name)}</strong> · ${escapeHtml(ctx.user.email)}
       </p>
       <p style="margin:0 0 4px 0;font-size:13px;color:#6b7280">
-        Categorie: ${escapeHtml(parsed.data.category)} · Prioriteit: ${parsed.data.priority}
+        Categorie: ${escapeHtml(parsed.data.category)} · Prioriteit: ${autoPriority}
       </p>
       <div style="background:#f5f3ee;border-radius:8px;padding:14px 16px;margin:16px 0;white-space:pre-wrap">
         ${escapeHtml(parsed.data.body)}

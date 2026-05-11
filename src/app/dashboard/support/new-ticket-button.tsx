@@ -17,11 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createTicketAction } from "@/lib/support/actions";
-import {
-  TICKET_CATEGORIES,
-  TICKET_PRIORITIES,
-  PRIORITY_LABELS,
-} from "@/lib/support/schemas";
+import { TICKET_CATEGORIES } from "@/lib/support/schemas";
 
 export function NewTicketButton() {
   const router = useRouter();
@@ -31,14 +27,11 @@ export function NewTicketButton() {
   const [body, setBody] = useState("");
   const [category, setCategory] =
     useState<(typeof TICKET_CATEGORIES)[number]["value"]>("general");
-  const [priority, setPriority] =
-    useState<(typeof TICKET_PRIORITIES)[number]>("NORMAL");
 
   const reset = () => {
     setSubject("");
     setBody("");
     setCategory("general");
-    setPriority("NORMAL");
   };
 
   const submit = (e: React.FormEvent) => {
@@ -48,7 +41,6 @@ export function NewTicketButton() {
         subject,
         body,
         category,
-        priority,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -93,45 +85,28 @@ export function NewTicketButton() {
                 placeholder="bv. Boeking laat zich niet verplaatsen"
               />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="category">Categorie</Label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) =>
-                    setCategory(
-                      e.target.value as (typeof TICKET_CATEGORIES)[number]["value"],
-                    )
-                  }
-                  className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm"
-                >
-                  {TICKET_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="priority">Prioriteit</Label>
-                <select
-                  id="priority"
-                  value={priority}
-                  onChange={(e) =>
-                    setPriority(
-                      e.target.value as (typeof TICKET_PRIORITIES)[number],
-                    )
-                  }
-                  className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm"
-                >
-                  {TICKET_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {PRIORITY_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="category">Categorie</Label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) =>
+                  setCategory(
+                    e.target.value as (typeof TICKET_CATEGORIES)[number]["value"],
+                  )
+                }
+                className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm"
+              >
+                {TICKET_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                We zetten de prioriteit automatisch op basis van je categorie —
+                bugs en facturatie krijgen voorrang.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="body">Bericht</Label>

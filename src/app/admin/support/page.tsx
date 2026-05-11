@@ -11,6 +11,7 @@ import {
   PRIORITY_LABELS,
   STATUS_LABELS,
   TICKET_CATEGORIES,
+  TICKET_PRIORITIES,
 } from "@/lib/support/schemas";
 
 export const metadata = { title: "Support" };
@@ -108,17 +109,16 @@ export default async function AdminSupportPage({ searchParams }: PageProps) {
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
+                        <PriorityPill priority={t.priority} />
                         <span className="inline-flex items-center rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-medium text-primary">
                           {STATUS_LABELS[t.status]}
                         </span>
                         <span className="text-[10px] tracking-wide uppercase text-muted-foreground">
                           {CATEGORY_LABEL[t.category] ?? t.category}
                         </span>
-                        {t.priority !== "NORMAL" && t.priority !== "LOW" && (
-                          <span className="text-[10px] font-semibold tracking-wide uppercase text-destructive">
-                            {PRIORITY_LABELS[t.priority]}
-                          </span>
-                        )}
+                        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {t.organization.plan}
+                        </span>
                         <span className="text-[10px] tracking-wide uppercase text-muted-foreground">
                           {t.organization.name}
                         </span>
@@ -152,5 +152,29 @@ export default async function AdminSupportPage({ searchParams }: PageProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function PriorityPill({
+  priority,
+}: {
+  priority: (typeof TICKET_PRIORITIES)[number];
+}) {
+  const styles: Record<(typeof TICKET_PRIORITIES)[number], string> = {
+    URGENT:
+      "bg-destructive text-destructive-foreground",
+    HIGH:
+      "bg-[oklch(0.7_0.16_60)]/20 text-[oklch(0.45_0.16_60)] border border-[oklch(0.7_0.16_60)]/40",
+    NORMAL:
+      "bg-muted text-muted-foreground",
+    LOW:
+      "bg-muted/50 text-muted-foreground/70",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${styles[priority]}`}
+    >
+      {PRIORITY_LABELS[priority]}
+    </span>
   );
 }

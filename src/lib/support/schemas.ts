@@ -35,9 +35,47 @@ export const STATUS_LABELS: Record<(typeof TICKET_STATUSES)[number], string> = {
 export const createTicketSchema = z.object({
   subject: z.string().min(3, "Onderwerp is te kort").max(160),
   category: z.enum(["general", "billing", "bug", "feature", "other"]).default("general"),
-  priority: z.enum(TICKET_PRIORITIES).default("NORMAL"),
   body: z.string().min(5, "Bericht is te kort").max(5000),
 });
+
+/**
+ * Priority wordt server-side bepaald op basis van categorie. Klant kiest
+ * 'm niet zelf — admin kan handmatig overschrijven via ticket-beheer.
+ * Bug & billing zijn standaard HIGH (showstoppers/geld-issues), features
+ * LOW, rest NORMAL.
+ */
+export const CATEGORY_PRIORITY: Record<string, (typeof TICKET_PRIORITIES)[number]> = {
+  bug: "HIGH",
+  billing: "HIGH",
+  general: "NORMAL",
+  other: "NORMAL",
+  feature: "LOW",
+};
+
+/**
+ * Plan-rank gebruikt voor admin-sortering. Hoger plan = grotere kans dat
+ * een gelijke-prioriteit-ticket bovenaan komt. Maar prioriteit dominant.
+ */
+export const PLAN_RANK: Record<string, number> = {
+  ENTERPRISE: 4,
+  BUSINESS: 3,
+  PROFESSIONAL: 2,
+  STARTER: 1,
+};
+
+export const PRIORITY_RANK: Record<(typeof TICKET_PRIORITIES)[number], number> = {
+  URGENT: 4,
+  HIGH: 3,
+  NORMAL: 2,
+  LOW: 1,
+};
+
+export function ticketWeight(
+  priority: (typeof TICKET_PRIORITIES)[number],
+  plan: string,
+): number {
+  return (PRIORITY_RANK[priority] ?? 2) * 10 + (PLAN_RANK[plan] ?? 1);
+}
 
 export const replyTicketSchema = z.object({
   ticketId: z.string().min(1),
