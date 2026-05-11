@@ -20,8 +20,6 @@ const submitSchema = z
 
 export type SubmitFeedbackInput = z.infer<typeof submitSchema>;
 
-const FEEDBACK_COOLDOWN_MS = 60 * 60 * 1000; // 1 uur
-
 export async function submitFeedbackAction(
   input: SubmitFeedbackInput,
 ): Promise<ActionResult> {
@@ -32,28 +30,18 @@ export async function submitFeedbackAction(
     return { ok: false, error: first };
   }
 
-  // Throttle: max 1 feedback per uur per user. De signup-prompt is
-  // bovendien al gated door feedbackRequestedAt, dus dit voorkomt vooral
-  // spam vanuit het vrijwillige formulier.
-  const recent = await db.userFeedback.findFirst({
-    where: {
-      userId: user.id,
-      createdAt: { gte: new Date(Date.now() - FEEDBACK_COOLDOWN_MS) },
-    },
-    select: { createdAt: true },
+  // 1 feedback per user, ooit. Heeft de user nog iets toe te voegen? Daar
+  // is /dashboard/support voor. Voorkomt spam + houdt de feedback-pool
+  // representatief (geen power-users die alles overschreeuwen).
+  const existing = await db.userFeedback.findFirst({
+    where: { userId: user.id },
+    select: { id: true },
   });
-  if (recent) {
-    const minutesLeft = Math.max(
-      1,
-      Math.ceil(
-        (FEEDBACK_COOLDOWN_MS -
-          (Date.now() - recent.createdAt.getTime())) /
-          60_000,
-      ),
-    );
+  if (existing) {
     return {
       ok: false,
-      error: `Je hebt zojuist al feedback gegeven — probeer over ${minutesLeft} min opnieuw.`,
+      error:
+        "Je hebt al eerder feedback gegeven — dank! Open een ticket via /dashboard/support als je nog iets wil delen.",
     };
   }
 
