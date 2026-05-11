@@ -46,6 +46,7 @@ export const getRealUser = cache(async () => {
       image: true,
       emailVerified: true,
       isAdmin: true,
+      twoFactorEnabledAt: true,
     },
   });
 });
@@ -58,6 +59,11 @@ export async function requireAdmin() {
   if (!user.isAdmin) {
     const { notFound } = await import("next/navigation");
     notFound();
+  }
+  // 2FA is mandatory for admins. Block access until enrolled — also voor
+  // sessies die nog vóór de 2FA-feature zijn aangemaakt.
+  if (!user.twoFactorEnabledAt) {
+    redirect("/login/2fa/setup?next=/admin");
   }
   return user;
 }
