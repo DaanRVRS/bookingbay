@@ -20,8 +20,10 @@ import {
   type BackupCode,
 } from "./core";
 
-export const TWOFA_PENDING_COOKIE = "bb_2fa_pending";
-export const TWOFA_SETUP_SECRET_COOKIE = "bb_2fa_setup_secret";
+// Cookie-namen zijn intern — niet exporteren (Next.js "use server" files
+// mogen alleen async functies exporteren, geen constants).
+const TWOFA_PENDING_COOKIE = "bb_2fa_pending";
+const TWOFA_SETUP_SECRET_COOKIE = "bb_2fa_setup_secret";
 
 function cookieOpts(maxAgeMs: number) {
   return {
@@ -135,7 +137,7 @@ export async function verifyTwoFactorAction(code: string): Promise<ActionResult>
 
 /* ---------------- Setup flow (forced for admin OR opt-in for klant) ---------------- */
 
-export interface SetupPayload {
+interface SetupPayload {
   secret: string;
   otpauthUrl: string;
   qrDataUrl: string;
