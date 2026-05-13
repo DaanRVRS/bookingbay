@@ -242,46 +242,47 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         </div>
       </div>
 
-      {/* Day strip — also acts as the day picker */}
-      <div className="mt-5 grid grid-cols-7 gap-1.5">
-        {days.map((d) => {
-          const isSelected = isSameDay(d, selectedDay);
-          const today = isToday(d);
-          const dayBookings = bookings.filter(
-            (b) => isSameDay(parseISO(b.startAt), d) || isSameDay(parseISO(b.endAt), d),
-          );
-          return (
-            <button
-              key={d.toISOString()}
-              onClick={() => {
-                setSelectedDay(d);
-                if (view === "day") goto(d);
-              }}
-              className={`group relative flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-xs transition-colors ${
-                isSelected
-                  ? "border-primary/40 bg-primary/8 text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              <span className="text-[10px] font-medium tracking-wide uppercase">
-                {format(d, "EEE", { locale: nl })}
-              </span>
-              <span
-                className={`text-base font-semibold tabular-nums ${
-                  today ? "text-primary" : ""
+      {view !== "week" && (
+        <div className="mt-5 grid grid-cols-7 gap-1.5">
+          {days.map((d) => {
+            const isSelected = isSameDay(d, selectedDay);
+            const today = isToday(d);
+            const dayBookings = bookings.filter(
+              (b) => isSameDay(parseISO(b.startAt), d) || isSameDay(parseISO(b.endAt), d),
+            );
+            return (
+              <button
+                key={d.toISOString()}
+                onClick={() => {
+                  setSelectedDay(d);
+                  if (view === "day") goto(d);
+                }}
+                className={`group relative flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-xs transition-colors ${
+                  isSelected
+                    ? "border-primary/40 bg-primary/8 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-accent"
                 }`}
               >
-                {format(d, "d")}
-              </span>
-              {dayBookings.length > 0 && (
-                <span className="absolute right-1.5 top-1.5 grid size-4 place-items-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
-                  {dayBookings.length}
+                <span className="text-[10px] font-medium tracking-wide uppercase">
+                  {format(d, "EEE", { locale: nl })}
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <span
+                  className={`text-base font-semibold tabular-nums ${
+                    today ? "text-primary" : ""
+                  }`}
+                >
+                  {format(d, "d")}
+                </span>
+                {dayBookings.length > 0 && (
+                  <span className="absolute right-1.5 top-1.5 grid size-4 place-items-center rounded-full bg-primary/15 text-[9px] font-semibold text-primary">
+                    {dayBookings.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="mt-6">
