@@ -219,3 +219,46 @@
     animation: shimmer 3s ease-in-out infinite;
   }
 }
+
+/* ----------------------------------------------------------------------
+ * react-day-picker overrides — scoped via .rdp-bb on the DayPicker root.
+ * Keep them lightweight: only color + radius tweaks so the calendar fits
+ * the booking-widget aesthetic without fighting the default v9 layout.
+ * ---------------------------------------------------------------------- */
+.rdp-bb {
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  --rdp-day_button-height: 2.25rem;
+  --rdp-day_button-width: 2.25rem;
+  --rdp-day_button-border-radius: 0.5rem;
+  --rdp-selected-border: none;
+  --rdp-range_middle-background-color: color-mix(
+    in oklch,
+    var(--rdp-accent-color, currentColor) 14%,
+    transparent
+  );
+  --rdp-range_middle-color: var(--foreground);
+  --rdp-today-color: var(--rdp-accent-color, currentColor);
+  font-size: 0.85rem;
+}
+.rdp-bb .rdp-day_button {
+  font-weight: 500;
+}
+.rdp-bb .rdp-day:not(.rdp-selected):not(.rdp-disabled) .rdp-day_button:hover {
+  background: color-mix(in oklch, var(--rdp-accent-color, currentColor) 12%, transparent);
+}
+.rdp-bb .rdp-caption_label,
+.rdp-bb .rdp-month_caption {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.rdp-bb .rdp-weekday {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+.rdp-bb .rdp-nav_button {
+  border-radius: 0.5rem;
+}

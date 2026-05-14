@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import "react-day-picker/style.css";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, CheckCircle2, Clock, Loader2, User } from "lucide-react";
+import { DayPicker, type DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { nl } from "date-fns/locale";
+import { ArrowRight, CalendarDays, CheckCircle2, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
 import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
@@ -29,6 +33,9 @@ interface Props {
   itemOptions?: ItemOption[];
 }
 
+const DEFAULT_START_TIME = "09:00";
+const DEFAULT_END_TIME = "17:00";
+
 export function PublicBookingForm({
   slug,
   orgName,
@@ -38,6 +45,9 @@ export function PublicBookingForm({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [startTime, setStartTime] = useState(DEFAULT_START_TIME);
+  const [endTime, setEndTime] = useState(DEFAULT_END_TIME);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -51,6 +61,7 @@ export function PublicBookingForm({
     handleSubmit,
     formState: { errors },
     setError,
+    setValue,
     watch,
   } = useForm<PublicBookingInput>({
     resolver: zodResolver(publicBookingSchema),
@@ -65,6 +76,27 @@ export function PublicBookingForm({
       notes: "",
     },
   });
+
+  // Sync calendar range + times into the form state (startAt/endAt are
+  // hidden — only the calendar/time UI mutates them).
+  useEffect(() => {
+    if (range?.from) {
+      const startStr = `${format(range.from, "yyyy-MM-dd")}T${startTime}`;
+      setValue("startAt", startStr, { shouldValidate: true });
+    } else {
+      setValue("startAt", "", { shouldValidate: false });
+    }
+    if (range?.to) {
+      const endStr = `${format(range.to, "yyyy-MM-dd")}T${endTime}`;
+      setValue("endAt", endStr, { shouldValidate: true });
+    } else if (range?.from) {
+      // Single-day booking: end on same day at end time.
+      const endStr = `${format(range.from, "yyyy-MM-dd")}T${endTime}`;
+      setValue("endAt", endStr, { shouldValidate: true });
+    } else {
+      setValue("endAt", "", { shouldValidate: false });
+    }
+  }, [range, startTime, endTime, setValue]);
 
   const watchedItemId = watch("itemId");
   const watchedStart = watch("startAt");
@@ -135,8 +167,19 @@ export function PublicBookingForm({
   const showItemPicker =
     !fixedItem && (!itemOptions || itemOptions.length > 0);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Single-day if no `to` selected — display same date for both ends
+  const displayFrom = range?.from ?? null;
+  const displayTo = range?.to ?? range?.from ?? null;
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-5"
+      style={{ ["--rdp-accent-color" as string]: accent }}
+    >
       {!fixedItem && itemOptions && itemOptions.length === 0 && (
         <div className="rounded-lg border border-dashed border-border bg-card/40 px-4 py-6 text-center text-sm text-muted-foreground">
           Geen items beschikbaar om te boeken.
@@ -165,22 +208,61 @@ export function PublicBookingForm({
         </div>
       )}
 
-      {/* Wanneer */}
-      <Section icon={Clock} accent={accent} title="Wanneer">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField
+      {/* Wanneer — visible calendar */}
+      <Section icon={CalendarDays} accent={accent} title="Wanneer">
+        {/* Selected range summary */}
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
+          <DateChip
             label="Vanaf"
-            type="datetime-local"
-            error={errors.startAt?.message}
-            {...register("startAt")}
+            date={displayFrom}
+            time={startTime}
+            placeholder="Kies een dag"
+            accent={accent}
+            active={Boolean(displayFrom)}
           />
-          <FormField
+          <DateChip
             label="Tot"
-            type="datetime-local"
-            error={errors.endAt?.message}
-            {...register("endAt")}
+            date={displayTo}
+            time={endTime}
+            placeholder="Kies een dag"
+            accent={accent}
+            active={Boolean(displayTo)}
           />
         </div>
+
+        <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
+          <DayPicker
+            mode="range"
+            selected={range}
+            onSelect={setRange}
+            numberOfMonths={1}
+            weekStartsOn={1}
+            locale={nl}
+            disabled={{ before: today }}
+            showOutsideDays
+            className="rdp-bb"
+          />
+        </div>
+
+        {/* Time inputs */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <TimeInput
+            label="Starttijd"
+            value={startTime}
+            onChange={setStartTime}
+          />
+          <TimeInput
+            label="Eindtijd"
+            value={endTime}
+            onChange={setEndTime}
+          />
+        </div>
+
+        {(errors.startAt || errors.endAt) && (
+          <p className="mt-2 text-xs font-medium text-destructive">
+            {errors.startAt?.message || errors.endAt?.message}
+          </p>
+        )}
 
         {estimate !== null && (
           <div
@@ -290,7 +372,7 @@ function Section({
   accent,
   children,
 }: {
-  icon: typeof Clock;
+  icon: typeof CalendarDays;
   title: string;
   accent: string;
   children: React.ReactNode;
@@ -310,5 +392,74 @@ function Section({
       </div>
       {children}
     </div>
+  );
+}
+
+function DateChip({
+  label,
+  date,
+  time,
+  placeholder,
+  accent,
+  active,
+}: {
+  label: string;
+  date: Date | null;
+  time: string;
+  placeholder: string;
+  accent: string;
+  active: boolean;
+}) {
+  return (
+    <div
+      className="rounded-md bg-background px-3 py-2 transition-colors"
+      style={
+        active
+          ? {
+              border: `1px solid ${accent}55`,
+              boxShadow: `inset 0 0 0 1px ${accent}15`,
+            }
+          : { border: "1px solid var(--border)" }
+      }
+    >
+      <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+        {label}
+      </p>
+      {date ? (
+        <p className="text-sm font-semibold tracking-tight">
+          {format(date, "d MMM", { locale: nl })}
+          <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+            · {time}
+          </span>
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">{placeholder}</p>
+      )}
+    </div>
+  );
+}
+
+function TimeInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+        {label}
+      </span>
+      <input
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        step={900}
+        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </label>
   );
 }
