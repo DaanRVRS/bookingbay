@@ -153,7 +153,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Real-time push-notifications",
     ],
     vendorUrl: "https://outlook.live.com",
-    iconifyId: "logos:microsoft-outlook",
+    iconifyId: "vscode-icons:file-type-outlook",
   },
   {
     slug: "apple-calendar",
@@ -315,7 +315,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Grootboekrekening per item-categorie",
     ],
     vendorUrl: "https://www.exact.com/nl",
-    iconifyId: "mdi:equal-box-outline",
+    iconifyId: "mdi:equal-box",
   },
   {
     slug: "afas",
