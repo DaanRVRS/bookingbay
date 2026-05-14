@@ -20,14 +20,13 @@ export function Features() {
             Alles erin. Niets te veel.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground text-pretty">
-            We hebben de helft van de features eruit gelaten waar je nooit op zou klikken — zodat
-            wat je wél nodig hebt razendsnel werkt.
+            We hebben de helft van de features eruit gelaten waar je nooit op zou klikken.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-6">
+        {/* Twee verhalende kaarten met visual */}
+        <div className="mt-14 grid gap-4 sm:grid-cols-2">
           <FeatureCard
-            className="sm:col-span-3 lg:col-span-3"
             icon={CalendarRange}
             title="Slimme planning"
             body="Kalender per item met automatische conflict-detectie. Drag-and-drop boekingen, dubbelboekingen kunnen niet meer."
@@ -35,48 +34,21 @@ export function Features() {
             delay={0}
           />
           <FeatureCard
-            className="sm:col-span-3 lg:col-span-3"
             icon={Globe}
             title="Eigen klantsite"
-            body="Elke organisatie krijgt een eigen URL met logo, kleuren en items. Klanten zien wat beschikbaar is en sturen leads direct binnen."
+            body="Eigen URL, logo, kleuren. Klanten zien wat beschikbaar is en boeken direct."
             visual={<SiteVisual />}
             delay={0.05}
           />
-          <FeatureCard
-            className="sm:col-span-2"
-            icon={Layers}
-            title="Universele catalogus"
-            body="Zelf categorieën nesten, prijzen per uur/dag/week, eigen velden waar je ze nodig hebt."
-            delay={0.1}
-          />
-          <FeatureCard
-            className="sm:col-span-2"
-            icon={Users}
-            title="Team & rollen"
-            body="OWNER, ADMIN, MANAGER, VIEWER. Iedereen ziet alleen wat hij mag zien."
-            delay={0.15}
-          />
-          <FeatureCard
-            className="sm:col-span-2"
-            icon={Zap}
-            title="Snel als de wind"
-            body="Server-rendered, mobile-first. Boekingen aanmaken duurt seconden, niet minuten."
-            delay={0.2}
-          />
-          <FeatureCard
-            className="sm:col-span-3"
-            icon={ShieldCheck}
-            title="Privacy by default"
-            body="Hosting in Europa, dagelijkse back-ups, AVG-proof. Jouw data is van jou — punt."
-            delay={0.25}
-          />
-          <FeatureCard
-            className="sm:col-span-3"
-            icon={Globe}
-            title="Custom domain"
-            body="Koppel je eigen domein aan je BookingBay-site. Wij regelen het SSL-certificaat."
-            delay={0.3}
-          />
+        </div>
+
+        {/* Compacte feature-strip — scant in 3 seconden */}
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <Pill icon={Layers} label="Geneste categorieën" delay={0.1} />
+          <Pill icon={Users} label="4 rollen fijn-grain" delay={0.15} />
+          <Pill icon={Zap} label="Mobile-first" delay={0.2} />
+          <Pill icon={ShieldCheck} label="EU-hosted · AVG" delay={0.25} />
+          <Pill icon={Globe} label="Custom domein" delay={0.3} />
         </div>
       </div>
     </section>
@@ -87,14 +59,12 @@ function FeatureCard({
   icon: Icon,
   title,
   body,
-  className,
   visual,
   delay = 0,
 }: {
   icon: typeof CalendarRange;
   title: string;
   body: string;
-  className?: string;
   visual?: React.ReactNode;
   delay?: number;
 }) {
@@ -104,7 +74,7 @@ function FeatureCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ delay, duration: 0.5, ease: "easeOut" }}
-      className={`group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/40 hover:bg-card/80 ${className ?? ""}`}
+      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/40 hover:bg-card/80"
     >
       {visual && <div className="mb-6">{visual}</div>}
       <span className="inline-grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -112,6 +82,31 @@ function FeatureCard({
       </span>
       <h3 className="mt-4 text-lg font-semibold tracking-tight">{title}</h3>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+    </motion.div>
+  );
+}
+
+function Pill({
+  icon: Icon,
+  label,
+  delay = 0,
+}: {
+  icon: typeof Layers;
+  label: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ delay, duration: 0.35, ease: "easeOut" }}
+      className="flex items-center gap-2.5 rounded-xl border border-border bg-card/50 px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-card"
+    >
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+        <Icon className="size-3.5" />
+      </span>
+      <span className="truncate text-xs font-medium leading-tight">{label}</span>
     </motion.div>
   );
 }
