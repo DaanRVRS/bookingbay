@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ImageIcon } from "lucide-react";
 import { PublicBookingForm } from "./PublicBookingForm";
 
 interface ItemRow {
@@ -34,7 +34,6 @@ export function SmartBookingWidget({ slug, orgName, accent, categories }: Props)
   const [categoryId, setCategoryId] = useState<string | null>(onlyCategory?.id ?? null);
   const [itemId, setItemId] = useState<string | null>(null);
 
-  // Re-sync if parent data changes (e.g. category list shrinks to one).
   useEffect(() => {
     if (categories.length === 1 && !categoryId) {
       setCategoryId(categories[0].id);
@@ -53,137 +52,342 @@ export function SmartBookingWidget({ slug, orgName, accent, categories }: Props)
     );
   }
 
-  if (step === "category") {
-    return (
-      <div>
-        <h2 className="text-sm font-semibold tracking-tight">Kies een categorie</h2>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-          {categories.map((cat) => (
-            <li key={cat.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategoryId(cat.id);
-                  setStep("item");
-                }}
-                className="group flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{cat.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {cat.items.length} item{cat.items.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <span
-                  className="text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: accent }}
-                >
-                  Kies →
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
+  // Progress steps: only show "Categorie" if there are multiple
+  const showCategoryStep = categories.length > 1;
+  const stepIndex = step === "category" ? 0 : step === "item" ? (showCategoryStep ? 1 : 0) : showCategoryStep ? 2 : 1;
+  const totalSteps = showCategoryStep ? 3 : 2;
 
-  if (step === "item" && selectedCategory) {
-    return (
-      <div>
-        {categories.length > 1 && (
-          <button
-            type="button"
-            onClick={() => {
-              setStep("category");
-              setItemId(null);
-            }}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-3" />
-            Andere categorie
-          </button>
-        )}
-        <h2 className="mt-2 text-sm font-semibold tracking-tight">
-          Wat wil je boeken?
-        </h2>
-        <p className="text-[11px] text-muted-foreground">{selectedCategory.name}</p>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-          {selectedCategory.items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setItemId(item.id);
-                  setStep("form");
-                }}
-                className="group flex w-full items-stretch gap-3 overflow-hidden rounded-lg border border-border bg-card text-left transition-shadow hover:shadow-sm"
-              >
-                <div className="grid size-16 shrink-0 place-items-center bg-muted">
-                  {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon className="size-5 text-muted-foreground/60" />
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col justify-center py-1.5 pr-3">
-                  <p className="truncate text-sm font-medium">{item.name}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {priceLabel(item)}
-                  </p>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
+  return (
+    <div>
+      <ProgressIndicator
+        accent={accent}
+        currentIndex={stepIndex}
+        labels={
+          showCategoryStep
+            ? ["Categorie", "Item", "Boeken"]
+            : ["Item", "Boeken"]
+        }
+      />
 
-  if (step === "form" && selectedItem) {
-    return (
-      <div>
-        <button
-          type="button"
-          onClick={() => {
+      {step === "category" && (
+        <CategoryStep
+          accent={accent}
+          categories={categories}
+          onPick={(id) => {
+            setCategoryId(id);
+            setStep("item");
+          }}
+        />
+      )}
+
+      {step === "item" && selectedCategory && (
+        <ItemStep
+          accent={accent}
+          category={selectedCategory}
+          showBack={categories.length > 1}
+          onBack={() => {
+            setStep("category");
+            setItemId(null);
+          }}
+          onPick={(id) => {
+            setItemId(id);
+            setStep("form");
+          }}
+        />
+      )}
+
+      {step === "form" && selectedItem && (
+        <FormStep
+          slug={slug}
+          orgName={orgName}
+          accent={accent}
+          item={selectedItem}
+          onBack={() => {
             setItemId(null);
             setStep("item");
           }}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-3" />
-          Ander item
-        </button>
-        <h2 className="mt-2 text-sm font-semibold tracking-tight">
-          Boek {selectedItem.name}
-        </h2>
-        <div className="mt-3">
-          <PublicBookingForm
-            slug={slug}
-            orgName={orgName}
-            accent={accent}
-            fixedItem={{
-              id: selectedItem.id,
-              name: selectedItem.name,
-              pricePerHour: selectedItem.pricePerHour,
-              pricePerDay: selectedItem.pricePerDay,
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+        />
+      )}
+    </div>
+  );
 }
 
-function priceLabel(item: ItemRow): string {
-  if (item.pricePerDay) return `Vanaf € ${item.pricePerDay.toFixed(2)} per dag`;
-  if (item.pricePerHour) return `Vanaf € ${item.pricePerHour.toFixed(2)} per uur`;
-  return "Prijs op aanvraag";
+function ProgressIndicator({
+  accent,
+  currentIndex,
+  labels,
+}: {
+  accent: string;
+  currentIndex: number;
+  labels: string[];
+}) {
+  return (
+    <div className="mb-6 flex items-center gap-2">
+      {labels.map((label, i) => {
+        const done = i < currentIndex;
+        const active = i === currentIndex;
+        return (
+          <div key={label} className="flex flex-1 items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all"
+                style={{
+                  background: done || active ? accent : "transparent",
+                  color: done || active ? "#fff" : "var(--muted-foreground)",
+                  border: done || active ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                {done ? <Check className="size-3" /> : i + 1}
+              </span>
+              <span
+                className="text-xs font-medium tracking-wide"
+                style={{
+                  color: active
+                    ? accent
+                    : done
+                      ? "var(--foreground)"
+                      : "var(--muted-foreground)",
+                }}
+              >
+                {label}
+              </span>
+            </div>
+            {i < labels.length - 1 && (
+              <div
+                className="h-px flex-1 transition-all"
+                style={{
+                  background:
+                    i < currentIndex ? accent : "var(--border)",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CategoryStep({
+  accent,
+  categories,
+  onPick,
+}: {
+  accent: string;
+  categories: CategoryBucket[];
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold tracking-tight">Waarmee kunnen we helpen?</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Kies een categorie om te beginnen.</p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {categories.map((cat) => {
+          // Show preview image from first item with image
+          const previewImage = cat.items.find((i) => i.imageUrl)?.imageUrl ?? null;
+          return (
+            <li key={cat.id}>
+              <button
+                type="button"
+                onClick={() => onPick(cat.id)}
+                className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+                style={{
+                  borderColor: "var(--border)",
+                }}
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  style={{
+                    background: `linear-gradient(135deg, ${accent}10 0%, transparent 60%)`,
+                  }}
+                />
+                <div
+                  className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted"
+                  style={{
+                    background: previewImage ? undefined : `${accent}15`,
+                  }}
+                >
+                  {previewImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={previewImage}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="size-5" style={{ color: accent }} />
+                  )}
+                </div>
+                <div className="relative min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold tracking-tight">{cat.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {cat.items.length} {cat.items.length === 1 ? "item" : "items"} beschikbaar
+                  </p>
+                </div>
+                <ArrowRight
+                  className="relative size-4 shrink-0 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+                  style={{ color: accent }}
+                />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ItemStep({
+  accent,
+  category,
+  showBack,
+  onBack,
+  onPick,
+}: {
+  accent: string;
+  category: CategoryBucket;
+  showBack: boolean;
+  onBack: () => void;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div>
+      {showBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-3" />
+          Andere categorie
+        </button>
+      )}
+      <p
+        className="text-[11px] font-semibold tracking-wider uppercase"
+        style={{ color: accent }}
+      >
+        {category.name}
+      </p>
+      <h2 className="mt-1 text-lg font-semibold tracking-tight">Wat wil je boeken?</h2>
+
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {category.items.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => onPick(item.id)}
+              className="group flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                {item.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                  />
+                ) : (
+                  <div className="grid size-full place-items-center text-muted-foreground">
+                    <ImageIcon className="size-7 opacity-40" />
+                  </div>
+                )}
+                <span
+                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur"
+                  style={{ background: `${accent}E0` }}
+                >
+                  {priceLabelShort(item)}
+                </span>
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-3.5">
+                <h3 className="text-sm font-semibold tracking-tight">{item.name}</h3>
+                {item.description && (
+                  <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                )}
+                <span
+                  className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-medium opacity-70 transition-opacity group-hover:opacity-100"
+                  style={{ color: accent }}
+                >
+                  Boek dit item <ArrowRight className="size-3" />
+                </span>
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function FormStep({
+  slug,
+  orgName,
+  accent,
+  item,
+  onBack,
+}: {
+  slug: string;
+  orgName: string;
+  accent: string;
+  item: ItemRow;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-3" />
+        Ander item
+      </button>
+
+      <div className="mb-5 flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+        <div className="size-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="grid size-full place-items-center text-muted-foreground">
+              <ImageIcon className="size-5 opacity-40" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p
+            className="text-[10px] font-semibold tracking-wider uppercase"
+            style={{ color: accent }}
+          >
+            Je boekt
+          </p>
+          <p className="truncate text-sm font-semibold tracking-tight">{item.name}</p>
+        </div>
+      </div>
+
+      <PublicBookingForm
+        slug={slug}
+        orgName={orgName}
+        accent={accent}
+        fixedItem={{
+          id: item.id,
+          name: item.name,
+          pricePerHour: item.pricePerHour,
+          pricePerDay: item.pricePerDay,
+        }}
+      />
+    </div>
+  );
+}
+
+function priceLabelShort(item: ItemRow): string {
+  if (item.pricePerDay) return `€${item.pricePerDay.toFixed(0)}/dag`;
+  if (item.pricePerHour) return `€${item.pricePerHour.toFixed(0)}/uur`;
+  return "Op aanvraag";
 }

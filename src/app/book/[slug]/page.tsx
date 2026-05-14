@@ -82,33 +82,47 @@ export default async function BookPage({ params, searchParams }: PageProps) {
   const accent = normalizeAccent(accentParam, org.primaryColor ?? "#ef5934");
 
   return (
-    <main className="min-h-dvh bg-muted/30">
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <header className="flex items-center gap-3 pb-6">
+    <main className="relative min-h-dvh">
+      {/* Accent achtergrond — gradient bovenin */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-72"
+        style={{
+          background: `radial-gradient(ellipse at 50% 0%, ${accent}25 0%, transparent 65%)`,
+        }}
+      />
+
+      <div className="relative mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+        <header className="flex items-center gap-3">
           {org.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={org.logoUrl}
               alt={org.name}
-              width={40}
-              height={40}
-              className="size-10 rounded-md object-cover"
+              width={44}
+              height={44}
+              className="size-11 rounded-xl object-cover shadow-sm ring-1 ring-border"
             />
           ) : (
             <div
-              className="grid size-10 place-items-center rounded-md text-sm font-semibold text-white"
-              style={{ background: accent }}
+              className="grid size-11 place-items-center rounded-xl text-base font-bold text-white shadow-sm"
+              style={{
+                background: accent,
+                boxShadow: `0 4px 14px -4px ${accent}80`,
+              }}
             >
               {org.name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
-            <p className="text-xs text-muted-foreground">Boeking via</p>
-            <p className="text-sm font-semibold tracking-tight">{org.name}</p>
+            <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+              Boek bij
+            </p>
+            <p className="text-sm font-bold tracking-tight">{org.name}</p>
           </div>
         </header>
 
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.10)] sm:p-8">
           <SmartBookingWidget
             slug={slug}
             orgName={org.name}
@@ -116,6 +130,16 @@ export default async function BookPage({ params, searchParams }: PageProps) {
             categories={buckets}
           />
         </div>
+
+        <p className="mt-6 text-center text-[11px] text-muted-foreground">
+          Powered by{" "}
+          <a
+            href="https://www.bookingbay.nl"
+            className="font-medium hover:text-foreground"
+          >
+            BookingBay
+          </a>
+        </p>
       </div>
     </main>
   );
