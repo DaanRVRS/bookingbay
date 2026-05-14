@@ -208,7 +208,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://mollie.com",
-    iconifyId: "logos:mollie",
+    iconifyId: "simple-icons:mollie",
   },
   {
     slug: "stripe",
@@ -297,7 +297,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://moneybird.nl",
-    iconifyId: "mdi:bird",
+    iconifyId: "mdi:notebook-outline",
   },
   {
     slug: "exact-online",
