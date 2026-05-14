@@ -192,7 +192,7 @@ export default async function AdminOrgBookingsPage({
                     €{b.totalPrice.toString()}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {b.createdBy.name ?? b.createdBy.email}
+                    {b.createdBy ? (b.createdBy.name ?? b.createdBy.email) : "Widget"}
                   </td>
                   <td className="px-4 py-3">
                     <HistoryDetails

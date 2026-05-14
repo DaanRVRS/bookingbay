@@ -134,7 +134,7 @@ async function buildCsv(organizationId: string, resource: Resource): Promise<str
       startAt: r.startAt,
       endAt: r.endAt,
       totalPrice: r.totalPrice.toString(),
-      createdBy: r.createdBy.name ?? r.createdBy.email,
+      createdBy: r.createdBy ? (r.createdBy.name ?? r.createdBy.email) : "Widget",
       createdAt: r.createdAt,
       notes: r.notes ?? "",
     })),
