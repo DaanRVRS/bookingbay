@@ -121,8 +121,15 @@ export async function createPublicBookingAction(
     },
   });
 
-  // Push naar Google Calendar etc. (best-effort).
-  await syncBookingExternal(booking.id, "upsert");
+  // Push naar Google Calendar etc. (best-effort) — mag NOOIT de boeking
+  // breken. syncBookingExternal heeft interne safeSync-wrappers, maar als
+  // er bij DB-reads of imports iets misgaat zou een uncaught throw alsnog
+  // 500 geven — vandaar deze extra catch.
+  try {
+    await syncBookingExternal(booking.id, "upsert");
+  } catch (err) {
+    console.error("[public-booking] external sync mislukt:", err);
+  }
 
   return { ok: true, data: { id: booking.id } };
 }
