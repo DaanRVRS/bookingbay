@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
-import { PublicBookingForm } from "@/components/booking-widget/PublicBookingForm";
+import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ accent?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -13,30 +14,72 @@ export async function generateMetadata({ params }: PageProps) {
   return { title: `Boek bij ${org.name}` };
 }
 
-export default async function BookPage({ params }: PageProps) {
+function buildBuckets(
+  categories: Awaited<ReturnType<typeof getTenantCatalog>>,
+) {
+  const out: {
+    id: string;
+    name: string;
+    items: {
+      id: string;
+      name: string;
+      description: string | null;
+      imageUrl: string | null;
+      pricePerHour: number | null;
+      pricePerDay: number | null;
+    }[];
+  }[] = [];
+  for (const cat of categories) {
+    if (cat.items.length > 0) {
+      out.push({
+        id: cat.id,
+        name: cat.name,
+        items: cat.items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          description: i.description,
+          imageUrl: i.imageUrl,
+          pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
+          pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+        })),
+      });
+    }
+    for (const sub of cat.children) {
+      if (sub.items.length > 0) {
+        out.push({
+          id: sub.id,
+          name: `${cat.name} · ${sub.name}`,
+          items: sub.items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            description: i.description,
+            imageUrl: i.imageUrl,
+            pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
+            pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+          })),
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function normalizeAccent(input: string | undefined, fallback: string): string {
+  if (!input) return fallback;
+  const cleaned = input.replace(/^#/, "").trim();
+  if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(cleaned)) return `#${cleaned}`;
+  return fallback;
+}
+
+export default async function BookPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { accent: accentParam } = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
   const categories = await getTenantCatalog(org.id);
-  const itemOptions = categories.flatMap((c) => [
-    ...c.items.map((i) => ({
-      id: i.id,
-      name: i.name,
-      pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
-      pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
-    })),
-    ...c.children.flatMap((sub) =>
-      sub.items.map((i) => ({
-        id: i.id,
-        name: i.name,
-        pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
-        pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
-      })),
-    ),
-  ]);
-
-  const accent = org.primaryColor ?? "#ef5934";
+  const buckets = buildBuckets(categories);
+  const accent = normalizeAccent(accentParam, org.primaryColor ?? "#ef5934");
 
   return (
     <main className="min-h-dvh bg-muted/30">
@@ -65,19 +108,12 @@ export default async function BookPage({ params }: PageProps) {
           </div>
         </header>
 
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Boek bij {org.name}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Kies wat je wil boeken en wanneer.
-        </p>
-
-        <div className="mt-6 rounded-xl border border-border bg-card p-6">
-          <PublicBookingForm
+        <div className="rounded-xl border border-border bg-card p-6">
+          <SmartBookingWidget
             slug={slug}
             orgName={org.name}
             accent={accent}
-            itemOptions={itemOptions}
+            categories={buckets}
           />
         </div>
       </div>

@@ -1,28 +1,21 @@
 /**
  * BookingBay embed loader.
  *
- * Three widget variants — each replaces the host element with an iframe.
- *
- * 1) Catalog (full aanbod):
- *    <div data-bookingbay="<slug>"></div>
- *
- * 2) Booking — algemeen (item-picker + datum-formulier):
- *    <div data-bookingbay-book="<slug>"></div>
- *
- * 3) Booking — per item (alleen het datum-formulier voor één item):
- *    <div data-bookingbay-item="<item-id>" data-bookingbay-slug="<slug>"></div>
- *
- * One script tag covers all three:
+ * Plak dit op je eigen website:
+ *   <div data-bookingbay-book="<slug>"></div>
  *   <script src="https://bookingbay.nl/embed.js" defer></script>
  *
- * The iframe auto-resizes via postMessage("bookingbay:height") from the
- * embedded page.
+ * Optionele customization-attributen op het host-element:
+ *   data-bookingbay-accent="#ff6b3d"   -> overschrijf accentkleur
+ *   data-bookingbay-width="600"        -> max breedte in px (of "100%")
+ *   data-bookingbay-radius="16"        -> hoekradius in px
+ *   data-bookingbay-shadow="1"         -> 1 of "true" voor schaduw, anders geen
+ *
+ * De iframe groeit automatisch mee via postMessage("bookingbay:height").
  */
 (function () {
   if (typeof window === "undefined") return;
 
-  // Resolve the BookingBay base URL from the script's own src so embeds work
-  // identically on app.bookingbay.nl, nip.io domains, and custom hosts.
   function resolveBase() {
     var current =
       document.currentScript && document.currentScript.src
@@ -52,10 +45,9 @@
     return;
   }
 
-  var iframes = []; // { el, slug }
+  var iframes = []; // { el }
 
   function tenantBase(slug) {
-    // Subdomain in prod (slug.bookingbay.nl); path-style fallback for dev.
     try {
       var u = new URL(BASE);
       var host = u.host;
@@ -73,14 +65,35 @@
     }
   }
 
-  function buildCatalogUrl(slug) {
-    return tenantBase(slug) + "/embed";
+  function isTruthy(v) {
+    return v === "1" || v === "true" || v === "yes";
   }
-  function buildBookGeneralUrl(slug) {
-    return tenantBase(slug) + "/embed/book";
+
+  function buildBookUrl(slug, accent) {
+    var url = tenantBase(slug) + "/embed/book";
+    if (accent) {
+      var hex = accent.replace(/^#/, "");
+      url += "?accent=" + encodeURIComponent(hex);
+    }
+    return url;
   }
-  function buildBookItemUrl(slug, itemId) {
-    return tenantBase(slug) + "/embed/book/" + encodeURIComponent(itemId);
+
+  function applyHostStyles(host, opts) {
+    if (opts.width) {
+      var w = String(opts.width).trim();
+      host.style.maxWidth = /^\d+$/.test(w) ? w + "px" : w;
+      if (!host.style.marginLeft) host.style.marginLeft = "auto";
+      if (!host.style.marginRight) host.style.marginRight = "auto";
+    }
+    var radius = opts.radius != null ? Number(opts.radius) : null;
+    if (radius != null && !Number.isNaN(radius)) {
+      host.style.borderRadius = radius + "px";
+      host.style.overflow = "hidden";
+    }
+    if (opts.shadow) {
+      host.style.boxShadow =
+        "0 4px 20px -4px rgba(0,0,0,0.10), 0 2px 6px -2px rgba(0,0,0,0.06)";
+    }
   }
 
   function makeIframe(src, title) {
@@ -98,45 +111,27 @@
     return iframe;
   }
 
-  function mountInto(host, src, title) {
-    host.setAttribute("data-bookingbay-mounted", "1");
-    host.style.position = host.style.position || "relative";
-    var iframe = makeIframe(src, title);
-    host.innerHTML = "";
-    host.appendChild(iframe);
-    iframes.push({ el: iframe });
-  }
-
   function mount() {
-    // 1) Catalog widget — data-bookingbay="slug"
-    var catalogNodes = document.querySelectorAll(
-      "[data-bookingbay]:not([data-bookingbay-mounted])",
-    );
-    Array.prototype.forEach.call(catalogNodes, function (host) {
-      var slug = host.getAttribute("data-bookingbay");
-      if (!slug) return;
-      mountInto(host, buildCatalogUrl(slug), "BookingBay aanbod");
-    });
-
-    // 2) Algemene boek-widget — data-bookingbay-book="slug"
-    var bookNodes = document.querySelectorAll(
+    var nodes = document.querySelectorAll(
       "[data-bookingbay-book]:not([data-bookingbay-mounted])",
     );
-    Array.prototype.forEach.call(bookNodes, function (host) {
+    Array.prototype.forEach.call(nodes, function (host) {
       var slug = host.getAttribute("data-bookingbay-book");
       if (!slug) return;
-      mountInto(host, buildBookGeneralUrl(slug), "BookingBay - boeken");
-    });
 
-    // 3) Per-item boek-widget — data-bookingbay-item + data-bookingbay-slug
-    var itemNodes = document.querySelectorAll(
-      "[data-bookingbay-item]:not([data-bookingbay-mounted])",
-    );
-    Array.prototype.forEach.call(itemNodes, function (host) {
-      var itemId = host.getAttribute("data-bookingbay-item");
-      var slug = host.getAttribute("data-bookingbay-slug");
-      if (!itemId || !slug) return;
-      mountInto(host, buildBookItemUrl(slug, itemId), "BookingBay - boeken");
+      var accent = host.getAttribute("data-bookingbay-accent");
+      var width = host.getAttribute("data-bookingbay-width");
+      var radius = host.getAttribute("data-bookingbay-radius");
+      var shadow = isTruthy(host.getAttribute("data-bookingbay-shadow"));
+
+      host.setAttribute("data-bookingbay-mounted", "1");
+      host.style.position = host.style.position || "relative";
+      applyHostStyles(host, { width: width, radius: radius, shadow: shadow });
+
+      var iframe = makeIframe(buildBookUrl(slug, accent), "BookingBay - boeken");
+      host.innerHTML = "";
+      host.appendChild(iframe);
+      iframes.push({ el: iframe });
     });
   }
 
@@ -157,8 +152,6 @@
     mount();
   }
 
-  // Re-mount when the host page injects new BookingBay containers later
-  // (SPAs, htmx swaps, etc.)
   if (typeof MutationObserver !== "undefined") {
     var observer = new MutationObserver(function () {
       mount();

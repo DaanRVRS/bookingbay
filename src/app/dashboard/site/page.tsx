@@ -6,7 +6,6 @@ import { env } from "@/lib/env";
 import { planAllows, planLimits } from "@/lib/plans";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { SiteCustomizerForm } from "./site-customizer-form";
-import { EmbedSnippet } from "./embed-snippet";
 import { CustomDomainSection } from "./custom-domain-section";
 
 export const metadata = { title: "Klantsite" };
@@ -104,13 +103,6 @@ export default async function SitePage() {
             }
             cnameTarget={env.CUSTOM_DOMAIN_CNAME_TARGET}
             planAllows={planLimits(org.plan).customDomain}
-          />
-        </div>
-
-        <div className="mt-6">
-          <EmbedSnippet
-            slug={org.slug}
-            baseUrl={`${protocol}://${env.TENANT_DOMAIN}`}
           />
         </div>
       </div>
