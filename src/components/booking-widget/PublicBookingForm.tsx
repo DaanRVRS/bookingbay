@@ -12,7 +12,10 @@ import { toast } from "sonner";
 import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createPublicBookingAction } from "@/lib/bookings/public-actions";
+import {
+  createPublicBookingAction,
+  getItemAvailabilityAction,
+} from "@/lib/bookings/public-actions";
 import {
   publicBookingSchema,
   type PublicBookingInput,
@@ -48,6 +51,11 @@ export function PublicBookingForm({
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState(DEFAULT_START_TIME);
   const [endTime, setEndTime] = useState(DEFAULT_END_TIME);
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(
+    new Set(),
+  );
+  const [lookaheadDays, setLookaheadDays] = useState<number>(180);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -101,6 +109,37 @@ export function PublicBookingForm({
   const watchedItemId = watch("itemId");
   const watchedStart = watch("startAt");
   const watchedEnd = watch("endAt");
+
+  // Fetch per-day availability whenever the selected item changes.
+  useEffect(() => {
+    if (!watchedItemId) {
+      setUnavailableDates(new Set());
+      return;
+    }
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    getItemAvailabilityAction({ slug, itemId: watchedItemId })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          setUnavailableDates(new Set(res.unavailableDates));
+          setLookaheadDays(res.lookaheadDays);
+        } else {
+          setUnavailableDates(new Set());
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setUnavailableDates(new Set());
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setAvailabilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, watchedItemId]);
 
   const selectedItem = watchedItemId ? itemsById.get(watchedItemId) : undefined;
   const estimate = useMemo(() => {
@@ -169,6 +208,23 @@ export function PublicBookingForm({
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const lookaheadEnd = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + lookaheadDays);
+    return d;
+  }, [today, lookaheadDays]);
+
+  const formatDateKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const isUnavailable = (date: Date) =>
+    unavailableDates.has(formatDateKey(date));
+
+  const isAvailable = (date: Date) => {
+    if (date < today) return false;
+    if (date > lookaheadEnd) return false;
+    return !unavailableDates.has(formatDateKey(date));
+  };
 
   // Single-day if no `to` selected — display same date for both ends
   const displayFrom = range?.from ?? null;
@@ -238,10 +294,34 @@ export function PublicBookingForm({
             numberOfMonths={1}
             weekStartsOn={1}
             locale={nl}
-            disabled={{ before: today }}
+            disabled={[{ before: today }, isUnavailable]}
+            modifiers={{
+              bbAvailable: isAvailable,
+              bbUnavailable: isUnavailable,
+            }}
+            modifiersClassNames={{
+              bbAvailable: "rdp-bb-available",
+              bbUnavailable: "rdp-bb-unavailable",
+            }}
             showOutsideDays
             className="rdp-bb"
           />
+          <div className="mt-2 flex items-center justify-center gap-4 border-t border-border pt-2 text-[10px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-[oklch(0.78_0.13_145)]" />
+              Beschikbaar
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2 rounded-sm bg-[oklch(0.72_0.16_25)]" />
+              Vol
+            </span>
+            {availabilityLoading && (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="size-2.5 animate-spin" />
+                laden
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Time inputs */}

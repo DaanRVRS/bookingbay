@@ -122,3 +122,110 @@ export async function createPublicBookingAction(
 
   return { ok: true, data: { id: booking.id } };
 }
+
+const AVAILABILITY_LOOKAHEAD_DAYS = 180;
+
+/**
+ * Returns the list of dates (yyyy-MM-dd) within the next AVAILABILITY_LOOKAHEAD_DAYS
+ * where the item is fully booked — meaning no minute of the day has fewer than
+ * `quantity` concurrent bookings. Used by the public widget calendar to mark
+ * red/green vakjes.
+ */
+export async function getItemAvailabilityAction(input: {
+  slug: string;
+  itemId: string;
+}): Promise<
+  | { ok: true; unavailableDates: string[]; lookaheadDays: number }
+  | { ok: false; error: string }
+> {
+  const slug = String(input.slug ?? "").trim();
+  const itemId = String(input.itemId ?? "").trim();
+  if (!slug || !itemId) {
+    return { ok: false, error: "Ontbrekende parameters" };
+  }
+
+  const org = await db.organization.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+  if (!org) return { ok: false, error: "Organisatie niet gevonden" };
+
+  const item = await db.item.findFirst({
+    where: { id: itemId, organizationId: org.id, isActive: true },
+    select: { quantity: true },
+  });
+  if (!item) return { ok: false, error: "Item niet gevonden" };
+
+  const fromDate = new Date();
+  fromDate.setHours(0, 0, 0, 0);
+  const toDate = new Date(fromDate);
+  toDate.setDate(toDate.getDate() + AVAILABILITY_LOOKAHEAD_DAYS);
+
+  const bookings = await db.booking.findMany({
+    where: {
+      itemId,
+      organizationId: org.id,
+      status: { not: "CANCELED" },
+      startAt: { lt: toDate },
+      endAt: { gt: fromDate },
+    },
+    select: { startAt: true, endAt: true },
+  });
+
+  const unavailable: string[] = [];
+  const dayMs = 86_400_000;
+  const cursor = new Date(fromDate);
+
+  while (cursor < toDate) {
+    const dayStart = cursor.getTime();
+    const dayEnd = dayStart + dayMs;
+
+    // Build sweep events for this day, clamped to [dayStart, dayEnd]
+    const events: { time: number; delta: number }[] = [];
+    for (const b of bookings) {
+      const bStart = b.startAt.getTime();
+      const bEnd = b.endAt.getTime();
+      const overlapStart = Math.max(bStart, dayStart);
+      const overlapEnd = Math.min(bEnd, dayEnd);
+      if (overlapStart < overlapEnd) {
+        events.push({ time: overlapStart, delta: 1 });
+        events.push({ time: overlapEnd, delta: -1 });
+      }
+    }
+
+    if (events.length > 0) {
+      events.sort((a, b) => a.time - b.time);
+
+      let concurrent = 0;
+      let lastTime = dayStart;
+      let availableMs = 0;
+
+      for (const e of events) {
+        if (concurrent < item.quantity) {
+          availableMs += e.time - lastTime;
+        }
+        concurrent += e.delta;
+        lastTime = e.time;
+      }
+      if (concurrent < item.quantity) {
+        availableMs += dayEnd - lastTime;
+      }
+
+      // Day is "red" if essentially no minute is bookable.
+      if (availableMs < 60_000) {
+        const y = cursor.getFullYear();
+        const m = String(cursor.getMonth() + 1).padStart(2, "0");
+        const d = String(cursor.getDate()).padStart(2, "0");
+        unavailable.push(`${y}-${m}-${d}`);
+      }
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return {
+    ok: true,
+    unavailableDates: unavailable,
+    lookaheadDays: AVAILABILITY_LOOKAHEAD_DAYS,
+  };
+}
