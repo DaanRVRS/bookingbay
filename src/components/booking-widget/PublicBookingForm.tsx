@@ -349,25 +349,27 @@ export function PublicBookingForm({
         </div>
 
         <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
-          <DayPicker
-            mode="range"
-            selected={range}
-            onSelect={setRange}
-            numberOfMonths={1}
-            weekStartsOn={1}
-            locale={nl}
-            disabled={[{ before: today }, isUnavailable]}
-            modifiers={{
-              bbAvailable: isAvailable,
-              bbUnavailable: isUnavailable,
-            }}
-            modifiersClassNames={{
-              bbAvailable: "rdp-bb-available",
-              bbUnavailable: "rdp-bb-unavailable",
-            }}
-            showOutsideDays
-            className="rdp-bb"
-          />
+          <div className="flex justify-center">
+            <DayPicker
+              mode="range"
+              selected={range}
+              onSelect={setRange}
+              numberOfMonths={1}
+              weekStartsOn={1}
+              locale={nl}
+              disabled={[{ before: today }, isUnavailable]}
+              modifiers={{
+                bbAvailable: isAvailable,
+                bbUnavailable: isUnavailable,
+              }}
+              modifiersClassNames={{
+                bbAvailable: "rdp-bb-available",
+                bbUnavailable: "rdp-bb-unavailable",
+              }}
+              showOutsideDays
+              className="rdp-bb"
+            />
+          </div>
           <div className="mt-2 flex items-center justify-center gap-4 border-t border-border pt-2 text-[10px] font-medium text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[oklch(0.78_0.13_145)]" />
@@ -386,10 +388,10 @@ export function PublicBookingForm({
           </div>
         </div>
 
-        {/* Time inputs — verborgen voor per-dag items (interval = 1440) */}
+        {/* Time slots — verborgen voor per-dag items (interval = 1440) */}
         {slotConfig.intervalMinutes !== 1440 && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <SlotSelect
+          <div className="mt-4 flex flex-col gap-4">
+            <SlotGrid
               label="Starttijd"
               value={startTime}
               onChange={setStartTime}
@@ -398,8 +400,9 @@ export function PublicBookingForm({
               bookings={bookings}
               isStart
               otherTime={endTime}
+              accent={accent}
             />
-            <SlotSelect
+            <SlotGrid
               label="Eindtijd"
               value={endTime}
               onChange={setEndTime}
@@ -408,6 +411,7 @@ export function PublicBookingForm({
               bookings={bookings}
               isStart={false}
               otherTime={startTime}
+              accent={accent}
             />
           </div>
         )}
@@ -593,7 +597,7 @@ function DateChip({
   );
 }
 
-function SlotSelect({
+function SlotGrid({
   label,
   value,
   onChange,
@@ -602,6 +606,7 @@ function SlotSelect({
   bookings,
   isStart,
   otherTime,
+  accent,
 }: {
   label: string;
   value: string;
@@ -611,21 +616,22 @@ function SlotSelect({
   bookings: BookingInterval[];
   isStart: boolean;
   otherTime: string;
+  accent: string;
 }) {
   const slots = useMemo(() => generateSlots(cfg), [cfg]);
 
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+          {label}
+        </span>
+        <span className="text-[10px] font-semibold tracking-wide tabular-nums" style={{ color: accent }}>
+          {value}
+        </span>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
         {slots.map((slot) => {
-          // Disable end-slots before/equal start, start-slots at/after end.
           const otherTimeMin = hhmmToMin(otherTime);
           const slotMin = hhmmToMin(slot);
           const beforeStart = !isStart && slotMin <= otherTimeMin;
@@ -634,16 +640,47 @@ function SlotSelect({
             ? slotOverlapsAnyBooking(dayDate, slot, cfg.intervalMinutes, bookings)
             : false;
           const disabled = beforeStart || afterEnd || overlap;
-          const suffix = overlap ? " — vol" : "";
+          const selected = value === slot;
           return (
-            <option key={slot} value={slot} disabled={disabled}>
+            <button
+              key={slot}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(slot)}
+              title={overlap ? "Vol" : undefined}
+              className={`h-9 rounded-md border text-xs font-semibold tabular-nums transition-all ${
+                selected
+                  ? "border-transparent text-white shadow-sm"
+                  : disabled
+                    ? "cursor-not-allowed border-dashed border-border/60 bg-muted/20 text-muted-foreground/40 line-through"
+                    : "border-border bg-background hover:-translate-y-0.5 hover:shadow-sm"
+              }`}
+              style={
+                selected
+                  ? { background: accent, boxShadow: `0 2px 8px -2px ${accent}80` }
+                  : !disabled
+                    ? { borderColor: undefined }
+                    : undefined
+              }
+              onMouseEnter={(e) => {
+                if (!selected && !disabled) {
+                  e.currentTarget.style.borderColor = `${accent}66`;
+                  e.currentTarget.style.color = accent;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!selected && !disabled) {
+                  e.currentTarget.style.borderColor = "";
+                  e.currentTarget.style.color = "";
+                }
+              }}
+            >
               {slot}
-              {suffix}
-            </option>
+            </button>
           );
         })}
-      </select>
-    </label>
+      </div>
+    </div>
   );
 }
 
