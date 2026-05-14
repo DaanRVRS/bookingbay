@@ -95,9 +95,12 @@ export async function listTicketsForAdmin(filters: AdminTicketFilters = {}) {
 }
 
 export async function countOpenTicketsForAdmin() {
+  // Telt alleen tickets die op een staff-reply wachten. Zodra een admin
+  // antwoordt, flipt de status naar AWAITING_USER en valt het ticket uit
+  // de badge — dat matcht de "inbox needs action"-semantiek.
   return db.supportTicket.count({
     where: {
-      status: { in: ["OPEN", "AWAITING_SUPPORT", "AWAITING_USER"] },
+      status: { in: ["OPEN", "AWAITING_SUPPORT"] },
     },
   });
 }

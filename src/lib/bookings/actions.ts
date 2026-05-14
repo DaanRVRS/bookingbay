@@ -16,6 +16,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { syncBookingExternal } from "@/lib/integrations/sync-booking";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -98,6 +99,10 @@ export async function createBookingAction(
     },
   });
 
+  // Push naar gekoppelde externe systemen (Google Calendar, etc.). Best-
+  // effort — een API-storing daar mag nooit de boeking blokkeren.
+  await syncBookingExternal(created.id, "upsert");
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath("/dashboard/calendar");
@@ -160,6 +165,8 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     metadata: { status: parsed.data.status },
   });
 
+  await syncBookingExternal(parsed.data.id, "upsert");
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${parsed.data.id}`);
@@ -187,6 +194,8 @@ export async function cancelBookingAction(id: string): Promise<ActionResult> {
     resource: "booking",
     resourceId: id,
   });
+
+  await syncBookingExternal(id, "delete");
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
@@ -232,6 +241,8 @@ export async function setBookingStatusAction(
     resourceId: id,
     metadata: { status },
   });
+
+  await syncBookingExternal(id, status === "CANCELED" ? "delete" : "upsert");
 
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);
@@ -333,6 +344,8 @@ export async function moveBookingAction(input: {
       },
     },
   });
+
+  await syncBookingExternal(existing.id, "upsert");
 
   revalidatePath("/dashboard/calendar");
   revalidatePath("/dashboard/bookings");

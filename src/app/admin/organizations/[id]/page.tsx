@@ -13,6 +13,7 @@ import { AdminOrgEditForm } from "./edit-form";
 import { AdminOrgDeleteForm } from "./delete-form";
 import { ImpersonateButton } from "./impersonate-button";
 import { CrmSection } from "./crm-section";
+import { IntegrationsSection } from "./integrations-section";
 
 export const metadata = { title: "Organisatie" };
 
@@ -181,6 +182,11 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
             />
           </div>
         </section>
+
+        {/* Koppelingen */}
+        <div className="lg:col-span-2">
+          <IntegrationsSection organizationId={org.id} />
+        </div>
 
         {/* Recent activity */}
         <section className="rounded-xl border border-border bg-card p-6">

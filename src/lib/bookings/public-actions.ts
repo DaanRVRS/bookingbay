@@ -6,6 +6,7 @@ import { checkAvailability } from "./conflicts";
 import { audit } from "@/lib/audit/log";
 import { publicBookingSchema, type PublicBookingInput } from "./public-schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { syncBookingExternal } from "@/lib/integrations/sync-booking";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -119,6 +120,9 @@ export async function createPublicBookingAction(
       endAt: endAt.toISOString(),
     },
   });
+
+  // Push naar Google Calendar etc. (best-effort).
+  await syncBookingExternal(booking.id, "upsert");
 
   return { ok: true, data: { id: booking.id } };
 }

@@ -53,6 +53,20 @@ const envSchema = z.object({
   DISCORD_WEBHOOK_URL: z.string().url().optional().or(z.literal("")).default(""),
   DISCORD_WEBHOOK_URL_SUPPORT: z.string().url().optional().or(z.literal("")).default(""),
   DISCORD_WEBHOOK_URL_CRM: z.string().url().optional().or(z.literal("")).default(""),
+  // ── Koppelingen / Integrations ──
+  // Google OAuth client voor Google Calendar koppeling. Aan te maken in
+  // Google Cloud Console → APIs & Services → Credentials (OAuth client ID,
+  // type "Web application"). Redirect URI = ${APP_URL}/api/integrations/google-calendar/callback
+  GOOGLE_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
+  // Symmetrische sleutel voor het versleutelen van OAuth tokens die we
+  // opslaan in OrgIntegration.config. 64 hex-chars = 32 bytes voor AES-256.
+  // Genereer met: `openssl rand -hex 32`
+  INTEGRATION_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^([a-fA-F0-9]{64})?$/, "Moet 64 hex-chars zijn (openssl rand -hex 32)")
+    .optional()
+    .default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

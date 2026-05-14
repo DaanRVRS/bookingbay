@@ -1,10 +1,14 @@
-import { Check, Sparkles, X } from "lucide-react";
+import Link from "next/link";
+import { Check, Plug, Sparkles, X } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PLAN_LIMITS, planLimits, describeLimit } from "@/lib/plans";
 import type { Plan } from "@prisma/client";
+import { getIntegration } from "@/lib/integrations/catalog";
+import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
+import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
 
 export const metadata = { title: "Plan & facturatie" };
 
@@ -26,13 +30,22 @@ export default async function BillingPage() {
   });
   if (!org) throw new Error("Organization missing");
 
-  const [itemCount, memberCount, pageCount] = await Promise.all([
+  const [itemCount, memberCount, pageCount, activeIntegrations] = await Promise.all([
     db.item.count({ where: { organizationId: org.id, isActive: true } }),
     db.membership.count({ where: { organizationId: org.id } }),
     db.page.count({ where: { organizationId: org.id } }),
+    db.orgIntegration.findMany({
+      where: { organizationId: org.id, status: "ACTIVE" },
+      orderBy: { activatedAt: "asc" },
+    }),
   ]);
 
   const current = planLimits(org.plan);
+  const integrationsTotal = activeIntegrations.reduce(
+    (sum, r) => sum + r.monthlyPriceEuro,
+    0,
+  );
+  const monthlyTotal = current.monthlyPriceEuro + integrationsTotal;
   const now = new Date();
   const inTrial = org.trialEndsAt && org.trialEndsAt > now;
   const isSuspended = Boolean(org.suspendedAt);
@@ -90,9 +103,17 @@ export default async function BillingPage() {
           </div>
           <p className="text-right">
             <span className="text-2xl font-semibold tabular-nums">
-              €{current.monthlyPriceEuro}
+              €{monthlyTotal}
             </span>
-            <span className="block text-xs text-muted-foreground">per maand</span>
+            <span className="block text-xs text-muted-foreground">
+              per maand
+              {integrationsTotal > 0 && (
+                <>
+                  {" "}
+                  · €{current.monthlyPriceEuro} plan + €{integrationsTotal} koppelingen
+                </>
+              )}
+            </span>
           </p>
         </div>
 
@@ -115,6 +136,89 @@ export default async function BillingPage() {
           <FeatureBadge label="Site-builder" enabled={current.pageBuilder} />
           <FeatureBadge label="Custom domain" enabled={current.customDomain} />
         </div>
+      </section>
+
+      {/* Actieve koppelingen — upsell-line-items op de maandfactuur */}
+      <section className="rounded-xl border border-border bg-card p-6">
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <Plug className="size-4 text-muted-foreground" />
+              Maandelijkse koppelingen
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Upsell-add-ons bovenop het abonnement — pauzeer wanneer je wil.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/integrations"
+            className="shrink-0 text-xs font-medium text-primary hover:underline"
+          >
+            Catalogus →
+          </Link>
+        </header>
+
+        {activeIntegrations.length === 0 ? (
+          <div className="mt-5 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+            <p className="text-sm">Nog geen koppelingen actief.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Activeer een koppeling vanuit de{" "}
+              <Link
+                href="/dashboard/integrations"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                catalogus
+              </Link>
+              .
+            </p>
+          </div>
+        ) : (
+          <>
+            <ul className="mt-4 divide-y divide-border">
+              {activeIntegrations.map((row) => {
+                const def = getIntegration(row.integrationKey);
+                if (!def) return null;
+                return (
+                  <li key={row.id} className="flex items-center gap-3 py-3">
+                    <IntegrationLogo integration={def} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/dashboard/integrations/${def.slug}`}
+                        className="text-sm font-medium hover:underline"
+                      >
+                        {def.name}
+                      </Link>
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.activatedAt && (
+                          <>
+                            Actief sinds{" "}
+                            {format(row.activatedAt, "d MMM yyyy", { locale: nl })}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <IntegrationStatusBadge
+                      catalogStatus={def.status}
+                      orgStatus={row.status}
+                      size="sm"
+                    />
+                    <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums">
+                      €{row.monthlyPriceEuro}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs font-medium text-muted-foreground">
+                Subtotaal koppelingen
+              </span>
+              <span className="text-base font-semibold tabular-nums">
+                €{integrationsTotal}/mnd
+              </span>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Hoe betaling werkt */}

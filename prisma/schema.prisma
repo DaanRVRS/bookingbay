@@ -27,35 +27,35 @@ model User {
   // when setup hasn't been confirmed yet — secret may already be set but
   // not active. Backup codes are stored as bcrypt hashes in
   // `twoFactorBackupCodes` ({hash, usedAt}[]).
-  twoFactorSecret       String?
-  twoFactorEnabledAt    DateTime?
-  twoFactorBackupCodes  Json?
+  twoFactorSecret      String?
+  twoFactorEnabledAt   DateTime?
+  twoFactorBackupCodes Json?
 
   // Lazy-fired notification when the user has been signed up for >5 min.
   // Null = nog niet gevraagd; gevuld = prompt is verstuurd (en blijft in
   // de notification-bell tot ingevuld of weggeklikt).
-  feedbackRequestedAt   DateTime?
+  feedbackRequestedAt DateTime?
 
-  pollsCreated  Poll[]       @relation("PollByCreator")
-  pollVotes     PollVote[]
-  feedback      UserFeedback[]
+  pollsCreated Poll[]         @relation("PollByCreator")
+  pollVotes    PollVote[]
+  feedback     UserFeedback[]
 
-  accounts          Account[]
-  sessions          Session[]
-  memberships       Membership[]
-  invitationsSent   Invitation[]    @relation("InvitedBy")
-  bookingsCreated   Booking[]       @relation("BookingCreatedBy")
-  passwordResets    PasswordReset[]
-  notifications     Notification[]  @relation("NotificationsToUser")
-  notificationsSent Notification[]  @relation("NotificationsByUser")
-  interactionsLogged OrgInteraction[] @relation("InteractionByActor")
-  remindersCreated   OrgReminder[]    @relation("ReminderByCreator")
-  remindersAssigned  OrgReminder[]    @relation("ReminderByAssignee")
-  prospectsCreated  AdminProspect[]      @relation("ProspectByCreator")
-  prospectsAssigned AdminProspect[]      @relation("ProspectByOwner")
-  prospectInteractionsLogged ProspectInteraction[] @relation("ProspectInteractionByActor")
-  prospectRemindersCreated   ProspectReminder[]    @relation("ProspectReminderByCreator")
-  prospectRemindersAssigned  ProspectReminder[]    @relation("ProspectReminderByAssignee")
+  accounts                   Account[]
+  sessions                   Session[]
+  memberships                Membership[]
+  invitationsSent            Invitation[]           @relation("InvitedBy")
+  bookingsCreated            Booking[]              @relation("BookingCreatedBy")
+  passwordResets             PasswordReset[]
+  notifications              Notification[]         @relation("NotificationsToUser")
+  notificationsSent          Notification[]         @relation("NotificationsByUser")
+  interactionsLogged         OrgInteraction[]       @relation("InteractionByActor")
+  remindersCreated           OrgReminder[]          @relation("ReminderByCreator")
+  remindersAssigned          OrgReminder[]          @relation("ReminderByAssignee")
+  prospectsCreated           AdminProspect[]        @relation("ProspectByCreator")
+  prospectsAssigned          AdminProspect[]        @relation("ProspectByOwner")
+  prospectInteractionsLogged ProspectInteraction[]  @relation("ProspectInteractionByActor")
+  prospectRemindersCreated   ProspectReminder[]     @relation("ProspectReminderByCreator")
+  prospectRemindersAssigned  ProspectReminder[]     @relation("ProspectReminderByAssignee")
   supportTicketsCreated      SupportTicket[]        @relation("SupportTicketByCreator")
   supportTicketMessages      SupportTicketMessage[] @relation("SupportTicketMessageByAuthor")
 
@@ -98,12 +98,12 @@ model VerificationToken {
 }
 
 model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expires   DateTime
-  usedAt    DateTime?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      String    @id @default(cuid())
+  userId  String
+  token   String    @unique
+  expires DateTime
+  usedAt  DateTime?
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -113,9 +113,9 @@ model PasswordReset {
 // ----------------------------------------------------------------------------
 
 model Organization {
-  id           String  @id @default(cuid())
-  name         String
-  slug         String  @unique
+  id                     String    @id @default(cuid())
+  name                   String
+  slug                   String    @unique
   customDomain           String?   @unique
   // Wanneer de CNAME-check geslaagd is — pas dan serveren we de site
   // op het custom-domein (en mag Caddy een cert provisioneren).
@@ -136,43 +136,44 @@ model Organization {
   // src/lib/business-hours/schemas.ts.
   businessHours    Json?
 
-  plan               Plan      @default(STARTER)
-  subscriptionId     String?
-  subscriptionStatus String?
-  trialEndsAt        DateTime?
+  plan                 Plan      @default(STARTER)
+  subscriptionId       String?
+  subscriptionStatus   String?
+  trialEndsAt          DateTime?
   // The end of the currently paid period. Renewal must arrive on/before
   // this date — otherwise reminders fire and (after a grace window)
   // suspendedAt is set automatically.
-  paidUntil          DateTime?
+  paidUntil            DateTime?
   // Tracks the latest reminder we sent so the cron doesn't double-mail.
   // 0 = none, 1 = 3-day, 2 = 1-day, 3 = due-today/expired
-  paymentReminderStage Int     @default(0)
+  paymentReminderStage Int       @default(0)
   // Same shape but for trial-end reminders (trialEndsAt-based).
-  trialReminderStage   Int     @default(0)
+  trialReminderStage   Int       @default(0)
   // When non-null, the org is past its grace window and feature-suspended.
-  suspendedAt        DateTime?
+  suspendedAt          DateTime?
 
   // Platform-CRM (only used by BookingBay admins): customer pipeline status
   // + free-form tags. UI lives in /admin/organizations/[id].
   crmStatus String @default("active")
   crmTags   Json   @default("[]")
 
-  memberships Membership[]
-  invitations Invitation[]
-  categories  Category[]
-  items       Item[]
-  bookings    Booking[]
-  customers   Customer[]
-  leads       Lead[]
-  leadBlocks  LeadBlock[]
-  auditLogs   AuditLog[]
-  pages       Page[]
-  reviews     Review[]
-  notifications Notification[]
-  crmInteractions OrgInteraction[]
-  crmReminders    OrgReminder[]
+  memberships            Membership[]
+  invitations            Invitation[]
+  categories             Category[]
+  items                  Item[]
+  bookings               Booking[]
+  customers              Customer[]
+  leads                  Lead[]
+  leadBlocks             LeadBlock[]
+  auditLogs              AuditLog[]
+  pages                  Page[]
+  reviews                Review[]
+  notifications          Notification[]
+  crmInteractions        OrgInteraction[]
+  crmReminders           OrgReminder[]
   convertedFromProspects AdminProspect[]
   supportTickets         SupportTicket[]
+  integrations           OrgIntegration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -277,7 +278,7 @@ model Item {
   // en eindtijden als dropdowns met deze stapgrootte, binnen het window.
   // 1440 = per-dag (geen tijdkeuze in widget).
   bookingIntervalMinutes Int @default(60)
-  bookingWindowStartMin  Int @default(540)  // 09:00
+  bookingWindowStartMin  Int @default(540) // 09:00
   bookingWindowEndMin    Int @default(1080) // 18:00
 
   // Optioneel per-item openingstijden-override. Null = gebruik org-default.
@@ -302,7 +303,7 @@ model Item {
 model Page {
   id             String  @id @default(cuid())
   organizationId String
-  slug           String  // URL slug — unique within org. Reserved: "home" maps to "/"
+  slug           String // URL slug — unique within org. Reserved: "home" maps to "/"
   title          String
   // JSON-array of block objects validated by Zod schemas in lib/pages/blocks.ts
   blocks         Json    @default("[]")
@@ -354,6 +355,10 @@ model Booking {
   // Nullable: bookings created via the public widget (no logged-in user)
   // have no createdBy. Internal bookings always set this.
   createdById    String?
+  // Verwijzingen naar externe systemen waar deze boeking gesynced is.
+  // Shape: { googleCalendar: { eventId, calendarId }, mollie: { paymentId }, ... }
+  // Iedere integratie schrijft onder z'n eigen key. Null = nooit gesynced.
+  externalRefs   Json?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
@@ -381,7 +386,7 @@ enum BookingStatus {
 // ----------------------------------------------------------------------------
 
 model Lead {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   name           String
   email          String
@@ -419,10 +424,10 @@ model LeadBlock {
 // ----------------------------------------------------------------------------
 
 model Notification {
-  id             String  @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
   organizationId String?
-  type           String   @default("broadcast")
+  type           String    @default("broadcast")
   title          String
   body           String
   ctaUrl         String?
@@ -431,8 +436,8 @@ model Notification {
   createdById    String?
   readAt         DateTime?
 
-  user        User          @relation("NotificationsToUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy   User?         @relation("NotificationsByUser", fields: [createdById], references: [id], onDelete: SetNull)
+  user         User          @relation("NotificationsToUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("NotificationsByUser", fields: [createdById], references: [id], onDelete: SetNull)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -498,29 +503,29 @@ model OrgReminder {
 // ----------------------------------------------------------------------------
 
 model AdminProspect {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   // Pipeline: lead → gecontacteerd → demo-gepland → demo-gehad → voorstel
   //                → gewonnen / verloren
-  status      String   @default("lead")
+  status      String  @default("lead")
   // Contact-info — geen account, dus alle velden los opgeslagen.
   name        String
   companyName String?
   email       String?
   phone       String?
-  source      String?   // "website" | "referral" | "cold-call" | "other"
+  source      String? // "website" | "referral" | "cold-call" | "other"
   notes       String?
-  tags        Json      @default("[]")
+  tags        Json    @default("[]")
 
-  createdById      String?
-  ownerUserId      String?
+  createdById String?
+  ownerUserId String?
 
   // Wanneer een prospect zich registreert wordt 'm aan een Organization
   // gekoppeld en status → "gewonnen". History blijft staan.
   convertedOrgId String?
   convertedAt    DateTime?
 
-  createdBy   User?         @relation("ProspectByCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  owner       User?         @relation("ProspectByOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy    User?         @relation("ProspectByCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  owner        User?         @relation("ProspectByOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   convertedOrg Organization? @relation(fields: [convertedOrgId], references: [id], onDelete: SetNull)
 
   interactions ProspectInteraction[]
@@ -538,7 +543,7 @@ model ProspectInteraction {
   id          String   @id @default(cuid())
   prospectId  String
   actorUserId String?
-  type        String  // "call" | "email" | "meeting" | "note"
+  type        String // "call" | "email" | "meeting" | "note"
   subject     String
   body        String?
   occurredAt  DateTime @default(now())
@@ -580,15 +585,15 @@ model ProspectReminder {
 // ----------------------------------------------------------------------------
 
 model Review {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   organizationId String
   quote          String
   author         String
   role           String?
   // 0 hides stars, 1-5 shows that many filled stars
-  rating         Int      @default(5)
-  isPublished    Boolean  @default(true)
-  sortOrder      Int      @default(0)
+  rating         Int     @default(5)
+  isPublished    Boolean @default(true)
+  sortOrder      Int     @default(0)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -609,24 +614,24 @@ model Review {
 // ----------------------------------------------------------------------------
 
 model SupportTicket {
-  id             String   @id @default(cuid())
-  organizationId String
-  createdById    String?
-  subject        String
+  id               String                @id @default(cuid())
+  organizationId   String
+  createdById      String?
+  subject          String
   // "general" | "billing" | "bug" | "feature" | "other"
-  category       String   @default("general")
-  status         SupportTicketStatus   @default(OPEN)
-  priority       SupportTicketPriority @default(NORMAL)
+  category         String                @default("general")
+  status           SupportTicketStatus   @default(OPEN)
+  priority         SupportTicketPriority @default(NORMAL)
   // Bumped on every new message, used for sorting "needs attention" lists.
-  lastMessageAt  DateTime @default(now())
+  lastMessageAt    DateTime              @default(now())
   // Set when the staff side last replied — used to surface "wachten op klant".
   lastStaffReplyAt DateTime?
   // Set when the user/customer side last replied — surfaces "wachten op support".
   lastUserReplyAt  DateTime?
-  closedAt       DateTime?
+  closedAt         DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User?        @relation("SupportTicketByCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                  @relation("SupportTicketByCreator", fields: [createdById], references: [id], onDelete: SetNull)
   messages     SupportTicketMessage[]
 
   createdAt DateTime @default(now())
@@ -637,17 +642,17 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id            String  @id @default(cuid())
-  ticketId      String
-  authorUserId  String?
+  id           String  @id @default(cuid())
+  ticketId     String
+  authorUserId String?
   // True wanneer de auteur een BookingBay-admin is (staff-side reply).
   // Zo kunnen we klant- vs. support-bubbels stylen zonder elke keer
   // isAdmin van de auteur op te halen.
-  isStaff       Boolean @default(false)
-  body          String
+  isStaff      Boolean @default(false)
+  body         String
 
-  ticket  SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author  User?         @relation("SupportTicketMessageByAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation("SupportTicketMessageByAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -675,19 +680,19 @@ enum SupportTicketPriority {
 // ----------------------------------------------------------------------------
 
 model Poll {
-  id          String   @id @default(cuid())
-  title       String
-  question    String
+  id            String    @id @default(cuid())
+  title         String
+  question      String
   // Array of strings — de keuzes. Max ~6 in UI.
-  options     Json
+  options       Json
   // True = klant mag meerdere opties aanvinken; false = single-choice.
-  allowMultiple Boolean @default(false)
+  allowMultiple Boolean   @default(false)
   // "draft" = nog niet uitgestuurd, "open" = stemmen mogelijk,
   // "closed" = resultaten zichtbaar, geen nieuwe stemmen.
-  status      String   @default("draft")
-  createdById String?
-  publishedAt DateTime?
-  closedAt    DateTime?
+  status        String    @default("draft")
+  createdById   String?
+  publishedAt   DateTime?
+  closedAt      DateTime?
 
   createdBy User?      @relation("PollByCreator", fields: [createdById], references: [id], onDelete: SetNull)
   votes     PollVote[]
@@ -715,13 +720,13 @@ model PollVote {
 }
 
 model UserFeedback {
-  id        String   @id @default(cuid())
-  userId    String
+  id      String  @id @default(cuid())
+  userId  String
   // 1-5 stars. 0 = niet ingevuld (alleen tekst).
-  rating    Int      @default(0)
-  comment   String?
+  rating  Int     @default(0)
+  comment String?
   // "signup-prompt" | "voluntary" | "other"
-  source    String   @default("voluntary")
+  source  String  @default("voluntary")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -731,8 +736,66 @@ model UserFeedback {
   @@index([userId, createdAt])
 }
 
+// ----------------------------------------------------------------------------
+// Koppelingen / Integrations — upsell-add-ons bovenop het maand-abbo. Catalogus
+// (welke koppelingen bestaan, prijs, beschrijving, status) leeft in
+// src/lib/integrations/catalog.ts — alleen de *per-org* state staat in de DB.
+// integrationKey = slug uit de catalogus (bv. "google-calendar", "mollie").
+// ----------------------------------------------------------------------------
+
+enum OrgIntegrationStatus {
+  // Klant heeft "ik wil dit" geklikt op een 'binnenkort'-koppeling. Wij
+  // krijgen een SupportTicket. Geen billing.
+  INTERESTED
+  // Klant heeft op een beschikbare koppeling 'Activeer' geklikt — wacht op
+  // bevestiging (OAuth-redirect, of admin-side enable). Nog geen billing.
+  REQUESTED
+  // Live en wordt maandelijks meegenomen op de factuur.
+  ACTIVE
+  // Klant zette 'm op pauze (geen sync, geen billing) — config blijft staan
+  // zodat ze later weer kunnen aanzetten zonder opnieuw OAuth.
+  PAUSED
+  // Iets in de sync klapte (token verlopen, API down >24u) — klant moet
+  // opnieuw verbinden. Billing pauzeert automatisch.
+  FAILED
+}
+
+model OrgIntegration {
+  id               String               @id @default(cuid())
+  organizationId   String
+  integrationKey   String
+  status           OrgIntegrationStatus @default(REQUESTED)
+  // Snapshot van de maandprijs op het moment van activeren — beschermt de
+  // klant tegen prijsverhogingen van de catalogus. 0 = gratis / inbegrepen.
+  monthlyPriceEuro Int                  @default(0)
+  // Wanneer 'm voor het eerst op ACTIVE ging (driver van de billing-line).
+  activatedAt      DateTime?
+  pausedAt         DateTime?
+  // Laatste succesvolle data-sync (handig voor "Laatst gesynchroniseerd").
+  lastSyncAt       DateTime?
+  // Reden bij FAILED — kort, surface naar dashboard ("Token verlopen").
+  failureReason    String?
+  // OAuth tokens, scopes, webhook-id's, etc. — varieert per koppeling.
+  // Versleutel zware secrets via env-key (TODO bij OAuth-implementatie).
+  config           Json?
+  // Vrije notitie van de klant ("Sync alleen werkdagen") of admin ("activated handmatig na demo").
+  notes            String?
+  // Het support-ticket dat ontstond bij INTERESTED/REQUESTED — zo kunnen
+  // we de twee threads aan elkaar koppelen.
+  supportTicketId  String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, integrationKey])
+  @@index([organizationId, status])
+  @@index([status])
+}
+
 model AuditLog {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   // Nullable for platform-level events (admin actions outside any org context)
   organizationId String?
   actorUserId    String?

@@ -99,26 +99,9 @@ export async function createTicketAction(
     authorEmail: ctx.user.email,
   });
 
-  // Fan-out bell-notification to every platform admin so we see the ticket
-  // pop up in /dashboard/notifications.
-  const admins = await db.user.findMany({
-    where: { isAdmin: true },
-    select: { id: true },
-  });
-  if (admins.length > 0) {
-    await db.notification.createMany({
-      data: admins.map((a) => ({
-        userId: a.id,
-        organizationId: ctx.organization.id,
-        type: "support-ticket",
-        title: `Nieuwe ticket: ${parsed.data.subject}`,
-        body: `${ctx.organization.name} · ${ctx.user.name ?? ctx.user.email}`,
-        ctaUrl: `/admin/support/${ticket.id}`,
-        ctaLabel: "Bekijk ticket",
-        createdById: ctx.user.id,
-      })),
-    });
-  }
+  // Admins krijgen geen bell-notification in /dashboard — dat zou de klant-
+  // en platform-context mengen. Signalering loopt via Discord, mail naar
+  // SUPPORT_NOTIFY_EMAIL en het badgetje in de admin-nav.
 
   await sendEmail({
     to: SUPPORT_NOTIFY_EMAIL,
@@ -301,46 +284,26 @@ async function postReplyInternal(
     });
   }
 
-  // Fan-out bell-notifications to the other party so they see it in the bell.
-  if (isStaff) {
-    // Staff replied → notify the ticket creator (the klant).
-    if (ticket.createdBy) {
-      await db.notification.create({
-        data: {
-          userId: ticket.createdBy.id,
-          organizationId: ticket.organizationId,
-          type: "support-reply",
-          title: `Antwoord op je ticket: ${ticket.subject}`,
-          body:
-            parsed.data.body.length > 240
-              ? parsed.data.body.slice(0, 240) + "…"
-              : parsed.data.body,
-          ctaUrl: `/dashboard/support/${ticket.id}`,
-          ctaLabel: "Open ticket",
-          createdById: user.id,
-        },
-      });
-    }
-  } else {
-    // User replied → notify all platform admins.
-    const admins = await db.user.findMany({
-      where: { isAdmin: true },
-      select: { id: true },
+  // Staff-reply → klant krijgt een bell-notification (dashboard-context).
+  // User-reply → admins zien het via Discord/mail en het admin-nav badgetje;
+  // we sturen niets naar de personal bell om de twee contexts gescheiden te
+  // houden.
+  if (isStaff && ticket.createdBy) {
+    await db.notification.create({
+      data: {
+        userId: ticket.createdBy.id,
+        organizationId: ticket.organizationId,
+        type: "support-reply",
+        title: `Antwoord op je ticket: ${ticket.subject}`,
+        body:
+          parsed.data.body.length > 240
+            ? parsed.data.body.slice(0, 240) + "…"
+            : parsed.data.body,
+        ctaUrl: `/dashboard/support/${ticket.id}`,
+        ctaLabel: "Open ticket",
+        createdById: user.id,
+      },
     });
-    if (admins.length > 0) {
-      await db.notification.createMany({
-        data: admins.map((a) => ({
-          userId: a.id,
-          organizationId: ticket.organizationId,
-          type: "support-reply",
-          title: `Reply op ticket: ${ticket.subject}`,
-          body: `${ticket.organization.name} · ${user.name ?? user.email}`,
-          ctaUrl: `/admin/support/${ticket.id}`,
-          ctaLabel: "Bekijk ticket",
-          createdById: user.id,
-        })),
-      });
-    }
   }
 
   revalidatePath(`/dashboard/support/${ticket.id}`);
