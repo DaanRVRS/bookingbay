@@ -1,13 +1,22 @@
 /**
  * BookingBay embed loader.
  *
- * Add this snippet anywhere on a website:
- *   <div data-bookingbay="<your-slug>"></div>
+ * Three widget variants — each replaces the host element with an iframe.
+ *
+ * 1) Catalog (full aanbod):
+ *    <div data-bookingbay="<slug>"></div>
+ *
+ * 2) Booking — algemeen (item-picker + datum-formulier):
+ *    <div data-bookingbay-book="<slug>"></div>
+ *
+ * 3) Booking — per item (alleen het datum-formulier voor één item):
+ *    <div data-bookingbay-item="<item-id>" data-bookingbay-slug="<slug>"></div>
+ *
+ * One script tag covers all three:
  *   <script src="https://bookingbay.nl/embed.js" defer></script>
  *
- * The script replaces every <div data-bookingbay="..."> with an iframe
- * pointing at the tenant's /embed page, and listens for postMessage
- * height updates so the iframe auto-resizes to fit its content.
+ * The iframe auto-resizes via postMessage("bookingbay:height") from the
+ * embedded page.
  */
 (function () {
   if (typeof window === "undefined") return;
@@ -45,56 +54,89 @@
 
   var iframes = []; // { el, slug }
 
-  function buildEmbedUrl(slug) {
-    // For prod, tenants live on subdomains: <slug>.bookingbay.nl/embed
-    // For dev / nip.io we keep the path-style /site/<slug>/embed.
+  function tenantBase(slug) {
+    // Subdomain in prod (slug.bookingbay.nl); path-style fallback for dev.
     try {
       var u = new URL(BASE);
       var host = u.host;
-      // Detect tenant routing — admin host has no leading subdomain pattern,
-      // so we always embed via the slug-subdomain in prod.
       if (host.indexOf(".") !== -1) {
-        // Replace first label with slug. e.g. bookingbay.nl -> slug.bookingbay.nl
         var parts = host.split(".");
         if (parts.length >= 2) {
-          // For app.bookingbay.nl style: keep tail.
           if (parts[0] === "app" || parts[0] === "www") parts.shift();
           var subdomain = slug + "." + parts.join(".");
-          return u.protocol + "//" + subdomain + "/embed";
+          return u.protocol + "//" + subdomain;
         }
       }
-      // Fallback: path-style
-      return BASE + "/site/" + slug + "/embed";
+      return BASE + "/site/" + slug;
     } catch (_) {
-      return BASE + "/site/" + slug + "/embed";
+      return BASE + "/site/" + slug;
     }
   }
 
+  function buildCatalogUrl(slug) {
+    return tenantBase(slug) + "/embed";
+  }
+  function buildBookGeneralUrl(slug) {
+    return tenantBase(slug) + "/embed/book";
+  }
+  function buildBookItemUrl(slug, itemId) {
+    return tenantBase(slug) + "/embed/book/" + encodeURIComponent(itemId);
+  }
+
+  function makeIframe(src, title) {
+    var iframe = document.createElement("iframe");
+    iframe.src = src;
+    iframe.title = title;
+    iframe.loading = "lazy";
+    iframe.setAttribute("scrolling", "no");
+    iframe.style.width = "100%";
+    iframe.style.border = "0";
+    iframe.style.display = "block";
+    iframe.style.minHeight = "420px";
+    iframe.style.background = "transparent";
+    iframe.allow = "clipboard-write";
+    return iframe;
+  }
+
+  function mountInto(host, src, title) {
+    host.setAttribute("data-bookingbay-mounted", "1");
+    host.style.position = host.style.position || "relative";
+    var iframe = makeIframe(src, title);
+    host.innerHTML = "";
+    host.appendChild(iframe);
+    iframes.push({ el: iframe });
+  }
+
   function mount() {
-    var nodes = document.querySelectorAll("[data-bookingbay]:not([data-bookingbay-mounted])");
-    Array.prototype.forEach.call(nodes, function (host) {
+    // 1) Catalog widget — data-bookingbay="slug"
+    var catalogNodes = document.querySelectorAll(
+      "[data-bookingbay]:not([data-bookingbay-mounted])",
+    );
+    Array.prototype.forEach.call(catalogNodes, function (host) {
       var slug = host.getAttribute("data-bookingbay");
       if (!slug) return;
+      mountInto(host, buildCatalogUrl(slug), "BookingBay aanbod");
+    });
 
-      host.setAttribute("data-bookingbay-mounted", "1");
-      host.style.position = host.style.position || "relative";
+    // 2) Algemene boek-widget — data-bookingbay-book="slug"
+    var bookNodes = document.querySelectorAll(
+      "[data-bookingbay-book]:not([data-bookingbay-mounted])",
+    );
+    Array.prototype.forEach.call(bookNodes, function (host) {
+      var slug = host.getAttribute("data-bookingbay-book");
+      if (!slug) return;
+      mountInto(host, buildBookGeneralUrl(slug), "BookingBay - boeken");
+    });
 
-      var iframe = document.createElement("iframe");
-      iframe.src = buildEmbedUrl(slug);
-      iframe.title = "BookingBay aanbod";
-      iframe.loading = "lazy";
-      iframe.setAttribute("scrolling", "no");
-      iframe.style.width = "100%";
-      iframe.style.border = "0";
-      iframe.style.display = "block";
-      iframe.style.minHeight = "420px";
-      iframe.style.background = "transparent";
-      iframe.allow = "clipboard-write";
-
-      host.innerHTML = "";
-      host.appendChild(iframe);
-
-      iframes.push({ el: iframe, slug: slug });
+    // 3) Per-item boek-widget — data-bookingbay-item + data-bookingbay-slug
+    var itemNodes = document.querySelectorAll(
+      "[data-bookingbay-item]:not([data-bookingbay-mounted])",
+    );
+    Array.prototype.forEach.call(itemNodes, function (host) {
+      var itemId = host.getAttribute("data-bookingbay-item");
+      var slug = host.getAttribute("data-bookingbay-slug");
+      if (!itemId || !slug) return;
+      mountInto(host, buildBookItemUrl(slug, itemId), "BookingBay - boeken");
     });
   }
 
