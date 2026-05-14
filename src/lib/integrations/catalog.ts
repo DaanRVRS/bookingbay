@@ -26,7 +26,9 @@ export interface IntegrationDef {
   name: string;
   categorySlug: string;
   status: IntegrationStatus;
-  /** Maandprijs als upsell bovenop het maand-abbo. 0 = inbegrepen. */
+  /** Maandprijs als upsell bovenop het maand-abbo. Altijd > 0 — elke
+   *  koppeling kost iets, ook bij providers die zelf geen kosten rekenen
+   *  (wij draaien de plumbing, sync en support). */
   monthlyPriceEuro: number;
   /** 1-zinsbeschrijving voor de catalogus-tegel. */
   tagline: string;
@@ -40,10 +42,10 @@ export interface IntegrationDef {
   faq?: { q: string; a: string }[];
   /** URL naar de website van de provider (voor klant referentie). */
   vendorUrl?: string;
-  /** Brand color voor de tegel (oklch of hex). Fallback = primary/10. */
-  brandColor?: string;
-  /** Logo-tekst gebruikt in placeholder-tile (kleine zwart/witte fallback). */
-  logoText?: string;
+  /** Iconify-icoonnaam (uit de `logos`-collectie) — bv. "logos:slack".
+   *  Wordt gerenderd door <IntegrationLogo />. Werkt offline omdat we
+   *  Iconify in de bundle hebben. */
+  iconifyId: string;
 }
 
 export const CATEGORIES: IntegrationCategory[] = [
@@ -104,7 +106,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Google Calendar",
     categorySlug: "agenda",
     status: "available",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 9,
     tagline: "Twee-richtingen sync met de agenda van je team.",
     description: [
       "Elke boeking die binnenkomt verschijnt direct in de Google Calendar van het item — of in een gedeelde teamagenda als je dat liever hebt.",
@@ -133,15 +135,14 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://calendar.google.com",
-    brandColor: "oklch(0.7 0.16 250)",
-    logoText: "G·Cal",
+    iconifyId: "logos:google-calendar",
   },
   {
     slug: "outlook-calendar",
     name: "Outlook Calendar",
     categorySlug: "agenda",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 9,
     tagline: "Sync met Microsoft 365 / Outlook.com agenda.",
     description: [
       "Voor teams die op Microsoft 365 draaien. Zelfde concept als Google Calendar — boekingen verschijnen in Outlook, geblokte tijd in Outlook = niet boekbaar in BookingBay.",
@@ -152,15 +153,14 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Real-time push-notifications",
     ],
     vendorUrl: "https://outlook.live.com",
-    brandColor: "oklch(0.55 0.18 250)",
-    logoText: "Outlook",
+    iconifyId: "logos:microsoft-outlook",
   },
   {
     slug: "apple-calendar",
     name: "Apple Calendar (iCloud)",
     categorySlug: "agenda",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 9,
     tagline: "Sync via iCloud — werkt op iPhone, iPad en Mac.",
     description: [
       "Native koppeling met iCloud via CalDAV. Boekingen verschijnen direct op alle Apple-devices van je team.",
@@ -170,8 +170,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "App-specifieke wachtwoorden voor veiligheid",
       "Werkt met gedeelde Family-agenda's",
     ],
-    brandColor: "oklch(0.6 0.05 250)",
-    logoText: "iCal",
+    iconifyId: "logos:apple",
   },
 
   // ─── Betaalproviders ─────────────────────────────────────────────────
@@ -209,8 +208,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://mollie.com",
-    brandColor: "oklch(0.6 0.18 25)",
-    logoText: "mollie",
+    iconifyId: "logos:mollie",
   },
   {
     slug: "stripe",
@@ -229,8 +227,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Refunds vanuit dashboard",
     ],
     vendorUrl: "https://stripe.com",
-    brandColor: "oklch(0.55 0.17 280)",
-    logoText: "stripe",
+    iconifyId: "logos:stripe",
   },
   {
     slug: "buckaroo",
@@ -248,8 +245,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Nederlandse support",
     ],
     vendorUrl: "https://www.buckaroo.nl",
-    brandColor: "oklch(0.65 0.18 50)",
-    logoText: "buckaroo",
+    iconifyId: "mdi:credit-card-outline",
   },
   {
     slug: "paypal",
@@ -267,8 +263,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Geschillenbeheer via PayPal",
     ],
     vendorUrl: "https://www.paypal.com",
-    brandColor: "oklch(0.55 0.18 245)",
-    logoText: "PayPal",
+    iconifyId: "logos:paypal",
   },
 
   // ─── Boekhouding ─────────────────────────────────────────────────────
@@ -302,8 +297,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://moneybird.nl",
-    brandColor: "oklch(0.7 0.15 200)",
-    logoText: "moneybird",
+    iconifyId: "mdi:bird",
   },
   {
     slug: "exact-online",
@@ -321,8 +315,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Grootboekrekening per item-categorie",
     ],
     vendorUrl: "https://www.exact.com/nl",
-    brandColor: "oklch(0.55 0.2 25)",
-    logoText: "exact",
+    iconifyId: "mdi:equal-box-outline",
   },
   {
     slug: "afas",
@@ -340,8 +333,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Custom grootboek-mapping",
     ],
     vendorUrl: "https://www.afas.nl",
-    brandColor: "oklch(0.5 0.2 260)",
-    logoText: "AFAS",
+    iconifyId: "mdi:office-building-outline",
   },
   {
     slug: "e-boekhouden",
@@ -359,8 +351,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "BTW-correct",
     ],
     vendorUrl: "https://www.e-boekhouden.nl",
-    brandColor: "oklch(0.6 0.15 145)",
-    logoText: "e-Boekhouden",
+    iconifyId: "mdi:book-account-outline",
   },
   {
     slug: "twinfield",
@@ -377,8 +368,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Accountantskantoor-vriendelijk",
     ],
     vendorUrl: "https://www.twinfield.com",
-    brandColor: "oklch(0.55 0.18 230)",
-    logoText: "Twinfield",
+    iconifyId: "mdi:bank-outline",
   },
 
   // ─── Communicatie ────────────────────────────────────────────────────
@@ -387,7 +377,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Slack",
     categorySlug: "communicatie",
     status: "coming-soon",
-    monthlyPriceEuro: 5,
+    monthlyPriceEuro: 9,
     tagline: "Nieuwe boekingen direct in je team-channel.",
     description: [
       "Krijg in je gekozen Slack-channel een bericht bij elke nieuwe boeking, annulering of contact-aanvraag. Met snel-knoppen om de boeking te openen of de klant te bellen.",
@@ -398,23 +388,21 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Threading voor follow-up",
     ],
     vendorUrl: "https://slack.com",
-    brandColor: "oklch(0.55 0.18 30)",
-    logoText: "slack",
+    iconifyId: "logos:slack-icon",
   },
   {
     slug: "microsoft-teams",
     name: "Microsoft Teams",
     categorySlug: "communicatie",
     status: "coming-soon",
-    monthlyPriceEuro: 5,
+    monthlyPriceEuro: 9,
     tagline: "Boekingen in je Teams-channel — zelfde idee als Slack.",
     description: [
       "Voor Microsoft 365 teams. Adaptive Cards met klant-info en quick actions.",
     ],
     features: ["Adaptive Cards", "Per channel routing", "Quick actions"],
     vendorUrl: "https://www.microsoft.com/teams",
-    brandColor: "oklch(0.55 0.18 280)",
-    logoText: "Teams",
+    iconifyId: "logos:microsoft-teams",
   },
   {
     slug: "whatsapp-business",
@@ -433,23 +421,21 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Conversaties terugzien per klant",
     ],
     vendorUrl: "https://business.whatsapp.com",
-    brandColor: "oklch(0.7 0.16 150)",
-    logoText: "WhatsApp",
+    iconifyId: "logos:whatsapp-icon",
   },
   {
     slug: "discord",
     name: "Discord",
     categorySlug: "communicatie",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
-    tagline: "Webhook-notificaties naar Discord — gratis.",
+    monthlyPriceEuro: 5,
+    tagline: "Webhook-notificaties naar Discord — voor team-channels.",
     description: [
       "Voor teams op Discord (vooral hobby-verhuur of klein commercieel). Setup is een webhook-URL — geen OAuth nodig.",
     ],
-    features: ["Webhook-based (geen OAuth)", "Embed-format", "Gratis"],
+    features: ["Webhook-based (geen OAuth)", "Embed-format", "Per event-type een aparte channel"],
     vendorUrl: "https://discord.com",
-    brandColor: "oklch(0.55 0.18 270)",
-    logoText: "discord",
+    iconifyId: "logos:discord-icon",
   },
 
   // ─── E-mail marketing ────────────────────────────────────────────────
@@ -469,8 +455,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Custom merge fields (laatste boeking, totaal besteed)",
     ],
     vendorUrl: "https://mailchimp.com",
-    brandColor: "oklch(0.8 0.15 90)",
-    logoText: "Mailchimp",
+    iconifyId: "logos:mailchimp",
   },
   {
     slug: "brevo",
@@ -484,8 +469,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     ],
     features: ["EU-hosting", "Auto-segmentatie", "Transactional + marketing"],
     vendorUrl: "https://www.brevo.com",
-    brandColor: "oklch(0.55 0.16 145)",
-    logoText: "brevo",
+    iconifyId: "logos:brevo",
   },
   {
     slug: "activecampaign",
@@ -499,8 +483,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     ],
     features: ["Event-getriggerde automations", "Contact-scoring", "CRM-deals sync"],
     vendorUrl: "https://www.activecampaign.com",
-    brandColor: "oklch(0.5 0.18 250)",
-    logoText: "ActiveCampaign",
+    iconifyId: "logos:active-campaign",
   },
 
   // ─── CRM ─────────────────────────────────────────────────────────────
@@ -520,8 +503,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Boekingsgeschiedenis als activity",
     ],
     vendorUrl: "https://www.hubspot.com",
-    brandColor: "oklch(0.62 0.2 35)",
-    logoText: "HubSpot",
+    iconifyId: "logos:hubspot",
   },
   {
     slug: "pipedrive",
@@ -535,8 +517,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     ],
     features: ["Deal per boeking (optioneel)", "Activity-log", "Custom fields"],
     vendorUrl: "https://www.pipedrive.com",
-    brandColor: "oklch(0.62 0.16 145)",
-    logoText: "Pipedrive",
+    iconifyId: "logos:pipedrive",
   },
 
   // ─── Office tools ────────────────────────────────────────────────────
@@ -545,7 +526,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Google Drive",
     categorySlug: "office-tools",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 7,
     tagline: "Sla facturen en contracten automatisch op in Drive.",
     description: [
       "Elke gegenereerde PDF (factuur, contract, ophaal-checklist) wordt automatisch in een gestructureerde Drive-folder gezet — gesorteerd per maand of per klant.",
@@ -556,23 +537,21 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Gedeelde Drive support",
     ],
     vendorUrl: "https://drive.google.com",
-    brandColor: "oklch(0.7 0.16 90)",
-    logoText: "Drive",
+    iconifyId: "logos:google-drive",
   },
   {
     slug: "dropbox",
     name: "Dropbox",
     categorySlug: "office-tools",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 7,
     tagline: "Zelfde idee als Drive — voor Dropbox-teams.",
     description: [
       "Voor wie nog op Dropbox draait. Auto-upload van facturen en contracten.",
     ],
     features: ["Auto-upload", "Folder-templates", "Shared folders"],
     vendorUrl: "https://www.dropbox.com",
-    brandColor: "oklch(0.55 0.2 245)",
-    logoText: "Dropbox",
+    iconifyId: "logos:dropbox",
   },
   {
     slug: "zapier",
@@ -586,8 +565,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     ],
     features: ["Trigger: nieuwe boeking, annulering, lead", "Action: maak boeking aan", "5000+ apps"],
     vendorUrl: "https://zapier.com",
-    brandColor: "oklch(0.65 0.18 35)",
-    logoText: "Zapier",
+    iconifyId: "logos:zapier-icon",
   },
 
   // ─── Analytics ───────────────────────────────────────────────────────
@@ -596,7 +574,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Google Analytics 4",
     categorySlug: "analytics",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 7,
     tagline: "Meet boekingen als conversie-events in GA4.",
     description: [
       "Voor wie z'n marketing-uitgaven (Google Ads, social) wil koppelen aan échte boekingen. We sturen 'purchase'-events met de juiste waarde naar GA4.",
@@ -607,23 +585,21 @@ export const INTEGRATIONS: IntegrationDef[] = [
       "Consent-mode v2 compliant",
     ],
     vendorUrl: "https://analytics.google.com",
-    brandColor: "oklch(0.7 0.15 50)",
-    logoText: "GA4",
+    iconifyId: "logos:google-analytics",
   },
   {
     slug: "plausible",
     name: "Plausible Analytics",
     categorySlug: "analytics",
     status: "coming-soon",
-    monthlyPriceEuro: 0,
+    monthlyPriceEuro: 7,
     tagline: "Privacy-vriendelijke analytics — geen cookie-banner nodig.",
     description: [
       "Voor wie AVG-vriendelijk wil meten zonder cookie-banner. Wij sturen custom-events naar Plausible bij elke boeking.",
     ],
     features: ["Custom goals", "Geen cookies", "EU-hosting"],
     vendorUrl: "https://plausible.io",
-    brandColor: "oklch(0.55 0.18 250)",
-    logoText: "plausible",
+    iconifyId: "simple-icons:plausibleanalytics",
   },
 ];
 
@@ -651,6 +627,5 @@ export function statusLabel(status: IntegrationStatus): string {
 }
 
 export function priceLabel(monthly: number): string {
-  if (monthly === 0) return "Gratis";
   return `€${monthly}/m`;
 }

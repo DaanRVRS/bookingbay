@@ -261,7 +261,7 @@ export async function requestActivationAction(
           authorUserId: ctx.user.id,
           isStaff: false,
           body: [
-            `Wil ${def.name} activeren (${def.monthlyPriceEuro === 0 ? "gratis" : `€${def.monthlyPriceEuro}/maand`} bovenop het abonnement).`,
+            `Wil ${def.name} activeren (€${def.monthlyPriceEuro}/maand bovenop het abonnement).`,
             parsed.data.note ? `\nToelichting:\n${parsed.data.note}` : "",
           ].join(""),
         },
@@ -328,8 +328,7 @@ export async function requestActivationAction(
       </p>
       <p style="margin:0 0 12px 0">
         Wil <strong>${escapeHtml(def.name)}</strong> activeren
-        (${def.monthlyPriceEuro === 0 ? "gratis" : `€${def.monthlyPriceEuro}/maand`}
-        bovenop het abonnement).
+        (€${def.monthlyPriceEuro}/maand bovenop het abonnement).
       </p>
       ${
         parsed.data.note

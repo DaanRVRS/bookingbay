@@ -4,12 +4,15 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { AlertTriangle, Check, CheckCircle2, ExternalLink, Shield } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
 import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
 import { getCategory, getIntegration } from "@/lib/integrations/catalog";
 import { getOrgIntegration } from "@/lib/integrations/queries";
+import type { CalendarListEntry } from "@/lib/integrations/google-calendar";
 import { ActivationActions } from "./activation-actions";
+import { GoogleCalendarSetup } from "./google-calendar-setup";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -46,6 +49,33 @@ export default async function IntegrationDetailPage({
     rawConfig && typeof rawConfig.calendarId === "string"
       ? rawConfig.calendarId
       : null;
+
+  // Google Calendar koppeling: laat de items + cached calendar-list zien
+  // zodat de klant per-item een agenda kan kiezen.
+  const isActiveGoogleCalendar =
+    def.slug === "google-calendar" && orgRow?.status === "ACTIVE";
+  const cachedCalendars: CalendarListEntry[] = (() => {
+    if (!isActiveGoogleCalendar || !rawConfig) return [];
+    const list = rawConfig.calendars;
+    return Array.isArray(list) ? (list as CalendarListEntry[]) : [];
+  })();
+  const calendarsCachedAt =
+    rawConfig && typeof rawConfig.calendarsCachedAt === "number"
+      ? rawConfig.calendarsCachedAt
+      : null;
+  const items = isActiveGoogleCalendar
+    ? await db.item.findMany({
+        where: { organizationId: ctx.organization.id, isActive: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, integrationConfig: true },
+      })
+    : [];
+  const itemsForSetup = items.map((it) => {
+    const cfg = (it.integrationConfig as Record<string, unknown> | null) ?? null;
+    const gc =
+      (cfg?.googleCalendar as { calendarId?: string } | undefined) ?? undefined;
+    return { id: it.id, name: it.name, calendarId: gc?.calendarId ?? null };
+  });
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -111,6 +141,16 @@ export default async function IntegrationDetailPage({
                 </p>
               </div>
             </section>
+
+            {/* Google Calendar setup-panel — alleen tonen wanneer actief */}
+            {isActiveGoogleCalendar && (
+              <GoogleCalendarSetup
+                defaultCalendarId={calendarId}
+                calendars={cachedCalendars}
+                calendarsCachedAt={calendarsCachedAt}
+                items={itemsForSetup}
+              />
+            )}
 
             {/* Lange beschrijving */}
             {def.description.length > 1 && (
@@ -199,17 +239,13 @@ export default async function IntegrationDetailPage({
                 Prijs
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums">
-                {def.monthlyPriceEuro === 0 ? "Gratis" : `€${def.monthlyPriceEuro}`}
-                {def.monthlyPriceEuro > 0 && (
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">
-                    / maand
-                  </span>
-                )}
+                €{def.monthlyPriceEuro}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  / maand
+                </span>
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {def.monthlyPriceEuro === 0
-                  ? "Inbegrepen — geen extra kosten"
-                  : "Bovenop je BookingBay-abonnement"}
+                Bovenop je BookingBay-abonnement
               </p>
 
               {/* Verbindings-info: alleen tonen wanneer koppeling actief is */}

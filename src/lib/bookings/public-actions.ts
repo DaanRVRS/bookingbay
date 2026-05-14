@@ -183,16 +183,30 @@ export async function getItemAvailabilityAction(input: {
   const toDate = new Date(fromDate);
   toDate.setDate(toDate.getDate() + AVAILABILITY_LOOKAHEAD_DAYS);
 
-  const bookings = await db.booking.findMany({
-    where: {
-      itemId,
-      organizationId: org.id,
-      status: { not: "CANCELED" },
-      startAt: { lt: toDate },
-      endAt: { gt: fromDate },
-    },
-    select: { startAt: true, endAt: true },
-  });
+  const [bookings, blocks] = await Promise.all([
+    db.booking.findMany({
+      where: {
+        itemId,
+        organizationId: org.id,
+        status: { not: "CANCELED" },
+        startAt: { lt: toDate },
+        endAt: { gt: fromDate },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+    // Externe blokken (Google Calendar etc.) — tellen ook mee tegen
+    // beschikbaarheid. itemId=null = blokt alle items op die calendar.
+    db.calendarBlock.findMany({
+      where: {
+        organizationId: org.id,
+        startAt: { lt: toDate },
+        endAt: { gt: fromDate },
+        OR: [{ itemId }, { itemId: null }],
+      },
+      select: { startAt: true, endAt: true },
+    }),
+  ]);
+  const occupiers = [...bookings, ...blocks];
 
   const unavailable: string[] = [];
   const dayMs = 86_400_000;
@@ -204,7 +218,7 @@ export async function getItemAvailabilityAction(input: {
 
     // Build sweep events for this day, clamped to [dayStart, dayEnd]
     const events: { time: number; delta: number }[] = [];
-    for (const b of bookings) {
+    for (const b of occupiers) {
       const bStart = b.startAt.getTime();
       const bEnd = b.endAt.getTime();
       const overlapStart = Math.max(bStart, dayStart);

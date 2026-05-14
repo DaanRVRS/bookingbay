@@ -142,5 +142,70 @@ export async function GET(req: Request) {
     metadata: { accountEmail },
   });
 
+  // Pre-fetch de calendar-list zodat de dropdown direct gevuld is.
+  try {
+    const { listCalendars } = await import("@/lib/integrations/google-calendar");
+    const calendars = await listCalendars(orgId);
+    // Pak primair als initial default als de klant er nog geen gekozen had.
+    const fallbackCalendarId =
+      calendars.find((c) => c.primary)?.id ?? cfg.calendarId ?? "primary";
+    const stored = await db.orgIntegration.findUnique({
+      where: {
+        organizationId_integrationKey: {
+          organizationId: orgId,
+          integrationKey: "google-calendar",
+        },
+      },
+      select: { id: true, config: true },
+    });
+    if (stored) {
+      const baseCfg = (stored.config as Record<string, unknown>) ?? {};
+      const merged = {
+        ...baseCfg,
+        calendarId: fallbackCalendarId,
+        calendars,
+        calendarsCachedAt: Date.now(),
+      };
+      await db.orgIntegration.update({
+        where: { id: stored.id },
+        data: { config: merged as never },
+      });
+    }
+  } catch (err) {
+    console.warn(
+      `[google-calendar/callback] calendarList ophalen mislukt voor org ${orgId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Direct bij activatie: registreer push-channel + backfill events. Doen
+  // we best-effort omdat een mislukking hier de OAuth-flow niet mag breken
+  // (cron pakt 'm later wel op).
+  try {
+    const fresh = await db.orgIntegration.findUnique({
+      where: {
+        organizationId_integrationKey: {
+          organizationId: orgId,
+          integrationKey: "google-calendar",
+        },
+      },
+      select: { config: true },
+    });
+    const freshCfg = (fresh?.config as Record<string, unknown> | null) ?? {};
+    const calendarId =
+      (typeof freshCfg.calendarId === "string" ? freshCfg.calendarId : null) ||
+      cfg.calendarId ||
+      "primary";
+    const { ensureWatchAndInitialSync } = await import(
+      "@/lib/integrations/calendar-sync"
+    );
+    await ensureWatchAndInitialSync(orgId, calendarId);
+  } catch (err) {
+    console.warn(
+      `[google-calendar/callback] initial watch/sync mislukt voor org ${orgId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+
   return redirectSuccess();
 }

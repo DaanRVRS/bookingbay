@@ -100,17 +100,13 @@ export default async function PublicIntegrationDetail({ params }: PageProps) {
                     Prijs
                   </p>
                   <p className="mt-1 text-4xl font-semibold tabular-nums">
-                    {def.monthlyPriceEuro === 0 ? "Gratis" : `€${def.monthlyPriceEuro}`}
-                    {def.monthlyPriceEuro > 0 && (
-                      <span className="ml-1 text-sm font-normal text-muted-foreground">
-                        / maand
-                      </span>
-                    )}
+                    €{def.monthlyPriceEuro}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">
+                      / maand
+                    </span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {def.monthlyPriceEuro === 0
-                      ? "Inbegrepen — geen extra kosten"
-                      : "Bovenop je BookingBay-abonnement"}
+                    Bovenop je BookingBay-abonnement
                   </p>
 
                   <div className="my-5 h-px bg-border" />

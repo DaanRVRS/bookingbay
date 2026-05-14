@@ -65,24 +65,57 @@ export async function findOverlappingBookings(params: ConflictCheckParams) {
   });
 }
 
+/**
+ * Externe agenda-blokken (Google Calendar etc.) die het item raken.
+ * Rijen met `itemId = null` raken *alle* items op die calendar; rijen
+ * met een specifieke itemId raken alleen dat item.
+ */
+export async function findOverlappingCalendarBlocks(params: {
+  organizationId: string;
+  itemId: string;
+  startAt: Date;
+  endAt: Date;
+}) {
+  return db.calendarBlock.findMany({
+    where: {
+      organizationId: params.organizationId,
+      startAt: { lt: params.endAt },
+      endAt: { gt: params.startAt },
+      OR: [{ itemId: params.itemId }, { itemId: null }],
+    },
+    orderBy: { startAt: "asc" },
+  });
+}
+
 export async function checkAvailability(
   params: ConflictCheckParams & { itemQuantity: number },
 ): Promise<{
   available: boolean;
   overlapping: Awaited<ReturnType<typeof findOverlappingBookings>>;
+  blocks: Awaited<ReturnType<typeof findOverlappingCalendarBlocks>>;
   message?: string;
 }> {
-  const overlapping = await findOverlappingBookings(params);
-  const usedSlots = overlapping.length;
+  const [overlapping, blocks] = await Promise.all([
+    findOverlappingBookings(params),
+    findOverlappingCalendarBlocks(params),
+  ]);
+  // Externe blokken tellen mee tegen `itemQuantity`. Bij quantity=1 is
+  // één blok genoeg om dicht te zetten; bij quantity=3 trekken ze van
+  // de capaciteit af. Conservatief: we behandelen elk overlappend blok
+  // als één bezet exemplaar.
+  const usedSlots = overlapping.length + blocks.length;
   const available = usedSlots < params.itemQuantity;
 
-  return {
-    available,
-    overlapping,
-    message: available
-      ? undefined
-      : params.itemQuantity === 1
-        ? "Item is al geboekt in deze periode"
-        : `Alle ${params.itemQuantity} exemplaren zijn bezet in deze periode`,
-  };
+  let message: string | undefined;
+  if (!available) {
+    if (blocks.length > 0 && overlapping.length === 0) {
+      message = "Deze tijd staat geblokkeerd in de gekoppelde agenda";
+    } else if (params.itemQuantity === 1) {
+      message = "Item is al geboekt in deze periode";
+    } else {
+      message = `Alle ${params.itemQuantity} exemplaren zijn bezet in deze periode`;
+    }
+  }
+
+  return { available, overlapping, blocks, message };
 }

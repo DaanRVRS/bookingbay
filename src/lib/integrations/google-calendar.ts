@@ -30,6 +30,14 @@ const SCOPES = [
   "email",
 ];
 
+export interface CalendarListEntry {
+  id: string;
+  summary: string;
+  primary: boolean;
+  /** Of de gebruiker rechten heeft om events aan te maken (writer/owner). */
+  canWrite: boolean;
+}
+
 export interface GoogleCalendarConfig {
   _encAccessToken?: string;
   _encRefreshToken?: string;
@@ -37,10 +45,14 @@ export interface GoogleCalendarConfig {
   expiresAt?: number;
   /** E-mail van het Google-account waar 'mee verbonden' is. */
   accountEmail?: string;
-  /** Calendar-id (default 'primary'). */
+  /** Org-wide default calendar-id (fallback wanneer een item geen override heeft). */
   calendarId?: string;
   /** Scopes die de klant heeft geapproved — handig voor diagnostics. */
   scopes?: string[];
+  /** Gecachete calendar-list (refresht bij elke open van de detail-pagina). */
+  calendars?: CalendarListEntry[];
+  /** Wanneer we de calendarList voor 't laatst opvraagden. */
+  calendarsCachedAt?: number;
 }
 
 export function isGoogleConfigured(): boolean {
@@ -227,6 +239,8 @@ interface UpsertEventArgs {
   attendeeName?: string;
   /** Bestaand Google event-id (bij updates). */
   existingEventId?: string | null;
+  /** Override van de standaard org-default calendar. Komt uit Item.integrationConfig. */
+  calendarIdOverride?: string | null;
 }
 
 /**
@@ -235,9 +249,10 @@ interface UpsertEventArgs {
  */
 export async function upsertBookingEvent(
   args: UpsertEventArgs,
-): Promise<string | null> {
+): Promise<{ eventId: string | null; calendarId: string }> {
   const { accessToken, config } = await getValidAccessToken(args.organizationId);
-  const calendarId = config.calendarId || "primary";
+  const calendarId =
+    args.calendarIdOverride || config.calendarId || "primary";
 
   const body: GoogleEvent = {
     summary: args.summary,
@@ -285,15 +300,16 @@ export async function upsertBookingEvent(
 
   const event = (await res.json()) as GoogleEvent;
   await markSynced(args.organizationId);
-  return event.id ?? null;
+  return { eventId: event.id ?? null, calendarId };
 }
 
 export async function deleteBookingEvent(
   organizationId: string,
   eventId: string,
+  calendarIdOverride?: string | null,
 ): Promise<void> {
   const { accessToken, config } = await getValidAccessToken(organizationId);
-  const calendarId = config.calendarId || "primary";
+  const calendarId = calendarIdOverride || config.calendarId || "primary";
   const res = await fetch(
     `${GC_API}/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
     {
@@ -340,6 +356,193 @@ export async function safeSync<T>(
     );
     return null;
   }
+}
+
+// ── Calendar-list ──────────────────────────────────────────────────────
+
+/**
+ * Haalt de lijst agenda's op waar deze gebruiker toegang toe heeft.
+ * Filtert direct uit op alleen schrijfbare agenda's (writer/owner).
+ */
+export async function listCalendars(
+  organizationId: string,
+): Promise<CalendarListEntry[]> {
+  const { accessToken } = await getValidAccessToken(organizationId);
+  const res = await fetch(
+    `${GC_API}/users/me/calendarList?minAccessRole=writer&maxResults=100`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Google calendarList ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const data = (await res.json()) as {
+    items?: Array<{
+      id: string;
+      summary?: string;
+      summaryOverride?: string;
+      primary?: boolean;
+      accessRole?: string;
+    }>;
+  };
+  return (data.items ?? []).map((c) => ({
+    id: c.id,
+    summary: c.summaryOverride || c.summary || c.id,
+    primary: c.primary ?? false,
+    canWrite: c.accessRole === "writer" || c.accessRole === "owner",
+  }));
+}
+
+// ── Bidirectionele sync — events.list + watch ──────────────────────────
+
+interface GoogleListEventsResponse {
+  items?: GoogleEvent[];
+  nextPageToken?: string;
+  nextSyncToken?: string;
+}
+
+/**
+ * Haalt events op voor incrementele sync. Bij syncToken=null doet 'ie een
+ * volledige backfill van een venster (default 30 dagen terug, 180 dagen vooruit).
+ * Bij 410 Gone (token verlopen >7 dagen) gooien we zodat de caller een
+ * full-sync triggert.
+ */
+export async function listEventsForSync(args: {
+  organizationId: string;
+  calendarId: string;
+  syncToken?: string | null;
+}): Promise<{
+  events: GoogleEvent[];
+  nextSyncToken: string | null;
+  syncTokenInvalid: boolean;
+}> {
+  const { accessToken } = await getValidAccessToken(args.organizationId);
+  const events: GoogleEvent[] = [];
+  let pageToken: string | undefined;
+  let nextSyncToken: string | null = null;
+
+  do {
+    const params = new URLSearchParams({
+      showDeleted: "true",
+      singleEvents: "true",
+      maxResults: "250",
+    });
+    if (args.syncToken) {
+      params.set("syncToken", args.syncToken);
+    } else {
+      // Full backfill venster.
+      const now = new Date();
+      const min = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const max = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+      params.set("timeMin", min.toISOString());
+      params.set("timeMax", max.toISOString());
+    }
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const res = await fetch(
+      `${GC_API}/calendars/${encodeURIComponent(args.calendarId)}/events?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    if (res.status === 410) {
+      // syncToken te oud — caller moet een full-sync doen.
+      return { events: [], nextSyncToken: null, syncTokenInvalid: true };
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Google events.list ${res.status}: ${text.slice(0, 400)}`);
+    }
+    const data = (await res.json()) as GoogleListEventsResponse;
+    if (data.items) events.push(...data.items);
+    pageToken = data.nextPageToken;
+    if (data.nextSyncToken) nextSyncToken = data.nextSyncToken;
+  } while (pageToken);
+
+  return { events, nextSyncToken, syncTokenInvalid: false };
+}
+
+interface WatchChannel {
+  id: string;
+  resourceId: string;
+  expiration: number;
+}
+
+/**
+ * Registreert een Google Calendar push notification channel. Google
+ * stuurt POSTs naar `address` zodra een event op de geselecteerde
+ * calendar wijzigt. Channels verlopen na max 7 dagen — cron renewt.
+ */
+export async function watchCalendar(args: {
+  organizationId: string;
+  calendarId: string;
+  channelId: string;
+  webhookUrl: string;
+  /** Optionele HMAC-style token die Google bij elke push meestuurt. */
+  token?: string;
+}): Promise<WatchChannel> {
+  const { accessToken } = await getValidAccessToken(args.organizationId);
+  const res = await fetch(
+    `${GC_API}/calendars/${encodeURIComponent(args.calendarId)}/events/watch`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: args.channelId,
+        type: "web_hook",
+        address: args.webhookUrl,
+        ...(args.token ? { token: args.token } : {}),
+      }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Google watch ${res.status}: ${text.slice(0, 400)}`);
+  }
+  const data = (await res.json()) as {
+    id: string;
+    resourceId: string;
+    expiration: string;
+  };
+  return {
+    id: data.id,
+    resourceId: data.resourceId,
+    expiration: Number(data.expiration),
+  };
+}
+
+/** Stop een push-channel zodat Google geen pushes meer stuurt. */
+export async function stopWatchChannel(args: {
+  organizationId: string;
+  channelId: string;
+  resourceId: string;
+}): Promise<void> {
+  const { accessToken } = await getValidAccessToken(args.organizationId);
+  await fetch(`${GC_API}/channels/stop`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id: args.channelId, resourceId: args.resourceId }),
+  }).catch(() => {
+    // Best-effort; als 't channel al verlopen is geeft Google een 404.
+  });
+}
+
+/**
+ * Heeft dit event een BookingBay-link in extendedProperties? Dat betekent
+ * dat het door ons gemaakt is — niet terug-syncen als externe blok.
+ */
+export function isOwnBookingEvent(event: GoogleEvent): boolean {
+  return Boolean(event.extendedProperties?.private?.bookingbayBookingId);
+}
+
+/** Returnt true als event als cancelled is gemarkeerd in Google. */
+export function isCancelledEvent(event: GoogleEvent): boolean {
+  return event.status === "cancelled";
 }
 
 /** Decodeert het `email` claim uit een Google id_token zonder verificatie.
