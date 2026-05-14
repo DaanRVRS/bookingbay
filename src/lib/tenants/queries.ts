@@ -41,6 +41,9 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
           pricePerHour: true,
           pricePerDay: true,
           pricePerWeek: true,
+          bookingIntervalMinutes: true,
+          bookingWindowStartMin: true,
+          bookingWindowEndMin: true,
         },
       },
       children: {

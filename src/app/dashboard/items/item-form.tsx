@@ -36,6 +36,40 @@ import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
+const INTERVAL_OPTIONS = [
+  { value: 15, label: "Elk kwartier (15 min)" },
+  { value: 30, label: "Elk half uur (30 min)" },
+  { value: 60, label: "Elk uur" },
+  { value: 90, label: "Elke 1u30" },
+  { value: 120, label: "Elke 2 uur" },
+  { value: 240, label: "Elke 4 uur" },
+  { value: 1440, label: "Per dag (geen tijdkeuze)" },
+];
+
+function minutesToHHMM(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function hhmmToMinutes(s: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  if (h < 0 || h > 24 || mm < 0 || mm >= 60) return null;
+  return h * 60 + mm;
+}
+
+function formatIntervalLabel(min: number): string {
+  if (min === 1440) return "per dag";
+  if (min === 60) return "1 uur";
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h} uur` : `${h}u${String(m).padStart(2, "0")}`;
+}
+
 interface Existing {
   id: string;
   name: string;
@@ -48,6 +82,9 @@ interface Existing {
   deposit: number | null;
   quantity: number;
   isActive: boolean;
+  bookingIntervalMinutes: number;
+  bookingWindowStartMin: number;
+  bookingWindowEndMin: number;
   businessHoursOverride: BusinessHours | null;
 }
 
@@ -81,6 +118,9 @@ export function ItemForm({ categories, existing }: Props) {
       deposit: existing?.deposit ?? null,
       quantity: existing?.quantity ?? 1,
       isActive: existing?.isActive ?? true,
+      bookingIntervalMinutes: existing?.bookingIntervalMinutes ?? 60,
+      bookingWindowStartMin: existing?.bookingWindowStartMin ?? 540,
+      bookingWindowEndMin: existing?.bookingWindowEndMin ?? 1080,
       businessHoursOverride: existing?.businessHoursOverride ?? null,
     },
   });
@@ -90,6 +130,10 @@ export function ItemForm({ categories, existing }: Props) {
   const imageUrl = watch("imageUrl") ?? null;
   const businessHoursOverride =
     (watch("businessHoursOverride") as BusinessHours | null | undefined) ?? null;
+  const bookingIntervalMinutes = Number(watch("bookingIntervalMinutes") ?? 60);
+  const bookingWindowStartMin = Number(watch("bookingWindowStartMin") ?? 540);
+  const bookingWindowEndMin = Number(watch("bookingWindowEndMin") ?? 1080);
+  const isPerDay = bookingIntervalMinutes === 1440;
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -239,6 +283,89 @@ export function ItemForm({ categories, existing }: Props) {
             setValue={setValue}
             toggleable
           />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold">Reserveer-slots</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Bepaal hoe vaak en wanneer klanten dit item in de boekwidget kunnen
+          reserveren. &quot;Per dag&quot; zet de tijdkeuze uit — klanten kiezen
+          alleen datums.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5 sm:col-span-3">
+            <Label>Interval</Label>
+            <Select
+              items={INTERVAL_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+              value={String(bookingIntervalMinutes)}
+              onValueChange={(v) => {
+                const n = Number(v);
+                if (Number.isFinite(n)) {
+                  setValue("bookingIntervalMinutes", n, { shouldValidate: true, shouldDirty: true });
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Kies een interval" />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={String(o.value)}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <input type="hidden" {...register("bookingIntervalMinutes")} />
+          </div>
+
+          {!isPerDay && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bookingWindowStart">Eerste slot</Label>
+                <Input
+                  id="bookingWindowStart"
+                  type="time"
+                  step={60}
+                  value={minutesToHHMM(bookingWindowStartMin)}
+                  onChange={(e) => {
+                    const m = hhmmToMinutes(e.target.value);
+                    if (m != null) {
+                      setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
+                    }
+                  }}
+                />
+                <input type="hidden" {...register("bookingWindowStartMin")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
+                <Input
+                  id="bookingWindowEnd"
+                  type="time"
+                  step={60}
+                  value={minutesToHHMM(bookingWindowEndMin)}
+                  onChange={(e) => {
+                    const m = hhmmToMinutes(e.target.value);
+                    if (m != null) {
+                      setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
+                    }
+                  }}
+                />
+                <input type="hidden" {...register("bookingWindowEndMin")} />
+                {errors.bookingWindowEndMin?.message && (
+                  <p className="text-xs font-medium text-destructive">
+                    {errors.bookingWindowEndMin.message}
+                  </p>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground sm:col-span-3">
+                Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
+                {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
+                {formatIntervalLabel(bookingIntervalMinutes)}.
+              </p>
+            </>
+          )}
         </div>
       </div>
 

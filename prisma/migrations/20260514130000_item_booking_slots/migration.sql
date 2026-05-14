@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Item"
+  ADD COLUMN "bookingIntervalMinutes" INTEGER NOT NULL DEFAULT 60,
+  ADD COLUMN "bookingWindowStartMin" INTEGER NOT NULL DEFAULT 540,
+  ADD COLUMN "bookingWindowEndMin" INTEGER NOT NULL DEFAULT 1080;

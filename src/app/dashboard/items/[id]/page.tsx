@@ -51,6 +51,9 @@ export default async function EditItemPage({ params }: PageProps) {
               deposit: item.deposit ? Number(item.deposit) : null,
               quantity: item.quantity,
               isActive: item.isActive,
+              bookingIntervalMinutes: item.bookingIntervalMinutes,
+              bookingWindowStartMin: item.bookingWindowStartMin,
+              bookingWindowEndMin: item.bookingWindowEndMin,
               businessHoursOverride: safeParseBusinessHours(item.businessHoursOverride),
             }}
           />

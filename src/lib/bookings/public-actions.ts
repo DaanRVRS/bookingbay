@@ -131,13 +131,26 @@ const AVAILABILITY_LOOKAHEAD_DAYS = 180;
  * `quantity` concurrent bookings. Used by the public widget calendar to mark
  * red/green vakjes.
  */
+interface BookingInterval {
+  startMs: number;
+  endMs: number;
+}
+
+interface ItemAvailabilityOk {
+  ok: true;
+  unavailableDates: string[];
+  lookaheadDays: number;
+  quantity: number;
+  bookingIntervalMinutes: number;
+  bookingWindowStartMin: number;
+  bookingWindowEndMin: number;
+  bookings: BookingInterval[];
+}
+
 export async function getItemAvailabilityAction(input: {
   slug: string;
   itemId: string;
-}): Promise<
-  | { ok: true; unavailableDates: string[]; lookaheadDays: number }
-  | { ok: false; error: string }
-> {
+}): Promise<ItemAvailabilityOk | { ok: false; error: string }> {
   const slug = String(input.slug ?? "").trim();
   const itemId = String(input.itemId ?? "").trim();
   if (!slug || !itemId) {
@@ -152,7 +165,12 @@ export async function getItemAvailabilityAction(input: {
 
   const item = await db.item.findFirst({
     where: { id: itemId, organizationId: org.id, isActive: true },
-    select: { quantity: true },
+    select: {
+      quantity: true,
+      bookingIntervalMinutes: true,
+      bookingWindowStartMin: true,
+      bookingWindowEndMin: true,
+    },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
 
@@ -227,5 +245,13 @@ export async function getItemAvailabilityAction(input: {
     ok: true,
     unavailableDates: unavailable,
     lookaheadDays: AVAILABILITY_LOOKAHEAD_DAYS,
+    quantity: item.quantity,
+    bookingIntervalMinutes: item.bookingIntervalMinutes,
+    bookingWindowStartMin: item.bookingWindowStartMin,
+    bookingWindowEndMin: item.bookingWindowEndMin,
+    bookings: bookings.map((b) => ({
+      startMs: b.startAt.getTime(),
+      endMs: b.endAt.getTime(),
+    })),
   };
 }

@@ -86,6 +86,9 @@ export async function createItemAction(
       deposit: parsed.data.deposit,
       quantity: parsed.data.quantity,
       isActive: parsed.data.isActive,
+      bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
+      bookingWindowStartMin: parsed.data.bookingWindowStartMin,
+      bookingWindowEndMin: parsed.data.bookingWindowEndMin,
       businessHoursOverride:
         parsed.data.businessHoursOverride === undefined
           ? undefined
@@ -143,6 +146,9 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
       deposit: parsed.data.deposit,
       quantity: parsed.data.quantity,
       isActive: parsed.data.isActive,
+      bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
+      bookingWindowStartMin: parsed.data.bookingWindowStartMin,
+      bookingWindowEndMin: parsed.data.bookingWindowEndMin,
       businessHoursOverride:
         parsed.data.businessHoursOverride === undefined
           ? undefined

@@ -273,6 +273,13 @@ model Item {
   quantity Int     @default(1)
   isActive Boolean @default(true)
 
+  // Boek-slot configuratie. Bezoekers in de publieke widget zien start-
+  // en eindtijden als dropdowns met deze stapgrootte, binnen het window.
+  // 1440 = per-dag (geen tijdkeuze in widget).
+  bookingIntervalMinutes Int @default(60)
+  bookingWindowStartMin  Int @default(540)  // 09:00
+  bookingWindowEndMin    Int @default(1080) // 18:00
+
   // Optioneel per-item openingstijden-override. Null = gebruik org-default.
   // Zelfde shape als Organization.businessHours.
   businessHoursOverride Json?

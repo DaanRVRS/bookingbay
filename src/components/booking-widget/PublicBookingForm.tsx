@@ -39,6 +39,52 @@ interface Props {
 const DEFAULT_START_TIME = "09:00";
 const DEFAULT_END_TIME = "17:00";
 
+interface SlotConfig {
+  intervalMinutes: number;
+  windowStartMin: number;
+  windowEndMin: number;
+}
+
+const DEFAULT_SLOT_CONFIG: SlotConfig = {
+  intervalMinutes: 60,
+  windowStartMin: 540, // 09:00
+  windowEndMin: 1080, // 18:00
+};
+
+interface BookingInterval {
+  startMs: number;
+  endMs: number;
+}
+
+function minToHHMM(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function generateSlots(cfg: SlotConfig): string[] {
+  const out: string[] = [];
+  for (let m = cfg.windowStartMin; m <= cfg.windowEndMin; m += cfg.intervalMinutes) {
+    out.push(minToHHMM(m));
+  }
+  return out;
+}
+
+function slotOverlapsAnyBooking(
+  dayDate: Date,
+  hhmm: string,
+  intervalMinutes: number,
+  bookings: BookingInterval[],
+): boolean {
+  const [h, m] = hhmm.split(":").map(Number);
+  const start = new Date(dayDate);
+  start.setHours(h, m, 0, 0);
+  const end = new Date(start.getTime() + intervalMinutes * 60_000);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  return bookings.some((b) => b.startMs < endMs && b.endMs > startMs);
+}
+
 export function PublicBookingForm({
   slug,
   orgName,
@@ -56,6 +102,8 @@ export function PublicBookingForm({
   );
   const [lookaheadDays, setLookaheadDays] = useState<number>(180);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [slotConfig, setSlotConfig] = useState<SlotConfig>(DEFAULT_SLOT_CONFIG);
+  const [bookings, setBookings] = useState<BookingInterval[]>([]);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -124,6 +172,20 @@ export function PublicBookingForm({
         if (res.ok) {
           setUnavailableDates(new Set(res.unavailableDates));
           setLookaheadDays(res.lookaheadDays);
+          setSlotConfig({
+            intervalMinutes: res.bookingIntervalMinutes,
+            windowStartMin: res.bookingWindowStartMin,
+            windowEndMin: res.bookingWindowEndMin,
+          });
+          setBookings(res.bookings);
+          // For per-day items, force start/end times to whole-day defaults
+          if (res.bookingIntervalMinutes === 1440) {
+            setStartTime("00:00");
+            setEndTime("23:59");
+          } else {
+            setStartTime(minToHHMM(res.bookingWindowStartMin));
+            setEndTime(minToHHMM(res.bookingWindowEndMin));
+          }
         } else {
           setUnavailableDates(new Set());
         }
@@ -324,19 +386,31 @@ export function PublicBookingForm({
           </div>
         </div>
 
-        {/* Time inputs */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <TimeInput
-            label="Starttijd"
-            value={startTime}
-            onChange={setStartTime}
-          />
-          <TimeInput
-            label="Eindtijd"
-            value={endTime}
-            onChange={setEndTime}
-          />
-        </div>
+        {/* Time inputs — verborgen voor per-dag items (interval = 1440) */}
+        {slotConfig.intervalMinutes !== 1440 && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <SlotSelect
+              label="Starttijd"
+              value={startTime}
+              onChange={setStartTime}
+              dayDate={range?.from ?? null}
+              cfg={slotConfig}
+              bookings={bookings}
+              isStart
+              otherTime={endTime}
+            />
+            <SlotSelect
+              label="Eindtijd"
+              value={endTime}
+              onChange={setEndTime}
+              dayDate={range?.to ?? range?.from ?? null}
+              cfg={slotConfig}
+              bookings={bookings}
+              isStart={false}
+              otherTime={startTime}
+            />
+          </div>
+        )}
 
         {(errors.startAt || errors.endAt) && (
           <p className="mt-2 text-xs font-medium text-destructive">
@@ -519,27 +593,62 @@ function DateChip({
   );
 }
 
-function TimeInput({
+function SlotSelect({
   label,
   value,
   onChange,
+  dayDate,
+  cfg,
+  bookings,
+  isStart,
+  otherTime,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  dayDate: Date | null;
+  cfg: SlotConfig;
+  bookings: BookingInterval[];
+  isStart: boolean;
+  otherTime: string;
 }) {
+  const slots = useMemo(() => generateSlots(cfg), [cfg]);
+
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
         {label}
       </span>
-      <input
-        type="time"
+      <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        step={900}
         className="h-9 rounded-md border border-border bg-background px-2.5 text-sm tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
+      >
+        {slots.map((slot) => {
+          // Disable end-slots before/equal start, start-slots at/after end.
+          const otherTimeMin = hhmmToMin(otherTime);
+          const slotMin = hhmmToMin(slot);
+          const beforeStart = !isStart && slotMin <= otherTimeMin;
+          const afterEnd = isStart && slotMin >= otherTimeMin;
+          const overlap = dayDate
+            ? slotOverlapsAnyBooking(dayDate, slot, cfg.intervalMinutes, bookings)
+            : false;
+          const disabled = beforeStart || afterEnd || overlap;
+          const suffix = overlap ? " — vol" : "";
+          return (
+            <option key={slot} value={slot} disabled={disabled}>
+              {slot}
+              {suffix}
+            </option>
+          );
+        })}
+      </select>
     </label>
   );
+}
+
+function hhmmToMin(s: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return 0;
+  return Number(m[1]) * 60 + Number(m[2]);
 }

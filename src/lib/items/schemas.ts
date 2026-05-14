@@ -12,7 +12,7 @@ const decimal = z
     return n;
   });
 
-export const itemCreateSchema = z.object({
+const itemBaseShape = {
   name: z.string().min(1, "Naam is verplicht").max(120, "Te lang"),
   description: z.string().max(2000).optional().or(z.literal("")),
   categoryId: z.string().min(1, "Kies een categorie"),
@@ -25,13 +25,36 @@ export const itemCreateSchema = z.object({
   deposit: decimal,
   quantity: z.coerce.number().int().min(1).max(9999).default(1),
   isActive: z.coerce.boolean().default(true),
+  // Boek-slot configuratie. 1440 = per-dag (verbergt tijdkeuze in widget).
+  bookingIntervalMinutes: z.coerce
+    .number()
+    .int()
+    .min(5)
+    .max(1440)
+    .default(60),
+  // Window-grenzen in minuten vanaf middernacht. 540 = 09:00, 1080 = 18:00.
+  bookingWindowStartMin: z.coerce.number().int().min(0).max(1440).default(540),
+  bookingWindowEndMin: z.coerce.number().int().min(0).max(1440).default(1080),
   // Per-item override op de openingstijden. Null = volg organisatie.
   businessHoursOverride: businessHoursSchema.nullable().optional(),
-});
+};
 
-export const itemUpdateSchema = itemCreateSchema.extend({
-  id: z.string().min(1),
-});
+const windowOrderRefine = (d: { bookingWindowStartMin: number; bookingWindowEndMin: number }) =>
+  d.bookingWindowEndMin > d.bookingWindowStartMin;
+
+export const itemCreateSchema = z
+  .object(itemBaseShape)
+  .refine(windowOrderRefine, {
+    message: "Eind-tijd moet na start-tijd liggen",
+    path: ["bookingWindowEndMin"],
+  });
+
+export const itemUpdateSchema = z
+  .object({ ...itemBaseShape, id: z.string().min(1) })
+  .refine(windowOrderRefine, {
+    message: "Eind-tijd moet na start-tijd liggen",
+    path: ["bookingWindowEndMin"],
+  });
 
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
 export type ItemUpdateInput = z.infer<typeof itemUpdateSchema>;
