@@ -17,9 +17,9 @@ import { maybeFireSignupFeedbackPrompt } from "@/lib/feedback/actions";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
-  // Fire the signup-feedback prompt if applicable (idempotent — fires once
-  // ~5 min after signup, gated by feedbackRequestedAt on the user).
-  await maybeFireSignupFeedbackPrompt(ctx.user.id);
+  // Fire-and-forget: the prompt-check has no UI side effect for this render
+  // and would otherwise add a DB round-trip to every dashboard navigation.
+  void maybeFireSignupFeedbackPrompt(ctx.user.id).catch(() => {});
 
   const [billing, unreadCount, recentNotifications, openLeads, ticketsAwaitingUser] = await Promise.all([
     db.organization.findUnique({
