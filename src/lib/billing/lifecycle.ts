@@ -328,6 +328,134 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
   return summary;
 }
 
+/* ============================================================ */
+/* Mollie SaaS lifecycle — voor orgs met automatische incasso   */
+/* ============================================================ */
+
+export interface SaasLifecycleSummary {
+  /** Orgs gesuspendeerd omdat de trial voorbij is + geen Mollie sub. */
+  trialExpiredSuspended: number;
+  /** Orgs gesuspendeerd omdat een Mollie sub al > GRACE_DAYS past_due staat. */
+  pastDueSuspended: number;
+  /** Orgs gesuspendeerd omdat 'n geanuleerde sub z'n periode-einde voorbij is. */
+  canceledPeriodEndedSuspended: number;
+  total: number;
+}
+
+/**
+ * Idempotente pass die de Mollie-driven orgs door dezelfde grace-logica
+ * haalt als de legacy paidUntil-flow:
+ *
+ *   1. Trial afgelopen >GRACE_DAYS én geen Mollie sub → suspend
+ *   2. past_due >GRACE_DAYS → suspend (Mollie heeft alle retries opgegeven)
+ *   3. cancelAtPeriodEnd + currentPeriodEnd voorbij → suspend
+ *
+ * Mailflow voor reminders zit nu nog in `runTrialChecks` (3d/1d/0d).
+ * Past-due reminders versturen we elke ~3 dagen vanuit de webhook of
+ * later vanuit een aparte dunning-loop; voor v1 alleen suspend.
+ */
+export async function runSaasLifecycleChecks(
+  now: Date = new Date(),
+): Promise<SaasLifecycleSummary> {
+  const summary: SaasLifecycleSummary = {
+    trialExpiredSuspended: 0,
+    pastDueSuspended: 0,
+    canceledPeriodEndedSuspended: 0,
+    total: 0,
+  };
+
+  const graceCutoff = new Date(now.getTime() - GRACE_DAYS * MS_PER_DAY);
+
+  // 1) Trial verlopen > GRACE_DAYS + geen Mollie sub + geen legacy paidUntil
+  const trialExpired = await db.organization.findMany({
+    where: {
+      trialEndsAt: { lt: graceCutoff },
+      subscriptionId: null,
+      paidUntil: null,
+      suspendedAt: null,
+    },
+    select: { id: true, name: true, plan: true, trialEndsAt: true },
+  });
+  for (const org of trialExpired) {
+    await db.organization.update({
+      where: { id: org.id },
+      data: { suspendedAt: now },
+    });
+    await notifyRenewal(
+      { ...org, slug: "", paidUntil: org.trialEndsAt ?? null },
+      "expired",
+    );
+    await audit({
+      organizationId: org.id,
+      action: "org.trial.suspended",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { trialEndsAt: org.trialEndsAt?.toISOString(), graceDays: GRACE_DAYS },
+    });
+    summary.trialExpiredSuspended++;
+    summary.total++;
+  }
+
+  // 2) past_due > GRACE_DAYS → suspend.
+  const pastDueOrgs = await db.organization.findMany({
+    where: {
+      subscriptionStatus: "past_due",
+      lastPaymentFailedAt: { lt: graceCutoff },
+      suspendedAt: null,
+    },
+    select: { id: true, name: true, plan: true, lastPaymentFailedAt: true },
+  });
+  for (const org of pastDueOrgs) {
+    await db.organization.update({
+      where: { id: org.id },
+      data: { suspendedAt: now, subscriptionStatus: "suspended" },
+    });
+    await notifyRenewal(
+      { ...org, slug: "", paidUntil: org.lastPaymentFailedAt },
+      "expired",
+    );
+    await audit({
+      organizationId: org.id,
+      action: "org.subscription.suspended.past_due",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: {
+        lastPaymentFailedAt: org.lastPaymentFailedAt?.toISOString(),
+        graceDays: GRACE_DAYS,
+      },
+    });
+    summary.pastDueSuspended++;
+    summary.total++;
+  }
+
+  // 3) cancelAtPeriodEnd + currentPeriodEnd voorbij → suspend.
+  const expiredCancels = await db.organization.findMany({
+    where: {
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: { lt: now },
+      suspendedAt: null,
+    },
+    select: { id: true, name: true, plan: true, currentPeriodEnd: true },
+  });
+  for (const org of expiredCancels) {
+    await db.organization.update({
+      where: { id: org.id },
+      data: { suspendedAt: now, subscriptionStatus: "canceled" },
+    });
+    await audit({
+      organizationId: org.id,
+      action: "org.subscription.suspended.canceled",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { currentPeriodEnd: org.currentPeriodEnd?.toISOString() },
+    });
+    summary.canceledPeriodEndedSuspended++;
+    summary.total++;
+  }
+
+  return summary;
+}
+
 /**
  * Called from admin actions when paidUntil is set/extended manually.
  * Resets the reminder stage and clears any existing suspension so the

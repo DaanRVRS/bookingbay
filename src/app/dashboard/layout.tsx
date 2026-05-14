@@ -24,7 +24,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const [billing, unreadCount, recentNotifications, openLeads, ticketsAwaitingUser] = await Promise.all([
     db.organization.findUnique({
       where: { id: ctx.organization.id },
-      select: { paidUntil: true, suspendedAt: true, trialEndsAt: true },
+      select: {
+        paidUntil: true,
+        suspendedAt: true,
+        trialEndsAt: true,
+        subscriptionStatus: true,
+        subscriptionId: true,
+        currentPeriodEnd: true,
+        cancelAtPeriodEnd: true,
+        lastPaymentFailedAt: true,
+      },
     }),
     getUnreadCount(ctx.user.id),
     listNotificationsForUser(ctx.user.id, 8),
@@ -48,8 +57,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex min-h-svh flex-col">
       <ImpersonationBanner />
       <SubscriptionBanner
-        paidUntil={billing?.paidUntil ?? null}
         suspendedAt={billing?.suspendedAt ?? null}
+        trialEndsAt={billing?.trialEndsAt ?? null}
+        subscriptionStatus={billing?.subscriptionStatus ?? null}
+        hasMollieSubscription={Boolean(billing?.subscriptionId)}
+        currentPeriodEnd={billing?.currentPeriodEnd ?? null}
+        cancelAtPeriodEnd={billing?.cancelAtPeriodEnd ?? false}
+        lastPaymentFailedAt={billing?.lastPaymentFailedAt ?? null}
+        paidUntil={billing?.paidUntil ?? null}
       />
       <TopBar
         sidebarContent={<Sidebar counts={sidebarCounts} />}

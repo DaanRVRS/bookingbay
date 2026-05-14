@@ -9,6 +9,7 @@ import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { getIntegration } from "./catalog";
+import { syncSubscriptionAmount } from "@/lib/billing/subscription";
 
 const ORG_STATUSES = [
   "INTERESTED",
@@ -95,6 +96,10 @@ export async function adminSetIntegrationStatusAction(
       },
     });
   }
+
+  // Status-change → herrekent Mollie sub-bedrag (alleen wanneer dit het
+  // ACTIVE-totaal raakt en er een actieve sub is). Best-effort.
+  await syncSubscriptionAmount(org.id);
 
   await audit({
     organizationId: org.id,

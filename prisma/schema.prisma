@@ -137,19 +137,41 @@ model Organization {
   businessHours    Json?
 
   plan                 Plan      @default(STARTER)
-  subscriptionId       String?
+  // Mollie subscription state. Authoritative voor orgs die de
+  // standaard SaaS-flow doorlopen hebben (via /api/billing/checkout).
+  //  - "trialing"   = trial loopt, geen mandate aanwezig
+  //  - "active"     = mandate + sub actief, wordt maandelijks gecharged
+  //  - "past_due"   = laatste charge mislukt, Mollie probeert opnieuw
+  //  - "canceled"   = gebruiker heeft cancel gevraagd; loopt tot currentPeriodEnd
+  //  - "suspended"  = service uit (suspendedAt gevuld) na grace
+  //  - null         = legacy org zonder Mollie sub (admin doet paidUntil handmatig)
   subscriptionStatus   String?
+  // De Mollie subscription-id (sub_xxx) — null bij trial of legacy org.
+  subscriptionId       String?
+  // Mollie customer-id (cus_xxx). Eén keer aangemaakt, wordt hergebruikt.
+  mollieCustomerId     String?   @unique
+  // Geldige mandate-id (mdt_xxx) — gemaakt bij de allereerste first-payment.
+  // Zonder mandate kan Mollie geen recurring charge doen.
+  mollieMandateId      String?
   trialEndsAt          DateTime?
-  // The end of the currently paid period. Renewal must arrive on/before
-  // this date — otherwise reminders fire and (after a grace window)
-  // suspendedAt is set automatically.
+  // Wanneer Mollie de volgende charge probeert. Gevuld door webhook bij
+  // payment.paid → +1 maand. Gebruikt voor "verlengt op X" UI + cancellation.
+  currentPeriodEnd     DateTime?
+  // True = klant heeft 'cancel' gedrukt; service loopt door tot
+  // currentPeriodEnd, daarna suspendedAt.
+  cancelAtPeriodEnd    Boolean   @default(false)
+  // Laatste mislukte charge — UI laat dit zien in past_due state.
+  lastPaymentFailedAt  DateTime?
+  // Legacy: voor orgs van vóór de Mollie-migratie. Admin zet 'm handmatig
+  // en de cron stuurt 3d/1d/0d reminders + suspend na grace. Nieuwe orgs
+  // gebruiken currentPeriodEnd ipv hiervan.
   paidUntil            DateTime?
-  // Tracks the latest reminder we sent so the cron doesn't double-mail.
-  // 0 = none, 1 = 3-day, 2 = 1-day, 3 = due-today/expired
+  // Stage van legacy paidUntil-reminder loop. 0/1/2/3.
   paymentReminderStage Int       @default(0)
-  // Same shape but for trial-end reminders (trialEndsAt-based).
+  // Trial-end-reminder stage. 0/1/2/3/4.
   trialReminderStage   Int       @default(0)
-  // When non-null, the org is past its grace window and feature-suspended.
+  // Wanneer service uit staat (grace-period overschreden). Reads blijven
+  // open, writes worden geblokt door assertOrgActive.
   suspendedAt          DateTime?
 
   // Platform-CRM (only used by BookingBay admins): customer pipeline status
@@ -176,6 +198,7 @@ model Organization {
   integrations           OrgIntegration[]
   calendarBlocks         CalendarBlock[]
   calendarSyncStates     CalendarSyncState[]
+  paymentEvents          PaymentEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -864,6 +887,37 @@ model CalendarSyncState {
 
   @@unique([organizationId, integrationKey, calendarId])
   @@index([channelExpiresAt])
+}
+
+// ----------------------------------------------------------------------------
+// Mollie payment events — idempotency-log voor webhooks + audit trail van
+// elke charge / refund. Een Mollie webhook stuurt alleen een payment-id;
+// we slaan hier op wat we verwerkt hebben zodat we niet dubbel processen
+// bij retries en de UI een charge-historie kan laten zien.
+// ----------------------------------------------------------------------------
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  organizationId  String
+  // Mollie payment-id (tr_xxx) of subscription-id afhankelijk van eventType
+  externalId      String
+  // "payment.paid" | "payment.failed" | "payment.canceled" | "payment.expired"
+  // | "subscription.canceled" | "checkout.first.paid"
+  eventType       String
+  // Bedrag in cents (Mollie levert string-floats, wij normaliseren naar int).
+  amountCents     Int?
+  // Snapshot van de raw Mollie payload voor diagnostiek.
+  payload         Json?
+  // Eventuele Mollie subscription-id waar deze payment bij hoort.
+  subscriptionId  String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([externalId, eventType])
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId])
 }
 
 model AuditLog {

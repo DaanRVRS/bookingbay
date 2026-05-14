@@ -67,6 +67,13 @@ const envSchema = z.object({
     .regex(/^([a-fA-F0-9]{64})?$/, "Moet 64 hex-chars zijn (openssl rand -hex 32)")
     .optional()
     .default(""),
+  // ── Mollie SaaS subscriptions ──
+  // API-key voor Mollie. Begint met "live_" of "test_". Aan te maken in
+  // het Mollie-dashboard → Developers → API-keys.
+  MOLLIE_API_KEY: z.string().optional().default(""),
+  // Optioneel: Mollie profile-id (pfl_xxx). Mollie kiest 't default profile
+  // als deze leeg is — alleen instellen als je multi-profile draait.
+  MOLLIE_PROFILE_ID: z.string().optional().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

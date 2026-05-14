@@ -12,6 +12,7 @@ import type { ActionResult } from "@/lib/auth/schemas";
 import { getIntegration } from "./catalog";
 import { isGoogleConfigured, revokeToken } from "./google-calendar";
 import { unsealConfig } from "./crypto";
+import { syncSubscriptionAmount } from "@/lib/billing/subscription";
 
 /**
  * Per-koppeling slug → wat doet 'Activeer' op de detail-pagina?
@@ -393,6 +394,8 @@ export async function pauseIntegrationAction(
       // (account-email, scopes), tokens zijn nu toch revoked.
     },
   });
+  // Herrekent Mollie sub-bedrag — eerstvolgende factuur zonder deze koppeling.
+  await syncSubscriptionAmount(ctx.organization.id);
   await audit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
