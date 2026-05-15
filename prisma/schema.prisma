@@ -195,6 +195,14 @@ model Organization {
   // boek-widget loaden. Veiliger dan de slug exposen + later revokebaar.
   publicEmbedKey String? @unique
 
+  // Widget-design — alle stijl-keuzes leven server-side achter de embed-key
+  // zodat externe sites alleen `<div data-bookingbay-book="pk_xxx"></div>`
+  // hoeven te plakken. Wijzigingen in dashboard zijn meteen overal live.
+  widgetAccent String? // null = val terug op primaryColor
+  widgetWidth  String  @default("600") // "400"|"600"|"800"|"100%"
+  widgetRadius Int     @default(8)
+  widgetShadow Boolean @default(true)
+
   memberships            Membership[]
   invitations            Invitation[]
   categories             Category[]

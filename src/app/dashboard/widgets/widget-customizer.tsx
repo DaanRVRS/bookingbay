@@ -1,15 +1,23 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { saveWidgetDesignAction } from "@/lib/widget/actions";
+
+interface InitialDesign {
+  accent: string;
+  width: "400" | "600" | "800" | "100%";
+  radius: number;
+  shadow: boolean;
+}
 
 interface Props {
   slug: string;
-  /** Stripe-style public embed-key (pk_xxx) — gebruikt in de snippet zodat
-   *  externe sites de slug niet hoeven te kennen en de key revokebaar is. */
   publicEmbedKey: string;
+  initialDesign: InitialDesign;
+  /** Org's primaryColor — gebruikt als reset-default voor accentkleur. */
   defaultAccent: string;
   /** e.g. "https://bookingbay.nl" — used for the script src */
   scriptBaseUrl: string;
@@ -19,7 +27,7 @@ interface Props {
   shareBaseUrl: string;
 }
 
-const WIDTH_OPTIONS = [
+const WIDTH_OPTIONS: { id: "400" | "600" | "800" | "100%"; label: string }[] = [
   { id: "400", label: "Compact (400)" },
   { id: "600", label: "Standaard (600)" },
   { id: "800", label: "Ruim (800)" },
@@ -27,26 +35,30 @@ const WIDTH_OPTIONS = [
 ];
 
 const RADIUS_OPTIONS = [
-  { id: "0", label: "Geen" },
-  { id: "8", label: "Klein" },
-  { id: "16", label: "Groot" },
+  { id: 0, label: "Geen" },
+  { id: 8, label: "Klein" },
+  { id: 16, label: "Groot" },
 ];
 
 export function WidgetCustomizer({
   slug,
   publicEmbedKey,
+  initialDesign,
   defaultAccent,
   scriptBaseUrl,
   previewBaseUrl,
   shareBaseUrl,
 }: Props) {
-  const [accent, setAccent] = useState(defaultAccent);
-  const [width, setWidth] = useState<string>("600");
-  const [radius, setRadius] = useState<string>("8");
-  const [shadow, setShadow] = useState(true);
+  const [accent, setAccent] = useState(initialDesign.accent);
+  const [width, setWidth] = useState<"400" | "600" | "800" | "100%">(initialDesign.width);
+  const [radius, setRadius] = useState<number>(initialDesign.radius);
+  const [shadow, setShadow] = useState(initialDesign.shadow);
+  const [pending, startTransition] = useTransition();
+  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const initialRef = useRef(initialDesign);
 
   const accentForUrl = useMemo(() => accent.replace(/^#/, ""), [accent]);
 
@@ -54,18 +66,44 @@ export function WidgetCustomizer({
     accentForUrl,
   )}`;
 
-  const shareUrl = `${shareBaseUrl}/book/${slug}?accent=${encodeURIComponent(
-    accentForUrl,
-  )}`;
+  const shareUrl = `${shareBaseUrl}/book/${slug}`;
 
-  const snippet = buildSnippet({
-    embedKey: publicEmbedKey,
-    accent: accentForUrl,
-    width,
-    radius,
-    shadow,
-    scriptBaseUrl,
-  });
+  // Snippet bevat alleen de key — design leeft server-side achter de key.
+  const snippet = `<div data-bookingbay-book="${publicEmbedKey}"></div>\n<script src="${scriptBaseUrl}/embed.js" defer></script>`;
+
+  const dirty =
+    accent !== initialRef.current.accent ||
+    width !== initialRef.current.width ||
+    radius !== initialRef.current.radius ||
+    shadow !== initialRef.current.shadow;
+
+  // Auto-save: bij elke wijziging na 600ms zonder verdere wijzigingen
+  // sturen we de update naar de server. Geen save-knop nodig.
+  useEffect(() => {
+    if (!dirty) return;
+    const handle = window.setTimeout(() => {
+      startTransition(async () => {
+        const res = await saveWidgetDesignAction({
+          accent: accent || null,
+          width,
+          radius,
+          shadow,
+        });
+        if (res.ok) {
+          initialRef.current = { accent, width, radius, shadow };
+          setSavedAt(Date.now());
+          // Refresh de preview-iframe zodat 'ie de nieuwe accent uit env oppakt.
+          if (iframeRef.current) {
+            iframeRef.current.src = previewUrl + "&_=" + Date.now();
+          }
+        } else {
+          toast.error(res.error ?? "Opslaan mislukt");
+        }
+      });
+    }, 600);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accent, width, radius, shadow, dirty]);
 
   const copyText = (
     text: string,
@@ -82,7 +120,6 @@ export function WidgetCustomizer({
     );
   };
 
-  // Wrapper styles to mimic embed.js applyHostStyles in the preview
   const previewWrapperStyle: React.CSSProperties = {
     maxWidth: width === "100%" ? "100%" : `${width}px`,
     margin: "0 auto",
@@ -99,7 +136,10 @@ export function WidgetCustomizer({
       {/* Settings */}
       <div className="space-y-5">
         <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Stijl</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Stijl</h2>
+            <SaveStatus pending={pending} dirty={dirty} savedAt={savedAt} />
+          </div>
 
           <div className="mt-4 flex flex-col gap-3">
             <div>
@@ -135,17 +175,17 @@ export function WidgetCustomizer({
               <Label className="text-xs">Breedte</Label>
               <SegmentedControl
                 value={width}
-                onChange={setWidth}
-                options={WIDTH_OPTIONS}
+                onChange={(v) => setWidth(v as typeof width)}
+                options={WIDTH_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
               />
             </div>
 
             <div>
               <Label className="text-xs">Hoekradius</Label>
               <SegmentedControl
-                value={radius}
-                onChange={setRadius}
-                options={RADIUS_OPTIONS}
+                value={String(radius)}
+                onChange={(v) => setRadius(Number(v))}
+                options={RADIUS_OPTIONS.map((o) => ({ id: String(o.id), label: o.label }))}
               />
             </div>
 
@@ -159,12 +199,18 @@ export function WidgetCustomizer({
               Schaduw rondom widget
             </label>
           </div>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+            Wijzigingen worden automatisch opgeslagen en zijn meteen overal
+            live waar je widget al ingebed is.
+          </p>
         </section>
 
         <section className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Embed-code</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Plak deze HTML op je eigen site (WordPress, Wix, Squarespace, eigen HTML).
+            Plak deze HTML op je eigen site (WordPress, Wix, Squarespace, eigen
+            HTML). Eén regel — alle styling beheer je hier in het dashboard.
           </p>
           <div className="mt-3 overflow-hidden rounded-lg border border-border bg-muted/40">
             <div className="flex items-center justify-between border-b border-border bg-background/50 px-3 py-2">
@@ -265,6 +311,39 @@ export function WidgetCustomizer({
   );
 }
 
+function SaveStatus({
+  pending,
+  dirty,
+  savedAt,
+}: {
+  pending: boolean;
+  dirty: boolean;
+  savedAt: number | null;
+}) {
+  if (pending) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Loader2 className="size-3 animate-spin" />
+        Opslaan...
+      </span>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="text-[11px] text-muted-foreground">Wijzigingen…</span>
+    );
+  }
+  if (savedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] text-[oklch(0.5_0.14_150)]">
+        <Check className="size-3" />
+        Opgeslagen
+      </span>
+    );
+  }
+  return null;
+}
+
 function SegmentedControl({
   value,
   onChange,
@@ -292,27 +371,4 @@ function SegmentedControl({
       ))}
     </div>
   );
-}
-
-function buildSnippet({
-  embedKey,
-  accent,
-  width,
-  radius,
-  shadow,
-  scriptBaseUrl,
-}: {
-  embedKey: string;
-  accent: string;
-  width: string;
-  radius: string;
-  shadow: boolean;
-  scriptBaseUrl: string;
-}): string {
-  const attrs = [`data-bookingbay-book="${embedKey}"`];
-  if (accent) attrs.push(`data-bookingbay-accent="#${accent}"`);
-  if (width !== "600") attrs.push(`data-bookingbay-width="${width}"`);
-  if (radius !== "8") attrs.push(`data-bookingbay-radius="${radius}"`);
-  if (shadow) attrs.push(`data-bookingbay-shadow="1"`);
-  return `<div ${attrs.join("\n     ")}></div>\n<script src="${scriptBaseUrl}/embed.js" defer></script>`;
 }

@@ -4,11 +4,13 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 /**
- * Resolves a public embed-key (pk_xxx) to the org's slug. Used by the
- * client-side `embed.js` om de iframe-URL te bouwen zonder dat externe
- * sites de slug hoeven te kennen. Onbekende of ingetrokken keys geven 404.
+ * Resolves a public embed-key (pk_xxx) to the org's slug + widget-design.
+ * Used by the client-side `embed.js` om de iframe-URL te bouwen én de
+ * styling toe te passen — zonder dat externe sites iets meer hoeven te
+ * weten dan de key.
  *
- * Response shape: { slug: string } of { error: string }.
+ * Response shape:
+ *   { slug, accent, width, radius, shadow }
  *
  * CORS: open voor alle origins zodat het script vanaf elke website werkt.
  */
@@ -17,7 +19,9 @@ function corsHeaders(): Record<string, string> {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Cache-Control": "public, max-age=60",
+    // Korte cache: design-wijzigingen in dashboard moeten snel doorkomen,
+    // maar niet bij elke iframe-mount opnieuw fetchen.
+    "Cache-Control": "public, max-age=30",
   };
 }
 
@@ -37,7 +41,15 @@ export async function GET(req: Request) {
 
   const org = await db.organization.findUnique({
     where: { publicEmbedKey: key },
-    select: { slug: true, suspendedAt: true },
+    select: {
+      slug: true,
+      suspendedAt: true,
+      primaryColor: true,
+      widgetAccent: true,
+      widgetWidth: true,
+      widgetRadius: true,
+      widgetShadow: true,
+    },
   });
   if (!org) {
     return NextResponse.json(
@@ -52,5 +64,14 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ slug: org.slug }, { headers: corsHeaders() });
+  return NextResponse.json(
+    {
+      slug: org.slug,
+      accent: org.widgetAccent ?? org.primaryColor ?? "#ef5934",
+      width: org.widgetWidth,
+      radius: org.widgetRadius,
+      shadow: org.widgetShadow,
+    },
+    { headers: corsHeaders() },
+  );
 }

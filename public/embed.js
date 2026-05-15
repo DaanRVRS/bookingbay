@@ -1,19 +1,16 @@
 /**
  * BookingBay embed loader.
  *
- * Plak dit op je eigen website:
+ * Plak dit op je eigen website (één regel — alle styling beheer je in je
+ * BookingBay-dashboard onder "Widget"):
+ *
  *   <div data-bookingbay-book="pk_xxx"></div>
  *   <script src="https://bookingbay.nl/embed.js" defer></script>
  *
- * data-bookingbay-book accepteert zowel een PUBLIC KEY (`pk_xxx`) — aan te
- * raden — als een rauwe slug voor backwards-compat. Bij een key doet het
- * script eerst een lookup om de bijbehorende slug op te halen.
- *
- * Optionele customization-attributen op het host-element:
- *   data-bookingbay-accent="#ff6b3d"   -> overschrijf accentkleur
- *   data-bookingbay-width="600"        -> max breedte in px (of "100%")
- *   data-bookingbay-radius="16"        -> hoekradius in px
- *   data-bookingbay-shadow="1"         -> 1 of "true" voor schaduw, anders geen
+ * De widget haalt z'n design (accentkleur, breedte, hoekradius, schaduw)
+ * server-side op via /api/embed/lookup en past het automatisch toe — dus
+ * jouw wijzigingen in het dashboard zijn meteen overal live, zonder dat
+ * iemand de embed-code hoeft aan te passen.
  *
  * De iframe groeit automatisch mee via postMessage("bookingbay:height").
  */
@@ -69,32 +66,27 @@
     }
   }
 
-  function isTruthy(v) {
-    return v === "1" || v === "true" || v === "yes";
-  }
-
   function buildBookUrl(slug, accent) {
     var url = tenantBase(slug) + "/embed/book";
     if (accent) {
-      var hex = accent.replace(/^#/, "");
+      var hex = String(accent).replace(/^#/, "");
       url += "?accent=" + encodeURIComponent(hex);
     }
     return url;
   }
 
-  function applyHostStyles(host, opts) {
-    if (opts.width) {
-      var w = String(opts.width).trim();
-      host.style.maxWidth = /^\d+$/.test(w) ? w + "px" : w;
-      if (!host.style.marginLeft) host.style.marginLeft = "auto";
-      if (!host.style.marginRight) host.style.marginRight = "auto";
-    }
-    var radius = opts.radius != null ? Number(opts.radius) : null;
-    if (radius != null && !Number.isNaN(radius)) {
+  function applyHostStyles(host, design) {
+    var w = String(design.width || "600").trim();
+    host.style.maxWidth = /^\d+$/.test(w) ? w + "px" : w;
+    if (!host.style.marginLeft) host.style.marginLeft = "auto";
+    if (!host.style.marginRight) host.style.marginRight = "auto";
+
+    var radius = Number(design.radius);
+    if (!Number.isNaN(radius) && radius > 0) {
       host.style.borderRadius = radius + "px";
       host.style.overflow = "hidden";
     }
-    if (opts.shadow) {
+    if (design.shadow) {
       host.style.boxShadow =
         "0 4px 20px -4px rgba(0,0,0,0.10), 0 2px 6px -2px rgba(0,0,0,0.06)";
     }
@@ -115,8 +107,8 @@
     return iframe;
   }
 
-  // Cache van resolved keys → slug, zodat herhaalde mounts in dezelfde
-  // pageview niet opnieuw fetchen.
+  // Cache van resolved keys → { slug, design }, zodat herhaalde mounts in
+  // dezelfde pageview niet opnieuw fetchen.
   var keyCache = {};
 
   function resolveKey(key) {
@@ -130,20 +122,9 @@
       })
       .then(function (data) {
         if (!data || !data.slug) throw new Error("missing-slug");
-        keyCache[key] = data.slug;
-        return data.slug;
+        keyCache[key] = data;
+        return data;
       });
-  }
-
-  function mountWithSlug(host, slug, accent, width, radius, shadow) {
-    host.setAttribute("data-bookingbay-mounted", "1");
-    host.style.position = host.style.position || "relative";
-    applyHostStyles(host, { width: width, radius: radius, shadow: shadow });
-
-    var iframe = makeIframe(buildBookUrl(slug, accent), "BookingBay - boeken");
-    host.innerHTML = "";
-    host.appendChild(iframe);
-    iframes.push({ el: iframe });
   }
 
   function showError(host) {
@@ -160,30 +141,30 @@
       var value = host.getAttribute("data-bookingbay-book");
       if (!value) return;
 
-      var accent = host.getAttribute("data-bookingbay-accent");
-      var width = host.getAttribute("data-bookingbay-width");
-      var radius = host.getAttribute("data-bookingbay-radius");
-      var shadow = isTruthy(host.getAttribute("data-bookingbay-shadow"));
+      // Mark vroeg zodat de MutationObserver niet opnieuw triggert tijdens
+      // de pending fetch.
+      host.setAttribute("data-bookingbay-mounted", "1");
 
-      // Public key → eerst slug ophalen via lookup. Anders direct mounten
-      // (raw slug, backwards-compat).
-      if (value.indexOf("pk_") === 0) {
-        // Mark as mounted vroeg zodat MutationObserver niet opnieuw triggert
-        // tijdens de pending fetch.
-        host.setAttribute("data-bookingbay-mounted", "1");
-        resolveKey(value)
-          .then(function (slug) {
-            // Reset mounted-marker zodat mountWithSlug 'm netjes opnieuw zet,
-            // en cleanup InnerHTML als er per ongeluk content was.
-            mountWithSlug(host, slug, accent, width, radius, shadow);
-          })
-          .catch(function (err) {
-            console.error("[BookingBay] key-lookup faalde:", err);
-            showError(host);
+      resolveKey(value)
+        .then(function (config) {
+          host.style.position = host.style.position || "relative";
+          applyHostStyles(host, {
+            width: config.width,
+            radius: config.radius,
+            shadow: config.shadow,
           });
-      } else {
-        mountWithSlug(host, value, accent, width, radius, shadow);
-      }
+          var iframe = makeIframe(
+            buildBookUrl(config.slug, config.accent),
+            "BookingBay - boeken",
+          );
+          host.innerHTML = "";
+          host.appendChild(iframe);
+          iframes.push({ el: iframe });
+        })
+        .catch(function (err) {
+          console.error("[BookingBay] key-lookup faalde:", err);
+          showError(host);
+        });
     });
   }
 

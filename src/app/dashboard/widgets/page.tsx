@@ -7,6 +7,10 @@ import { ensurePublicEmbedKey } from "@/lib/orgs/embed-key";
 
 export const metadata = { title: "Widget" };
 
+const DEFAULT_ACCENT_FALLBACK = "#ef5934";
+const ALLOWED_WIDTHS = ["400", "600", "800", "100%"] as const;
+type AllowedWidth = (typeof ALLOWED_WIDTHS)[number];
+
 export default async function WidgetsPage() {
   const ctx = await requireOrg();
   const org = await db.organization.findUnique({
@@ -17,12 +21,14 @@ export default async function WidgetsPage() {
       slug: true,
       primaryColor: true,
       publicEmbedKey: true,
+      widgetAccent: true,
+      widgetWidth: true,
+      widgetRadius: true,
+      widgetShadow: true,
     },
   });
   if (!org) throw new Error("Organization not found");
 
-  // Lazy backfill voor orgs die voor de migratie zonder publicEmbedKey
-  // zijn aangemaakt — eerste keer dat de page geladen wordt zetten we 'm.
   const publicEmbedKey =
     org.publicEmbedKey ?? (await ensurePublicEmbedKey(org.id));
 
@@ -30,7 +36,16 @@ export default async function WidgetsPage() {
   const scriptBaseUrl = `${protocol}://${env.TENANT_DOMAIN}`;
   const previewBaseUrl = `${protocol}://${org.slug}.${env.TENANT_DOMAIN}`;
   const shareBaseUrl = env.APP_URL.replace(/\/$/, "");
-  const defaultAccent = org.primaryColor ?? "#ef5934";
+  const defaultAccent = org.primaryColor ?? DEFAULT_ACCENT_FALLBACK;
+
+  const initialDesign = {
+    accent: org.widgetAccent ?? defaultAccent,
+    width: (ALLOWED_WIDTHS as readonly string[]).includes(org.widgetWidth)
+      ? (org.widgetWidth as AllowedWidth)
+      : ("600" as AllowedWidth),
+    radius: org.widgetRadius,
+    shadow: org.widgetShadow,
+  };
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -44,6 +59,7 @@ export default async function WidgetsPage() {
           <WidgetCustomizer
             slug={org.slug}
             publicEmbedKey={publicEmbedKey}
+            initialDesign={initialDesign}
             defaultAccent={defaultAccent}
             scriptBaseUrl={scriptBaseUrl}
             previewBaseUrl={previewBaseUrl}
