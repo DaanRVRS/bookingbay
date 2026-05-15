@@ -24,6 +24,22 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
 export async function createPublicBookingAction(
   input: PublicBookingInput,
 ): Promise<ActionResult<{ id: string; redirectUrl?: string }>> {
+  try {
+    return await createPublicBookingActionInner(input);
+  } catch (err) {
+    // Public widget mag NOOIT een 500-page tonen aan bezoekers — vang alle
+    // unexpected throws hier af en log naar pm2 voor diagnose.
+    console.error("[public-booking] uncaught error in action:", err);
+    return {
+      ok: false,
+      error: "Er ging iets mis bij het aanmaken van je boeking. Probeer 't opnieuw.",
+    };
+  }
+}
+
+async function createPublicBookingActionInner(
+  input: PublicBookingInput,
+): Promise<ActionResult<{ id: string; redirectUrl?: string }>> {
   const parsed = publicBookingSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
