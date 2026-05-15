@@ -179,6 +179,18 @@ model Organization {
   crmStatus String @default("active")
   crmTags   Json   @default("[]")
 
+  // Tenant-side payment configuration. Bepaalt wat een klant ziet bij een
+  // boeking via de publieke widget. "LOCATION" = standaard, klant betaalt bij
+  // ophalen. "MOLLIE" of "STRIPE" = redirect naar checkout met de tenant's
+  // EIGEN API-key (versleuteld via lib/integrations/crypto). Slechts één van
+  // de twee keys mag tegelijk gevuld zijn.
+  paymentProvider     String  @default("LOCATION") // LOCATION | MOLLIE | STRIPE
+  // Encrypted API-keys (AES-256-GCM). Null als niet ingesteld.
+  paymentMollieKeyEnc String?
+  paymentStripeKeyEnc String?
+  // Optioneel webhook-secret voor Stripe (whsec_...) — Mollie heeft dit niet.
+  paymentStripeWebhookSecretEnc String?
+
   memberships            Membership[]
   invitations            Invitation[]
   categories             Category[]
@@ -390,6 +402,14 @@ model Booking {
   // Shape: { googleCalendar: { eventId, calendarId }, mollie: { paymentId }, ... }
   // Iedere integratie schrijft onder z'n eigen key. Null = nooit gesynced.
   externalRefs   Json?
+
+  // Online betaal-status voor boekingen die via een tenant-payment-provider
+  // (Mollie/Stripe) zijn gemaakt. Null = pay-on-location of nog niet gestart.
+  paymentStatus   String? // UNPAID | PAID | EXPIRED | REFUNDED
+  paymentProvider String? // mollie | stripe — welke provider gebruikt is
+  // Provider-specific id (Mollie tr_xxx of Stripe cs_xxx) zodat webhooks
+  // de juiste boeking kunnen vinden.
+  paymentRef      String? @unique
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])

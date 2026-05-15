@@ -3,8 +3,10 @@ import { db } from "@/lib/db";
 import { OrgSettingsForm } from "./org-settings-form";
 import { DangerZone } from "./danger-zone";
 import { BusinessHoursSection } from "./business-hours-section";
+import { PaymentSection } from "./payment-section";
 import { can } from "@/lib/auth/permissions";
 import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
+import { readPaymentConfig, maskKey } from "@/lib/payments/config";
 
 export const metadata = { title: "Organisatie" };
 
@@ -25,8 +27,10 @@ export default async function OrgSettingsPage() {
   });
   if (!org) throw new Error("Organization missing");
   const businessHours = safeParseBusinessHours(org.businessHours);
+  const paymentConfig = await readPaymentConfig(org.id);
 
   const isOwner = can(ctx.membership.role, "org:manage");
+  const isBilling = can(ctx.membership.role, "org:billing");
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,6 +71,31 @@ export default async function OrgSettingsPage() {
           {!isOwner && (
             <p className="mt-3 text-xs text-muted-foreground">
               Alleen Eigenaren mogen openingstijden wijzigen.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">Betalen</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Hoe wil je dat klanten in de boekwidget afrekenen? &quot;Op locatie&quot; is
+          de standaard — wil je online betalen, vul dan een Mollie- óf Stripe-key
+          in (één van de twee tegelijk).
+        </p>
+        <div className="mt-5">
+          <PaymentSection
+            initial={{
+              provider: paymentConfig.provider,
+              mollieKeyMasked: maskKey(paymentConfig.mollieKey),
+              stripeKeyMasked: maskKey(paymentConfig.stripeKey),
+              hasStripeWebhookSecret: Boolean(paymentConfig.stripeWebhookSecret),
+            }}
+            disabled={!isBilling}
+          />
+          {!isBilling && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Alleen rollen met facturatie-rechten kunnen betaalmethodes wijzigen.
             </p>
           )}
         </div>

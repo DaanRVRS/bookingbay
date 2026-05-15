@@ -229,6 +229,25 @@ export function PublicBookingForm({
         toast.error(res.error);
         return;
       }
+      // Tenant heeft online betalen aan staan → redirect naar checkout.
+      if (res.data?.redirectUrl) {
+        const target = res.data.redirectUrl;
+        if (window.top && window.top !== window.self) {
+          // Iframe-context (embed): break out of iframe zodat de checkout-page
+          // op volle breedte opent ipv binnen de host-pagina.
+          try {
+            window.top.location.href = target;
+            return;
+          } catch {
+            // cross-origin frame — val terug op _blank
+            window.open(target, "_blank", "noopener");
+            setDone(true);
+            return;
+          }
+        }
+        window.location.href = target;
+        return;
+      }
       setDone(true);
     });
   });

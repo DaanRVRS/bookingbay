@@ -7,6 +7,10 @@ import { audit } from "@/lib/audit/log";
 import { publicBookingSchema, type PublicBookingInput } from "./public-schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { syncBookingExternal } from "@/lib/integrations/sync-booking";
+import { env } from "@/lib/env";
+import { readPaymentConfig } from "@/lib/payments/config";
+import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
+import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -19,7 +23,7 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
 
 export async function createPublicBookingAction(
   input: PublicBookingInput,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; redirectUrl?: string }>> {
   const parsed = publicBookingSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
@@ -131,7 +135,68 @@ export async function createPublicBookingAction(
     console.error("[public-booking] external sync mislukt:", err);
   }
 
-  return { ok: true, data: { id: booking.id } };
+  // Online betaal-flow: als de tenant Mollie of Stripe ingesteld heeft, maak
+  // direct een payment aan en geef de checkout-URL terug. Bij faal: boeking
+  // blijft staan als UNPAID — tenant kan later handmatig confirmen of zelf
+  // een payment-link sturen. We willen niet failen op de boeking zelf.
+  let redirectUrl: string | undefined;
+  if (estimate > 0) {
+    try {
+      const paymentCfg = await readPaymentConfig(org.id);
+      const baseUrl = env.APP_URL.replace(/\/$/, "");
+      const successUrl = `${baseUrl}/book/${data.slug}/betaling/${booking.id}?status=ok`;
+      const cancelUrl = `${baseUrl}/book/${data.slug}/betaling/${booking.id}?status=annulered`;
+
+      if (paymentCfg.provider === "MOLLIE" && paymentCfg.mollieKey) {
+        const webhookUrl = `${baseUrl}/api/payments/mollie/webhook`;
+        const result = await createMolliePaymentForBooking({
+          apiKey: paymentCfg.mollieKey,
+          amountEuro: estimate,
+          description: `Boeking ${item.id.slice(-6)}`,
+          redirectUrl: successUrl,
+          webhookUrl,
+          bookingId: booking.id,
+        });
+        await db.booking.update({
+          where: { id: booking.id },
+          data: {
+            paymentStatus: "UNPAID",
+            paymentProvider: "mollie",
+            paymentRef: result.paymentId,
+          },
+        });
+        redirectUrl = result.checkoutUrl;
+      } else if (paymentCfg.provider === "STRIPE" && paymentCfg.stripeKey) {
+        const result = await createStripeCheckoutForBooking({
+          apiKey: paymentCfg.stripeKey,
+          amountEuro: estimate,
+          description: `Boeking ${item.id.slice(-6)}`,
+          successUrl,
+          cancelUrl,
+          bookingId: booking.id,
+        });
+        await db.booking.update({
+          where: { id: booking.id },
+          data: {
+            paymentStatus: "UNPAID",
+            paymentProvider: "stripe",
+            paymentRef: result.sessionId,
+          },
+        });
+        redirectUrl = result.checkoutUrl;
+      }
+    } catch (err) {
+      console.error("[public-booking] payment-create mislukt:", err);
+      // Boeking blijft staan — tenant ziet 'm in dashboard en kan handmatig
+      // afhandelen. Voor de bezoeker doen we alsof het normale "op locatie"-flow
+      // is zodat ze niet met een rode error blijven zitten.
+    }
+  }
+
+  return {
+    ok: true,
+    data: { id: booking.id, redirectUrl },
+  };
 }
 
 const AVAILABILITY_LOOKAHEAD_DAYS = 180;
