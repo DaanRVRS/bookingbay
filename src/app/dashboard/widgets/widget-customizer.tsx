@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 
 interface Props {
   slug: string;
+  /** Stripe-style public embed-key (pk_xxx) — gebruikt in de snippet zodat
+   *  externe sites de slug niet hoeven te kennen en de key revokebaar is. */
+  publicEmbedKey: string;
   defaultAccent: string;
   /** e.g. "https://bookingbay.nl" — used for the script src */
   scriptBaseUrl: string;
@@ -31,6 +34,7 @@ const RADIUS_OPTIONS = [
 
 export function WidgetCustomizer({
   slug,
+  publicEmbedKey,
   defaultAccent,
   scriptBaseUrl,
   previewBaseUrl,
@@ -55,7 +59,7 @@ export function WidgetCustomizer({
   )}`;
 
   const snippet = buildSnippet({
-    slug,
+    embedKey: publicEmbedKey,
     accent: accentForUrl,
     width,
     radius,
@@ -291,21 +295,21 @@ function SegmentedControl({
 }
 
 function buildSnippet({
-  slug,
+  embedKey,
   accent,
   width,
   radius,
   shadow,
   scriptBaseUrl,
 }: {
-  slug: string;
+  embedKey: string;
   accent: string;
   width: string;
   radius: string;
   shadow: boolean;
   scriptBaseUrl: string;
 }): string {
-  const attrs = [`data-bookingbay-book="${slug}"`];
+  const attrs = [`data-bookingbay-book="${embedKey}"`];
   if (accent) attrs.push(`data-bookingbay-accent="#${accent}"`);
   if (width !== "600") attrs.push(`data-bookingbay-width="${width}"`);
   if (radius !== "8") attrs.push(`data-bookingbay-radius="${radius}"`);

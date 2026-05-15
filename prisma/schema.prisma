@@ -191,6 +191,10 @@ model Organization {
   // Optioneel webhook-secret voor Stripe (whsec_...) — Mollie heeft dit niet.
   paymentStripeWebhookSecretEnc String?
 
+  // Publieke embed-sleutel (Stripe-stijl `pk_xxx`) waarmee externe sites de
+  // boek-widget loaden. Veiliger dan de slug exposen + later revokebaar.
+  publicEmbedKey String? @unique
+
   memberships            Membership[]
   invitations            Invitation[]
   categories             Category[]

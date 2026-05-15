@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { WidgetCustomizer } from "./widget-customizer";
+import { ensurePublicEmbedKey } from "@/lib/orgs/embed-key";
 
 export const metadata = { title: "Widget" };
 
@@ -10,9 +11,20 @@ export default async function WidgetsPage() {
   const ctx = await requireOrg();
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
-    select: { id: true, name: true, slug: true, primaryColor: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      primaryColor: true,
+      publicEmbedKey: true,
+    },
   });
   if (!org) throw new Error("Organization not found");
+
+  // Lazy backfill voor orgs die voor de migratie zonder publicEmbedKey
+  // zijn aangemaakt — eerste keer dat de page geladen wordt zetten we 'm.
+  const publicEmbedKey =
+    org.publicEmbedKey ?? (await ensurePublicEmbedKey(org.id));
 
   const protocol = env.APP_URL.startsWith("https") ? "https" : "http";
   const scriptBaseUrl = `${protocol}://${env.TENANT_DOMAIN}`;
@@ -31,6 +43,7 @@ export default async function WidgetsPage() {
         <div className="mt-6">
           <WidgetCustomizer
             slug={org.slug}
+            publicEmbedKey={publicEmbedKey}
             defaultAccent={defaultAccent}
             scriptBaseUrl={scriptBaseUrl}
             previewBaseUrl={previewBaseUrl}

@@ -2,8 +2,12 @@
  * BookingBay embed loader.
  *
  * Plak dit op je eigen website:
- *   <div data-bookingbay-book="<slug>"></div>
+ *   <div data-bookingbay-book="pk_xxx"></div>
  *   <script src="https://bookingbay.nl/embed.js" defer></script>
+ *
+ * data-bookingbay-book accepteert zowel een PUBLIC KEY (`pk_xxx`) — aan te
+ * raden — als een rauwe slug voor backwards-compat. Bij een key doet het
+ * script eerst een lookup om de bijbehorende slug op te halen.
  *
  * Optionele customization-attributen op het host-element:
  *   data-bookingbay-accent="#ff6b3d"   -> overschrijf accentkleur
@@ -111,27 +115,75 @@
     return iframe;
   }
 
+  // Cache van resolved keys → slug, zodat herhaalde mounts in dezelfde
+  // pageview niet opnieuw fetchen.
+  var keyCache = {};
+
+  function resolveKey(key) {
+    if (keyCache[key]) return Promise.resolve(keyCache[key]);
+    return fetch(BASE + "/api/embed/lookup?key=" + encodeURIComponent(key), {
+      credentials: "omit",
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("lookup-" + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || !data.slug) throw new Error("missing-slug");
+        keyCache[key] = data.slug;
+        return data.slug;
+      });
+  }
+
+  function mountWithSlug(host, slug, accent, width, radius, shadow) {
+    host.setAttribute("data-bookingbay-mounted", "1");
+    host.style.position = host.style.position || "relative";
+    applyHostStyles(host, { width: width, radius: radius, shadow: shadow });
+
+    var iframe = makeIframe(buildBookUrl(slug, accent), "BookingBay - boeken");
+    host.innerHTML = "";
+    host.appendChild(iframe);
+    iframes.push({ el: iframe });
+  }
+
+  function showError(host) {
+    host.setAttribute("data-bookingbay-mounted", "1");
+    host.innerHTML =
+      '<div style="padding:16px;border:1px dashed #d4d4d4;border-radius:12px;font:13px system-ui;color:#737373;text-align:center">Boek-widget kon niet laden &mdash; controleer de embed-key.</div>';
+  }
+
   function mount() {
     var nodes = document.querySelectorAll(
       "[data-bookingbay-book]:not([data-bookingbay-mounted])",
     );
     Array.prototype.forEach.call(nodes, function (host) {
-      var slug = host.getAttribute("data-bookingbay-book");
-      if (!slug) return;
+      var value = host.getAttribute("data-bookingbay-book");
+      if (!value) return;
 
       var accent = host.getAttribute("data-bookingbay-accent");
       var width = host.getAttribute("data-bookingbay-width");
       var radius = host.getAttribute("data-bookingbay-radius");
       var shadow = isTruthy(host.getAttribute("data-bookingbay-shadow"));
 
-      host.setAttribute("data-bookingbay-mounted", "1");
-      host.style.position = host.style.position || "relative";
-      applyHostStyles(host, { width: width, radius: radius, shadow: shadow });
-
-      var iframe = makeIframe(buildBookUrl(slug, accent), "BookingBay - boeken");
-      host.innerHTML = "";
-      host.appendChild(iframe);
-      iframes.push({ el: iframe });
+      // Public key → eerst slug ophalen via lookup. Anders direct mounten
+      // (raw slug, backwards-compat).
+      if (value.indexOf("pk_") === 0) {
+        // Mark as mounted vroeg zodat MutationObserver niet opnieuw triggert
+        // tijdens de pending fetch.
+        host.setAttribute("data-bookingbay-mounted", "1");
+        resolveKey(value)
+          .then(function (slug) {
+            // Reset mounted-marker zodat mountWithSlug 'm netjes opnieuw zet,
+            // en cleanup InnerHTML als er per ongeluk content was.
+            mountWithSlug(host, slug, accent, width, radius, shadow);
+          })
+          .catch(function (err) {
+            console.error("[BookingBay] key-lookup faalde:", err);
+            showError(host);
+          });
+      } else {
+        mountWithSlug(host, value, accent, width, radius, shadow);
+      }
     });
   }
 
