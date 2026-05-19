@@ -2,25 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
-  Calendar,
   Check,
   Copy,
-  CreditCard,
   ExternalLink,
+  GripVertical,
   Loader2,
-  MapPin,
-  Package,
-  User,
+  Plus,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { saveWidgetDesignAction } from "@/lib/widget/actions";
+import { WIDGET_LOCALES, type WidgetLocale } from "@/lib/widget/i18n";
 
 interface InitialDesign {
   accent: string;
   width: "400" | "600" | "800" | "100%";
   radius: number;
   shadow: boolean;
+  usps: string[];
+  tagline: string;
+  defaultLocale: string;
 }
 
 interface Props {
@@ -39,6 +42,8 @@ const RADIUS_OPTIONS = [
   { id: 16, label: "Groot" },
 ];
 
+const MAX_USPS = 6;
+
 export function WidgetCustomizer({
   slug,
   publicEmbedKey,
@@ -50,6 +55,11 @@ export function WidgetCustomizer({
   const [accent, setAccent] = useState(initialDesign.accent);
   const [radius, setRadius] = useState<number>(initialDesign.radius);
   const [shadow, setShadow] = useState(initialDesign.shadow);
+  const [tagline, setTagline] = useState(initialDesign.tagline);
+  const [usps, setUsps] = useState<string[]>(initialDesign.usps);
+  const [defaultLocale, setDefaultLocale] = useState(
+    initialDesign.defaultLocale,
+  );
   const [pending, startTransition] = useTransition();
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
@@ -59,12 +69,18 @@ export function WidgetCustomizer({
   const shareUrl = `${shareBaseUrl}/book/${slug}`;
   const snippet = `<div data-bookingbay-book="${publicEmbedKey}"></div>\n<script src="${scriptBaseUrl}/embed.js" defer></script>`;
 
+  const cleanUsps = usps.map((u) => u.trim()).filter(Boolean);
+
   const dirty =
     accent !== initialRef.current.accent ||
     radius !== initialRef.current.radius ||
-    shadow !== initialRef.current.shadow;
+    shadow !== initialRef.current.shadow ||
+    tagline.trim() !== initialRef.current.tagline.trim() ||
+    defaultLocale !== initialRef.current.defaultLocale ||
+    cleanUsps.join("|") !==
+      initialRef.current.usps.map((u) => u.trim()).filter(Boolean).join("|");
 
-  // Auto-save (600ms debounce). Breedte is altijd "100%" → de widget is
+  // Auto-save (700ms debounce). Breedte is altijd "100%" → de widget is
   // responsive en past zich aan de host-container aan.
   useEffect(() => {
     if (!dirty) return;
@@ -75,18 +91,51 @@ export function WidgetCustomizer({
           width: "100%",
           radius,
           shadow,
+          usps: cleanUsps,
+          tagline: tagline.trim() || null,
+          defaultLocale: defaultLocale as WidgetLocale,
         });
         if (res.ok) {
-          initialRef.current = { accent, width: "100%", radius, shadow };
+          initialRef.current = {
+            accent,
+            width: "100%",
+            radius,
+            shadow,
+            usps: cleanUsps,
+            tagline: tagline.trim(),
+            defaultLocale,
+          };
           setSavedAt(Date.now());
         } else {
           toast.error(res.error ?? "Opslaan mislukt");
         }
       });
-    }, 600);
+    }, 700);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, radius, shadow, dirty]);
+  }, [accent, radius, shadow, tagline, defaultLocale, usps, dirty]);
+
+  // Live voorbeeld = iframe van de échte /book pagina (1-op-1 design,
+  // echte bedrijfsnaam). Preview-query overschrijft tijdelijk de
+  // opgeslagen waarden zodat het meebeweegt vóór de save klaar is.
+  const previewUrl = useMemo(() => {
+    const qs = new URLSearchParams();
+    qs.set("preview", "1");
+    qs.set("accent", accent.replace(/^#/, ""));
+    qs.set("radius", String(radius));
+    qs.set("shadow", shadow ? "1" : "0");
+    qs.set("tagline", tagline.trim());
+    qs.set("usps", cleanUsps.map((u) => encodeURIComponent(u)).join("|"));
+    qs.set("lang", defaultLocale);
+    return `${shareUrl}?${qs.toString()}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accent, radius, shadow, tagline, usps, defaultLocale, shareUrl]);
+
+  const [previewSrc, setPreviewSrc] = useState(previewUrl);
+  useEffect(() => {
+    const h = window.setTimeout(() => setPreviewSrc(previewUrl), 500);
+    return () => window.clearTimeout(h);
+  }, [previewUrl]);
 
   const copyText = (
     text: string,
@@ -103,9 +152,16 @@ export function WidgetCustomizer({
     );
   };
 
+  const updateUsp = (i: number, v: string) =>
+    setUsps((prev) => prev.map((u, idx) => (idx === i ? v : u)));
+  const removeUsp = (i: number) =>
+    setUsps((prev) => prev.filter((_, idx) => idx !== i));
+  const addUsp = () =>
+    setUsps((prev) => (prev.length >= MAX_USPS ? prev : [...prev, ""]));
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-      {/* Settings */}
+    <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+      {/* Opties */}
       <div className="space-y-5">
         {/* Embed-code — staat bewust bovenaan: dit is wat de gebruiker nodig
             heeft om de widget op zijn site te zetten. Alle styling daaronder. */}
@@ -241,282 +297,134 @@ export function WidgetCustomizer({
               Schaduw rondom widget
             </label>
           </div>
-
-          <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-            De widget is responsive — hij past zich automatisch aan de breedte
-            van je site aan. Wijzigingen worden direct opgeslagen en zijn
-            overal live waar de widget al staat.
-          </p>
         </section>
-      </div>
 
-      {/* Voorbeeld — statische mockup, klik de stappen om te zien hoe het oogt */}
-      <div>
-        <div className="sticky top-4">
-          <div className="flex items-center justify-between pb-2">
-            <h2 className="text-sm font-semibold">Voorbeeld</h2>
-            <span className="text-[11px] text-muted-foreground">
-              klik de stappen om te zien hoe het verandert
-            </span>
-          </div>
-          <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 sm:p-8">
-            <WidgetMock accent={accent} radius={radius} shadow={shadow} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold">Tekst & taal</h2>
 
-/* --------------------------------------------------------------------- */
-/* Statische, klikbare preview-mockup — géén echte boeking, puur visueel  */
-/* --------------------------------------------------------------------- */
+          <div className="mt-4 flex flex-col gap-4">
+            <div>
+              <Label htmlFor="tagline" className="text-xs">
+                Subkop (onder je bedrijfsnaam)
+              </Label>
+              <input
+                id="tagline"
+                type="text"
+                value={tagline}
+                maxLength={80}
+                onChange={(e) => setTagline(e.target.value)}
+                placeholder="Bv. Verhuur in hartje Amsterdam"
+                className="mt-1.5 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Optioneel. Laat leeg om niets te tonen.
+              </p>
+            </div>
 
-const STEPS = [
-  { id: 0, label: "Categorie", icon: Package },
-  { id: 1, label: "Item", icon: Package },
-  { id: 2, label: "Gegevens", icon: User },
-  { id: 3, label: "Betalen", icon: CreditCard },
-] as const;
-
-function WidgetMock({
-  accent,
-  radius,
-  shadow,
-}: {
-  accent: string;
-  radius: number;
-  shadow: boolean;
-}) {
-  const [step, setStep] = useState(0);
-
-  return (
-    <div
-      className="mx-auto max-w-md overflow-hidden border border-border bg-background"
-      style={{
-        borderRadius: `${radius}px`,
-        boxShadow: shadow
-          ? "0 18px 50px -20px rgba(0,0,0,0.22), 0 4px 12px -4px rgba(0,0,0,0.10)"
-          : undefined,
-      }}
-    >
-      {/* Browserbalk */}
-      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
-        <span className="size-2.5 rounded-full bg-[oklch(0.7_0.17_25)]" />
-        <span className="size-2.5 rounded-full bg-[oklch(0.8_0.13_85)]" />
-        <span className="size-2.5 rounded-full bg-[oklch(0.7_0.13_150)]" />
-        <span className="ml-3 flex-1 truncate rounded-md bg-background px-3 py-1 text-center text-[10px] text-muted-foreground">
-          🔒 jouwsite.nl/boeken
-        </span>
-      </div>
-
-      <div className="p-5">
-        {/* Merk-rij */}
-        <div className="flex items-start justify-between">
-          <div>
-            <p
-              className="text-[10px] font-bold tracking-[0.18em] uppercase"
-              style={{ color: accent }}
-            >
-              Boek direct
-            </p>
-            <p className="mt-0.5 text-xl font-bold tracking-tight">
-              Jouw bedrijf
-            </p>
-          </div>
-          <div
-            className="grid size-10 place-items-center rounded-lg text-sm font-bold text-white"
-            style={{ background: accent }}
-          >
-            JB
-          </div>
-        </div>
-
-        {/* Voortgangsbalk */}
-        <div className="mt-4 flex gap-1.5">
-          {STEPS.map((s) => (
-            <span
-              key={s.id}
-              className="h-1.5 flex-1 rounded-full transition-colors"
-              style={{
-                background:
-                  s.id <= step ? accent : "var(--muted)",
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Klikbare stap-tabs */}
-        <div className="mt-4 grid grid-cols-4 gap-1.5">
-          {STEPS.map((s) => {
-            const active = s.id === step;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setStep(s.id)}
-                className="rounded-lg border px-1 py-2 text-center transition-all"
-                style={{
-                  borderColor: active ? accent : "var(--border)",
-                  background: active ? `${accent}14` : "transparent",
-                }}
+            <div>
+              <Label htmlFor="lang" className="text-xs">
+                Standaardtaal van de widget
+              </Label>
+              <select
+                id="lang"
+                value={defaultLocale}
+                onChange={(e) => setDefaultLocale(e.target.value)}
+                className="mt-1.5 h-9 w-full rounded-md border border-border bg-background px-2.5 text-sm"
               >
-                <span
-                  className="block text-[10px] font-semibold"
-                  style={{ color: active ? accent : "var(--muted-foreground)" }}
-                >
-                  {s.id + 1}. {s.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Stap-inhoud (representatief, niet functioneel) */}
-        <div className="mt-5 min-h-[210px]">
-          {step === 0 && <MockCategory accent={accent} />}
-          {step === 1 && <MockItem accent={accent} />}
-          {step === 2 && <MockDetails accent={accent} />}
-          {step === 3 && <MockPay accent={accent} />}
-        </div>
-
-        {/* Primaire knop */}
-        <button
-          type="button"
-          onClick={() => setStep((s) => (s + 1) % STEPS.length)}
-          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white"
-          style={{ background: accent }}
-        >
-          {step < 3 ? "Volgende stap" : "Boeking bevestigen"}
-        </button>
-        <p className="mt-2 text-center text-[10px] text-muted-foreground">
-          Mogelijk gemaakt door BookingBay
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function MockLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-      {children}
-    </p>
-  );
-}
-
-function MockCategory({ accent }: { accent: string }) {
-  return (
-    <div>
-      <MockLabel>Kies een categorie</MockLabel>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {["Boten", "Fietsen", "Gereedschap", "Tenten"].map((c, i) => (
-          <div
-            key={c}
-            className="flex items-center gap-2 rounded-lg border px-3 py-3"
-            style={{
-              borderColor: i === 0 ? accent : "var(--border)",
-              background: i === 0 ? `${accent}10` : "transparent",
-            }}
-          >
-            <span
-              className="grid size-7 place-items-center rounded-md text-white"
-              style={{ background: i === 0 ? accent : `${accent}55` }}
-            >
-              <Package className="size-3.5" />
-            </span>
-            <span className="text-xs font-medium">{c}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MockItem({ accent }: { accent: string }) {
-  return (
-    <div>
-      <MockLabel>Wat wil je boeken?</MockLabel>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {["Kano", "Sloep"].map((it, i) => (
-          <div
-            key={it}
-            className="overflow-hidden rounded-lg border border-border"
-          >
-            <div
-              className="h-16 w-full"
-              style={{ background: `${accent}${i === 0 ? "22" : "12"}` }}
-            />
-            <div className="p-2.5">
-              <p className="text-xs font-semibold">{it}</p>
-              <p
-                className="mt-0.5 text-[11px] font-bold"
-                style={{ color: accent }}
-              >
-                € {i === 0 ? "45" : "120"}/dag
+                {WIDGET_LOCALES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.flag} {l.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Bezoekers kunnen zelf wisselen via de wereldbol in de widget.
               </p>
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+        </section>
 
-function MockDetails({ accent }: { accent: string }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <MockLabel>Wanneer</MockLabel>
-        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border px-3 py-2.5">
-          <Calendar className="size-4" style={{ color: accent }} />
-          <span className="text-xs text-muted-foreground">
-            14 jun · 10:00 — 16 jun · 17:00
-          </span>
-        </div>
-      </div>
-      <div>
-        <MockLabel>Jouw gegevens</MockLabel>
-        <div className="mt-1.5 flex flex-col gap-2">
-          <div className="h-9 rounded-lg border border-border bg-muted/30" />
-          <div className="h-9 rounded-lg border border-border bg-muted/30" />
-        </div>
-      </div>
-    </div>
-  );
-}
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold">USP&apos;s onderaan de widget</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Korte verkooppunten met een vinkje, bv. &quot;Gratis
+            annuleren&quot; of &quot;Direct bevestigd&quot;. Max {MAX_USPS}.
+          </p>
 
-function MockPay({ accent }: { accent: string }) {
-  return (
-    <div>
-      <MockLabel>Hoe wil je betalen?</MockLabel>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <div
-          className="flex flex-col gap-1.5 rounded-lg border p-3"
-          style={{ borderColor: accent, background: `${accent}10` }}
-        >
-          <span
-            className="grid size-7 place-items-center rounded-md text-white"
-            style={{ background: accent }}
-          >
-            <MapPin className="size-3.5" />
-          </span>
-          <span className="text-xs font-semibold">Op locatie</span>
-          <span className="text-[10px] text-muted-foreground">
-            Betaal bij ophalen
-          </span>
-        </div>
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border p-3">
-          <span
-            className="grid size-7 place-items-center rounded-md text-white"
-            style={{ background: `${accent}66` }}
-          >
-            <CreditCard className="size-3.5" />
-          </span>
-          <span className="text-xs font-semibold">Online betalen</span>
-          <span className="text-[10px] text-muted-foreground">
-            iDEAL · creditcard
-          </span>
+          <div className="mt-3 flex flex-col gap-2">
+            {usps.length === 0 && (
+              <p className="rounded-md border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">
+                Nog geen USP&apos;s toegevoegd.
+              </p>
+            )}
+            {usps.map((u, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <GripVertical className="size-3.5 shrink-0 text-muted-foreground/50" />
+                <input
+                  type="text"
+                  value={u}
+                  maxLength={60}
+                  onChange={(e) => updateUsp(i, e.target.value)}
+                  placeholder={`USP ${i + 1}`}
+                  className="h-9 flex-1 rounded-md border border-border bg-background px-2.5 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeUsp(i)}
+                  aria-label="Verwijder USP"
+                  className="grid size-9 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {usps.length < MAX_USPS && (
+            <button
+              type="button"
+              onClick={addUsp}
+              className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              <Plus className="size-3.5" />
+              USP toevoegen
+            </button>
+          )}
+        </section>
+
+        <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
+          De widget is responsive — hij past zich automatisch aan de breedte
+          van je site aan. Wijzigingen worden automatisch opgeslagen en zijn
+          overal live waar de widget al staat.
+        </p>
+      </div>
+
+      {/* Voorbeeld — iframe van de échte /book pagina (0,0 afwijking) */}
+      <div>
+        <div className="sticky top-4">
+          <div className="flex items-center justify-between pb-2">
+            <h2 className="text-sm font-semibold">Live voorbeeld</h2>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <RefreshCw className="size-3" />
+              exact zoals bezoekers het zien
+            </span>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
+            <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
+              <span className="size-2.5 rounded-full bg-[oklch(0.7_0.17_25)]" />
+              <span className="size-2.5 rounded-full bg-[oklch(0.8_0.13_85)]" />
+              <span className="size-2.5 rounded-full bg-[oklch(0.7_0.13_150)]" />
+              <span className="ml-3 flex-1 truncate rounded-md bg-background px-3 py-1 text-center text-[10px] text-muted-foreground">
+                🔒 {shareUrl.replace(/^https?:\/\//, "")}
+              </span>
+            </div>
+            <iframe
+              key={previewSrc}
+              src={previewSrc}
+              title="Widget voorbeeld"
+              className="h-[760px] w-full bg-background"
+            />
+          </div>
         </div>
       </div>
     </div>

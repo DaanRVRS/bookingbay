@@ -20,6 +20,12 @@ export const getOrgBySlug = cache(async (slug: string) => {
       industry: true,
       plan: true,
       businessHours: true,
+      widgetAccent: true,
+      widgetRadius: true,
+      widgetShadow: true,
+      widgetUsps: true,
+      widgetTagline: true,
+      widgetDefaultLocale: true,
     },
   });
   return org;

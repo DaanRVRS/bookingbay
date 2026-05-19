@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { useWidgetI18n } from "./widget-i18n";
 import {
   ArrowRight,
   CalendarDays,
@@ -97,6 +97,7 @@ export function PublicBookingForm({
   fixedItem,
   itemOptions,
 }: Props) {
+  const { t, df } = useWidgetI18n();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
@@ -262,7 +263,7 @@ export function PublicBookingForm({
   // Hier wordt NOG GEEN boeking aangemaakt.
   const onSubmit = handleSubmit((values) => {
     if (!paymentChoice) {
-      toast.error("Kies eerst hoe je wilt betalen.");
+      toast.error(t("pay.chooseFirst"));
       return;
     }
     void values;
@@ -272,7 +273,7 @@ export function PublicBookingForm({
   // Stap 2: op de review-stap "Bevestigen" geklikt → boeking echt aanmaken.
   const confirmBooking = () => {
     if (!paymentChoice) {
-      toast.error("Kies eerst hoe je wilt betalen.");
+      toast.error(t("pay.chooseFirst"));
       setReviewing(false);
       return;
     }
@@ -294,7 +295,7 @@ export function PublicBookingForm({
         });
         res = await r.json();
       } catch {
-        toast.error("Verbinding mislukt. Probeer 't opnieuw.");
+        toast.error(t("err.connection"));
         return;
       }
 
@@ -304,7 +305,7 @@ export function PublicBookingForm({
             setError(k as keyof PublicBookingInput, { message: v });
           }
         }
-        toast.error(res.error ?? "Er ging iets mis");
+        toast.error(res.error ?? t("err.generic"));
         setReviewing(false);
         return;
       }
@@ -350,11 +351,10 @@ export function PublicBookingForm({
             <CheckCircle2 className="size-8" />
           </span>
           <h3 className="mt-5 text-xl font-semibold tracking-tight">
-            Aanvraag verstuurd
+            {t("done.title")}
           </h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-            {orgName} bevestigt je boeking zo snel mogelijk per e-mail. Houd je inbox
-            (en spam) in de gaten — meestal binnen één werkdag.
+            {t("done.body", { org: orgName })}
           </p>
         </div>
       </div>
@@ -365,15 +365,15 @@ export function PublicBookingForm({
   // bevestigen. Geen boeking aangemaakt tot "Bevestigen".
   if (reviewing) {
     const reviewItemName =
-      fixedItem?.name ?? selectedItem?.name ?? "Geselecteerd item";
+      fixedItem?.name ?? selectedItem?.name ?? t("review.selectedItem");
     const rFrom = range?.from ?? null;
     const rTo = range?.to ?? range?.from ?? null;
     const isPerDay = slotConfig.intervalMinutes === 1440;
     const whenLine =
       rFrom && rTo
         ? isPerDay
-          ? `${format(rFrom, "EEEE d MMM yyyy", { locale: nl })} t/m ${format(rTo, "EEEE d MMM yyyy", { locale: nl })}`
-          : `${format(rFrom, "EEEE d MMM", { locale: nl })} ${startTime} — ${format(rTo, "d MMM", { locale: nl })} ${endTime}`
+          ? `${format(rFrom, "EEEE d MMM yyyy", { locale: df })} ${t("when.until")} ${format(rTo, "EEEE d MMM yyyy", { locale: df })}`
+          : `${format(rFrom, "EEEE d MMM", { locale: df })} ${startTime} — ${format(rTo, "d MMM", { locale: df })} ${endTime}`
         : "—";
     const isOnline = paymentChoice === "online";
 
@@ -386,40 +386,48 @@ export function PublicBookingForm({
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowRight className="size-3 rotate-180" />
-            Aanpassen
+            {t("review.edit")}
           </button>
           <h2 className="mt-2 text-lg font-semibold tracking-tight">
-            Klopt dit zo?
+            {t("review.title")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Controleer je boeking en bevestig.
+            {t("review.subtitle")}
           </p>
         </div>
 
         <dl className="overflow-hidden rounded-xl border border-border bg-card">
-          <ReviewRow label="Item" value={reviewItemName} accent={accent} />
-          <ReviewRow label="Wanneer" value={whenLine} accent={accent} />
           <ReviewRow
-            label="Naam"
+            label={t("review.item")}
+            value={reviewItemName}
+            accent={accent}
+          />
+          <ReviewRow
+            label={t("review.when")}
+            value={whenLine}
+            accent={accent}
+          />
+          <ReviewRow
+            label={t("review.name")}
             value={getValues("customerName") || "—"}
             accent={accent}
           />
           <ReviewRow
-            label="E-mail"
+            label={t("review.email")}
             value={getValues("customerEmail") || "—"}
             accent={accent}
           />
           {estimate !== null && (
             <ReviewRow
-              label="Geschatte prijs"
+              label={t("review.estPrice")}
               value={`€ ${estimate.toFixed(2)}`}
               accent={accent}
               highlight
             />
           )}
           <ReviewRow
-            label="Betaalwijze"
-            value={isOnline ? "Online betalen" : "Op locatie"}
+            label={t("review.payMethod")}
+            value={isOnline ? t("pay.online") : t("pay.location")}
             accent={accent}
           />
         </dl>
@@ -434,24 +442,24 @@ export function PublicBookingForm({
           {pending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Bezig...
+              {t("review.busy")}
             </>
           ) : isOnline ? (
             <>
-              Doorgaan naar betalen
+              {t("review.continuePay")}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </>
           ) : (
             <>
-              Boeking bevestigen
+              {t("review.confirm")}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </>
           )}
         </button>
         <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
           {isOnline
-            ? "Je wordt doorgestuurd naar de beveiligde betaalpagina."
-            : `Geen geld nu afgeschreven. ${orgName} bevestigt per e-mail.`}
+            ? t("review.redirectNote")
+            : t("review.locationNote", { org: orgName })}
         </p>
       </div>
     );
@@ -484,20 +492,20 @@ export function PublicBookingForm({
     >
       {!fixedItem && itemOptions && itemOptions.length === 0 && (
         <div className="rounded-lg border border-dashed border-border bg-card/40 px-4 py-6 text-center text-sm text-muted-foreground">
-          Geen items beschikbaar om te boeken.
+          {t("form.noItems")}
         </div>
       )}
 
       {showItemPicker && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="itemId">Welk item wil je boeken?</Label>
+          <Label htmlFor="itemId">{t("form.whichItem")}</Label>
           <select
             id="itemId"
             {...register("itemId")}
             className="h-10 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-invalid={Boolean(errors.itemId) || undefined}
           >
-            <option value="">— kies een item —</option>
+            <option value="">{t("form.chooseItem")}</option>
             {itemOptions!.map((it) => (
               <option key={it.id} value={it.id}>
                 {it.name}
@@ -511,22 +519,22 @@ export function PublicBookingForm({
       )}
 
       {/* Wanneer — visible calendar */}
-      <Section icon={CalendarDays} accent={accent} title="Wanneer">
+      <Section icon={CalendarDays} accent={accent} title={t("sec.when")}>
         {/* Selected range summary */}
         <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
           <DateChip
-            label="Vanaf"
+            label={t("chip.from")}
             date={displayFrom}
             time={startTime}
-            placeholder="Kies een dag"
+            placeholder={t("chip.pickDay")}
             accent={accent}
             active={Boolean(displayFrom)}
           />
           <DateChip
-            label="Tot"
+            label={t("chip.to")}
             date={displayTo}
             time={endTime}
-            placeholder="Kies een dag"
+            placeholder={t("chip.pickDay")}
             accent={accent}
             active={Boolean(displayTo)}
           />
@@ -540,7 +548,7 @@ export function PublicBookingForm({
               onSelect={setRange}
               numberOfMonths={1}
               weekStartsOn={1}
-              locale={nl}
+              locale={df}
               disabled={[{ before: today }, isUnavailable]}
               modifiers={{
                 bbAvailable: isAvailable,
@@ -557,16 +565,16 @@ export function PublicBookingForm({
           <div className="mt-2 flex items-center justify-center gap-4 border-t border-border pt-2 text-[10px] font-medium text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[oklch(0.78_0.13_145)]" />
-              Beschikbaar
+              {t("cal.available")}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2 rounded-sm bg-[oklch(0.72_0.16_25)]" />
-              Vol
+              {t("cal.full")}
             </span>
             {availabilityLoading && (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="size-2.5 animate-spin" />
-                laden
+                {t("cal.loading")}
               </span>
             )}
           </div>
@@ -576,7 +584,7 @@ export function PublicBookingForm({
         {slotConfig.intervalMinutes !== 1440 && (
           <div className="mt-4 flex flex-col gap-4">
             <SlotGrid
-              label="Starttijd"
+              label={t("slot.start")}
               value={startTime}
               onChange={setStartTime}
               dayDate={range?.from ?? null}
@@ -587,7 +595,7 @@ export function PublicBookingForm({
               accent={accent}
             />
             <SlotGrid
-              label="Eindtijd"
+              label={t("slot.end")}
               value={endTime}
               onChange={setEndTime}
               dayDate={range?.to ?? range?.from ?? null}
@@ -616,7 +624,7 @@ export function PublicBookingForm({
           >
             <div>
               <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-                Geschatte prijs
+                {t("price.estimate")}
               </p>
               <p
                 className="text-lg font-semibold tabular-nums leading-tight"
@@ -626,26 +634,24 @@ export function PublicBookingForm({
               </p>
             </div>
             <p className="text-[10px] leading-snug text-muted-foreground">
-              Definitief
-              <br />
-              door {orgName}
+              {t("price.finalBy", { org: orgName })}
             </p>
           </div>
         )}
       </Section>
 
       {/* Wie ben je */}
-      <Section icon={User} accent={accent} title="Jouw gegevens">
+      <Section icon={User} accent={accent} title={t("sec.you")}>
         <div className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField
-              label="Naam"
+              label={t("field.name")}
               autoComplete="name"
               error={errors.customerName?.message}
               {...register("customerName")}
             />
             <FormField
-              label="E-mail"
+              label={t("field.email")}
               type="email"
               autoComplete="email"
               error={errors.customerEmail?.message}
@@ -654,7 +660,7 @@ export function PublicBookingForm({
           </div>
 
           <FormField
-            label="Telefoon (optioneel)"
+            label={t("field.phone")}
             type="tel"
             autoComplete="tel"
             error={errors.customerPhone?.message}
@@ -663,12 +669,12 @@ export function PublicBookingForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="notes" className="text-xs">
-              Opmerkingen (optioneel)
+              {t("field.notes")}
             </Label>
             <Textarea
               id="notes"
               rows={3}
-              placeholder="Bv. ophaalvoorkeur, accessoires, ..."
+              placeholder={t("field.notesPlaceholder")}
               aria-invalid={Boolean(errors.notes) || undefined}
               {...register("notes")}
             />
@@ -685,7 +691,7 @@ export function PublicBookingForm({
         const bothAvailable =
           locationPaymentAvailable && onlinePaymentAvailable;
         return (
-          <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
+          <Section icon={Wallet} accent={accent} title={t("sec.pay")}>
             <div
               className={
                 bothAvailable ? "grid gap-2 sm:grid-cols-2" : "grid gap-2"
@@ -694,8 +700,8 @@ export function PublicBookingForm({
               {locationPaymentAvailable && (
                 <PayChoiceCard
                   icon={MapPin}
-                  title="Op locatie"
-                  description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
+                  title={t("pay.location")}
+                  description={t("pay.locationDesc")}
                   active={paymentChoice === "location"}
                   onClick={() => setPaymentChoice("location")}
                   accent={accent}
@@ -704,8 +710,8 @@ export function PublicBookingForm({
               {onlinePaymentAvailable && (
                 <PayChoiceCard
                   icon={CreditCard}
-                  title="Online betalen"
-                  description="Reken nu direct af en je boeking is meteen bevestigd."
+                  title={t("pay.online")}
+                  description={t("pay.onlineDesc")}
                   active={paymentChoice === "online"}
                   onClick={() => setPaymentChoice("online")}
                   accent={accent}
@@ -714,7 +720,7 @@ export function PublicBookingForm({
             </div>
             {bothAvailable && !paymentChoice && (
               <p className="mt-2 text-[11px] font-medium text-muted-foreground">
-                Kies een betaalwijze om je boeking af te ronden.
+                {t("pay.chooseToFinish")}
               </p>
             )}
           </Section>
@@ -730,12 +736,12 @@ export function PublicBookingForm({
           boxShadow: `0 4px 14px -4px ${accent}80`,
         }}
       >
-        Boeken
+        {t("submit.book")}
         <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
       </button>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-        Volgende stap: je ziet een overzicht en bevestigt dan pas.
+        {t("submit.nextStep")}
       </p>
     </form>
   );
@@ -854,6 +860,7 @@ function DateChip({
   accent: string;
   active: boolean;
 }) {
+  const { df } = useWidgetI18n();
   return (
     <div
       className="rounded-md bg-background px-3 py-2 transition-colors"
@@ -871,7 +878,7 @@ function DateChip({
       </p>
       {date ? (
         <p className="text-sm font-semibold tracking-tight">
-          {format(date, "d MMM", { locale: nl })}
+          {format(date, "d MMM", { locale: df })}
           <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
             · {time}
           </span>

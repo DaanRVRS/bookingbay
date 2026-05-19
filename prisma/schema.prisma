@@ -205,6 +205,13 @@ model Organization {
   widgetWidth  String  @default("600") // "400"|"600"|"800"|"100%"
   widgetRadius Int     @default(8)
   widgetShadow Boolean @default(true)
+  // Extra branding/teksten. widgetUsps = string[] met korte USP-bullets
+  // die onderaan de widget tonen (bv. "Gratis annuleren"). widgetTagline
+  // = optionele subkop onder de bedrijfsnaam. widgetDefaultLocale =
+  // standaardtaal van de widget (klant kan in de widget wisselen).
+  widgetUsps          Json    @default("[]")
+  widgetTagline       String?
+  widgetDefaultLocale String  @default("nl")
 
   memberships            Membership[]
   invitations            Invitation[]

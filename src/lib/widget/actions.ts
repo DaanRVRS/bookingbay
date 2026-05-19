@@ -7,6 +7,19 @@ import { requireOrg } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
 
+const WIDGET_LOCALE_CODES = [
+  "nl",
+  "en",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "ru",
+  "uk",
+  "pl",
+  "tr",
+] as const;
+
 const widgetDesignSchema = z.object({
   accent: z
     .string()
@@ -16,6 +29,13 @@ const widgetDesignSchema = z.object({
   width: z.enum(["400", "600", "800", "100%"]),
   radius: z.coerce.number().int().min(0).max(48),
   shadow: z.coerce.boolean(),
+  usps: z
+    .array(z.string().trim().min(1).max(60))
+    .max(6)
+    .optional()
+    .default([]),
+  tagline: z.string().trim().max(80).nullable().optional(),
+  defaultLocale: z.enum(WIDGET_LOCALE_CODES).optional().default("nl"),
 });
 
 export type WidgetDesignInput = z.infer<typeof widgetDesignSchema>;
@@ -38,6 +58,12 @@ export async function saveWidgetDesignAction(
       : `#${parsed.data.accent}`
     : null;
 
+  const usps = (parsed.data.usps ?? [])
+    .map((u) => u.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const tagline = parsed.data.tagline?.trim() || null;
+
   await db.organization.update({
     where: { id: ctx.organization.id },
     data: {
@@ -45,6 +71,9 @@ export async function saveWidgetDesignAction(
       widgetWidth: parsed.data.width,
       widgetRadius: parsed.data.radius,
       widgetShadow: parsed.data.shadow,
+      widgetUsps: usps,
+      widgetTagline: tagline,
+      widgetDefaultLocale: parsed.data.defaultLocale ?? "nl",
     },
   });
 
@@ -59,6 +88,9 @@ export async function saveWidgetDesignAction(
       width: parsed.data.width,
       radius: parsed.data.radius,
       shadow: parsed.data.shadow,
+      usps: usps.length,
+      tagline: Boolean(tagline),
+      defaultLocale: parsed.data.defaultLocale ?? "nl",
     },
   });
 

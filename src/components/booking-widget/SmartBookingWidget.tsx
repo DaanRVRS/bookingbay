@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ImageIcon } from "lucide-react";
 import { PublicBookingForm } from "./PublicBookingForm";
+import {
+  WidgetI18nProvider,
+  LanguageSwitcher,
+  useWidgetI18n,
+} from "./widget-i18n";
+import type { Translator } from "@/lib/widget/i18n";
 
 interface ItemRow {
   id: string;
@@ -22,16 +28,139 @@ interface CategoryBucket {
 interface Props {
   slug: string;
   orgName: string;
+  logoUrl?: string | null;
   accent: string;
   categories: CategoryBucket[];
+  usps?: string[];
+  tagline?: string | null;
+  defaultLocale?: string;
 }
 
 type Step = "category" | "item" | "form";
 
-export function SmartBookingWidget({ slug, orgName, accent, categories }: Props) {
+export function SmartBookingWidget({
+  slug,
+  orgName,
+  logoUrl,
+  accent,
+  categories,
+  usps = [],
+  tagline = null,
+  defaultLocale = "nl",
+}: Props) {
+  return (
+    <WidgetI18nProvider defaultLocale={defaultLocale}>
+      <WidgetInner
+        slug={slug}
+        orgName={orgName}
+        logoUrl={logoUrl ?? null}
+        accent={accent}
+        categories={categories}
+        usps={usps}
+        tagline={tagline}
+      />
+    </WidgetI18nProvider>
+  );
+}
+
+function BrandHeader({
+  orgName,
+  logoUrl,
+  tagline,
+  accent,
+}: {
+  orgName: string;
+  logoUrl: string | null;
+  tagline: string | null;
+  accent: string;
+}) {
+  const { t } = useWidgetI18n();
+  return (
+    <div className="mb-6 flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={orgName}
+            width={40}
+            height={40}
+            className="size-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-border"
+          />
+        ) : (
+          <div
+            className="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white shadow-sm"
+            style={{
+              background: accent,
+              boxShadow: `0 4px 14px -4px ${accent}80`,
+            }}
+          >
+            {orgName.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p
+            className="text-[10px] font-semibold tracking-wider uppercase"
+            style={{ color: accent }}
+          >
+            {t("header.bookAt")}
+          </p>
+          <p className="truncate text-sm font-bold tracking-tight">
+            {orgName}
+          </p>
+          {tagline && (
+            <p className="truncate text-[11px] text-muted-foreground">
+              {tagline}
+            </p>
+          )}
+        </div>
+      </div>
+      <LanguageSwitcher accent={accent} />
+    </div>
+  );
+}
+
+function UspFooter({ usps, accent }: { usps: string[]; accent: string }) {
+  const clean = usps.map((u) => u.trim()).filter(Boolean);
+  if (clean.length === 0) return null;
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
+      {clean.map((u) => (
+        <span
+          key={u}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+        >
+          <Check className="size-3.5 shrink-0" style={{ color: accent }} />
+          {u}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function WidgetInner({
+  slug,
+  orgName,
+  logoUrl,
+  accent,
+  categories,
+  usps,
+  tagline,
+}: {
+  slug: string;
+  orgName: string;
+  logoUrl: string | null;
+  accent: string;
+  categories: CategoryBucket[];
+  usps: string[];
+  tagline: string | null;
+}) {
+  const { t } = useWidgetI18n();
   const onlyCategory = categories.length === 1 ? categories[0] : null;
   const [step, setStep] = useState<Step>(onlyCategory ? "item" : "category");
-  const [categoryId, setCategoryId] = useState<string | null>(onlyCategory?.id ?? null);
+  const [categoryId, setCategoryId] = useState<string | null>(
+    onlyCategory?.id ?? null,
+  );
   const [itemId, setItemId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,30 +171,53 @@ export function SmartBookingWidget({ slug, orgName, accent, categories }: Props)
   }, [categories, categoryId]);
 
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
-  const selectedItem = selectedCategory?.items.find((i) => i.id === itemId) ?? null;
+  const selectedItem =
+    selectedCategory?.items.find((i) => i.id === itemId) ?? null;
+
+  const brand = (
+    <BrandHeader
+      orgName={orgName}
+      logoUrl={logoUrl}
+      tagline={tagline}
+      accent={accent}
+    />
+  );
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center text-sm text-muted-foreground">
-        Het aanbod wordt nog samengesteld.
+      <div>
+        {brand}
+        <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-12 text-center text-sm text-muted-foreground">
+          {t("empty.catalog")}
+        </div>
+        <UspFooter usps={usps} accent={accent} />
       </div>
     );
   }
 
-  // Progress steps: only show "Categorie" if there are multiple
   const showCategoryStep = categories.length > 1;
-  const stepIndex = step === "category" ? 0 : step === "item" ? (showCategoryStep ? 1 : 0) : showCategoryStep ? 2 : 1;
-  const totalSteps = showCategoryStep ? 3 : 2;
+  const stepIndex =
+    step === "category"
+      ? 0
+      : step === "item"
+        ? showCategoryStep
+          ? 1
+          : 0
+        : showCategoryStep
+          ? 2
+          : 1;
 
   return (
     <div>
+      {brand}
+
       <ProgressIndicator
         accent={accent}
         currentIndex={stepIndex}
         labels={
           showCategoryStep
-            ? ["Categorie", "Item", "Boeken"]
-            : ["Item", "Boeken"]
+            ? [t("progress.category"), t("progress.item"), t("progress.book")]
+            : [t("progress.item"), t("progress.book")]
         }
       />
 
@@ -108,6 +260,8 @@ export function SmartBookingWidget({ slug, orgName, accent, categories }: Props)
           }}
         />
       )}
+
+      <UspFooter usps={usps} accent={accent} />
     </div>
   );
 }
@@ -156,8 +310,7 @@ function ProgressIndicator({
               <div
                 className="h-px flex-1 transition-all"
                 style={{
-                  background:
-                    i < currentIndex ? accent : "var(--border)",
+                  background: i < currentIndex ? accent : "var(--border)",
                 }}
               />
             )}
@@ -177,23 +330,26 @@ function CategoryStep({
   categories: CategoryBucket[];
   onPick: (id: string) => void;
 }) {
+  const { t } = useWidgetI18n();
   return (
     <div>
-      <h2 className="text-lg font-semibold tracking-tight">Waarmee kunnen we helpen?</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Kies een categorie om te beginnen.</p>
+      <h2 className="text-lg font-semibold tracking-tight">
+        {t("cat.title")}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("cat.subtitle")}
+      </p>
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
         {categories.map((cat) => {
-          // Show preview image from first item with image
-          const previewImage = cat.items.find((i) => i.imageUrl)?.imageUrl ?? null;
+          const previewImage =
+            cat.items.find((i) => i.imageUrl)?.imageUrl ?? null;
           return (
             <li key={cat.id}>
               <button
                 type="button"
                 onClick={() => onPick(cat.id)}
                 className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
-                style={{
-                  borderColor: "var(--border)",
-                }}
+                style={{ borderColor: "var(--border)" }}
               >
                 <span
                   aria-hidden
@@ -220,9 +376,13 @@ function CategoryStep({
                   )}
                 </div>
                 <div className="relative min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold tracking-tight">{cat.name}</p>
+                  <p className="truncate text-sm font-semibold tracking-tight">
+                    {cat.name}
+                  </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {cat.items.length} {cat.items.length === 1 ? "item" : "items"} beschikbaar
+                    {cat.items.length === 1
+                      ? t("cat.itemAvailable", { n: cat.items.length })
+                      : t("cat.itemsAvailable", { n: cat.items.length })}
                   </p>
                 </div>
                 <ArrowRight
@@ -251,6 +411,7 @@ function ItemStep({
   onBack: () => void;
   onPick: (id: string) => void;
 }) {
+  const { t } = useWidgetI18n();
   return (
     <div>
       {showBack && (
@@ -260,7 +421,7 @@ function ItemStep({
           className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-3" />
-          Andere categorie
+          {t("item.otherCategory")}
         </button>
       )}
       <p
@@ -269,7 +430,9 @@ function ItemStep({
       >
         {category.name}
       </p>
-      <h2 className="mt-1 text-lg font-semibold tracking-tight">Wat wil je boeken?</h2>
+      <h2 className="mt-1 text-lg font-semibold tracking-tight">
+        {t("item.title")}
+      </h2>
 
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
         {category.items.map((item) => (
@@ -296,11 +459,13 @@ function ItemStep({
                   className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur"
                   style={{ background: `${accent}E0` }}
                 >
-                  {priceLabelShort(item)}
+                  {priceLabelShort(item, t)}
                 </span>
               </div>
               <div className="flex flex-1 flex-col gap-1 p-3.5">
-                <h3 className="text-sm font-semibold tracking-tight">{item.name}</h3>
+                <h3 className="text-sm font-semibold tracking-tight">
+                  {item.name}
+                </h3>
                 {item.description && (
                   <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
                     {item.description}
@@ -310,7 +475,7 @@ function ItemStep({
                   className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-medium opacity-70 transition-opacity group-hover:opacity-100"
                   style={{ color: accent }}
                 >
-                  Boek dit item <ArrowRight className="size-3" />
+                  {t("item.book")} <ArrowRight className="size-3" />
                 </span>
               </div>
             </button>
@@ -334,6 +499,7 @@ function FormStep({
   item: ItemRow;
   onBack: () => void;
 }) {
+  const { t } = useWidgetI18n();
   return (
     <div>
       <button
@@ -342,7 +508,7 @@ function FormStep({
         className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-3" />
-        Ander item
+        {t("form.otherItem")}
       </button>
 
       <div className="mb-5 flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
@@ -365,9 +531,11 @@ function FormStep({
             className="text-[10px] font-semibold tracking-wider uppercase"
             style={{ color: accent }}
           >
-            Je boekt
+            {t("form.youBook")}
           </p>
-          <p className="truncate text-sm font-semibold tracking-tight">{item.name}</p>
+          <p className="truncate text-sm font-semibold tracking-tight">
+            {item.name}
+          </p>
         </div>
       </div>
 
@@ -386,8 +554,10 @@ function FormStep({
   );
 }
 
-function priceLabelShort(item: ItemRow): string {
-  if (item.pricePerDay) return `€${item.pricePerDay.toFixed(0)}/dag`;
-  if (item.pricePerHour) return `€${item.pricePerHour.toFixed(0)}/uur`;
-  return "Op aanvraag";
+function priceLabelShort(item: ItemRow, t: Translator): string {
+  if (item.pricePerDay)
+    return t("price.perDay", { price: item.pricePerDay.toFixed(0) });
+  if (item.pricePerHour)
+    return t("price.perHour", { price: item.pricePerHour.toFixed(0) });
+  return t("price.onRequest");
 }

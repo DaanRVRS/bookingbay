@@ -25,6 +25,9 @@ export default async function WidgetsPage() {
       widgetWidth: true,
       widgetRadius: true,
       widgetShadow: true,
+      widgetUsps: true,
+      widgetTagline: true,
+      widgetDefaultLocale: true,
     },
   });
   if (!org) throw new Error("Organization not found");
@@ -45,6 +48,13 @@ export default async function WidgetsPage() {
       : ("600" as AllowedWidth),
     radius: org.widgetRadius,
     shadow: org.widgetShadow,
+    usps: Array.isArray(org.widgetUsps)
+      ? (org.widgetUsps as unknown[]).filter(
+          (x): x is string => typeof x === "string",
+        )
+      : [],
+    tagline: org.widgetTagline ?? "",
+    defaultLocale: org.widgetDefaultLocale ?? "nl",
   };
 
   return (

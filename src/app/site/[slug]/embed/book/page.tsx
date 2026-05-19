@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
+import { resolveWidgetDesign } from "@/lib/widget/design";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ accent?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
 function buildBuckets(
@@ -57,30 +58,27 @@ function buildBuckets(
   return out;
 }
 
-function normalizeAccent(input: string | undefined, fallback: string): string {
-  if (!input) return fallback;
-  const cleaned = input.replace(/^#/, "").trim();
-  if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(cleaned)) return `#${cleaned}`;
-  return fallback;
-}
-
 export default async function EmbedBookPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { accent: accentParam } = await searchParams;
+  const sp = await searchParams;
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
   const categories = await getTenantCatalog(org.id);
   const buckets = buildBuckets(categories);
-  const accent = normalizeAccent(accentParam, org.primaryColor ?? "#ef5934");
+  const design = resolveWidgetDesign(org, sp);
 
   return (
     <div className="px-4 py-6 sm:px-6">
       <SmartBookingWidget
         slug={slug}
         orgName={org.name}
-        accent={accent}
+        logoUrl={org.logoUrl}
+        accent={design.accent}
         categories={buckets}
+        usps={design.usps}
+        tagline={design.tagline}
+        defaultLocale={design.defaultLocale}
       />
     </div>
   );
