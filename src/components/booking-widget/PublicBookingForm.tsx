@@ -13,10 +13,6 @@ import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createPublicBookingAction,
-  getItemAvailabilityAction,
-} from "@/lib/bookings/public-actions";
-import {
   publicBookingSchema,
   type PublicBookingInput,
 } from "@/lib/bookings/public-schemas";
@@ -166,10 +162,14 @@ export function PublicBookingForm({
     }
     let cancelled = false;
     setAvailabilityLoading(true);
-    getItemAvailabilityAction({ slug, itemId: watchedItemId })
+    fetch(
+      `/api/public/availability?slug=${encodeURIComponent(slug)}&itemId=${encodeURIComponent(watchedItemId)}`,
+      { cache: "no-store" },
+    )
+      .then((r) => r.json())
       .then((res) => {
         if (cancelled) return;
-        if (res.ok) {
+        if (res && res.ok) {
           setUnavailableDates(new Set(res.unavailableDates));
           setLookaheadDays(res.lookaheadDays);
           setSlotConfig({
@@ -178,7 +178,6 @@ export function PublicBookingForm({
             windowEndMin: res.bookingWindowEndMin,
           });
           setBookings(res.bookings);
-          // For per-day items, force start/end times to whole-day defaults
           if (res.bookingIntervalMinutes === 1440) {
             setStartTime("00:00");
             setEndTime("23:59");
@@ -219,19 +218,36 @@ export function PublicBookingForm({
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
-      const res = await createPublicBookingAction(values);
+      let res: {
+        ok: boolean;
+        error?: string;
+        fieldErrors?: Record<string, string>;
+        redirectUrl?: string;
+      };
+      try {
+        const r = await fetch("/api/public/booking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        res = await r.json();
+      } catch {
+        toast.error("Verbinding mislukt. Probeer 't opnieuw.");
+        return;
+      }
+
       if (!res.ok) {
         if (res.fieldErrors) {
           for (const [k, v] of Object.entries(res.fieldErrors)) {
             setError(k as keyof PublicBookingInput, { message: v });
           }
         }
-        toast.error(res.error);
+        toast.error(res.error ?? "Er ging iets mis");
         return;
       }
       // Tenant heeft online betalen aan staan → redirect naar checkout.
-      if (res.data?.redirectUrl) {
-        const target = res.data.redirectUrl;
+      if (res.redirectUrl) {
+        const target = res.redirectUrl;
         if (window.top && window.top !== window.self) {
           // Iframe-context (embed): break out of iframe zodat de checkout-page
           // op volle breedte opent ipv binnen de host-pagina.
@@ -239,7 +255,6 @@ export function PublicBookingForm({
             window.top.location.href = target;
             return;
           } catch {
-            // cross-origin frame — val terug op _blank
             window.open(target, "_blank", "noopener");
             setDone(true);
             return;
