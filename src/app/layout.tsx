@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
+// Plus Jakarta Sans — meer karakter dan het neutrale Geist, zonder in te
+// leveren op leesbaarheid. We houden de CSS-var-naam (--font-geist-sans)
+// gelijk zodat globals/tailwind ongemoeid blijven.
+const geistSans = Plus_Jakarta_Sans({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({

@@ -25,25 +25,11 @@ export function HeroSection() {
       <div className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6 sm:pt-20 sm:pb-28">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-12">
           <div>
-            {/* Merk-eyebrow */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/8 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-primary"
-            >
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
-                <span className="relative inline-flex size-2 rounded-full bg-primary" />
-              </span>
-              BookingBay · Dé verhuursoftware van Nederland
-            </motion.div>
-
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08, duration: 0.6, ease: "easeOut" }}
-              className="mt-5 text-4xl leading-[1.04] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.7rem]"
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-4xl leading-[1.04] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.7rem]"
             >
               Verhuur.
               <br />
