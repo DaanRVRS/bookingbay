@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
+import { RevenueChart } from "./revenue-chart";
 
 export const metadata = { title: "Overzicht" };
 
@@ -18,6 +19,8 @@ export default async function DashboardOverviewPage() {
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
+  const oneYearAgo = addDays(now, -365);
+
   const [
     bookingsToday,
     bookingsThisWeek,
@@ -25,6 +28,7 @@ export default async function DashboardOverviewPage() {
     customerCount,
     categoryCount,
     upcoming,
+    revenueRows,
   ] = await Promise.all([
     db.booking.count({
       where: {
@@ -52,7 +56,20 @@ export default async function DashboardOverviewPage() {
       orderBy: { startAt: "asc" },
       take: 5,
     }),
+    db.booking.findMany({
+      where: {
+        organizationId: orgId,
+        status: { not: "CANCELED" },
+        createdAt: { gte: oneYearAgo },
+      },
+      select: { createdAt: true, totalPrice: true },
+    }),
   ]);
+
+  const revenuePoints = revenueRows.map((r) => ({
+    ts: r.createdAt.getTime(),
+    amount: Number(r.totalPrice),
+  }));
 
   const isEmpty = itemCount === 0 && bookingsThisWeek === 0;
 
@@ -94,7 +111,11 @@ export default async function DashboardOverviewPage() {
               <Kpi label="Klanten" value={customerCount} hint="totaal" icon={Users} />
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+            <div className="mt-6">
+              <RevenueChart points={revenuePoints} />
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2 overflow-hidden rounded-xl border border-border bg-card">
                 <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-primary/8 via-primary/3 to-transparent px-5 py-3">
                   <h2 className="text-base font-semibold">Komende boekingen</h2>
