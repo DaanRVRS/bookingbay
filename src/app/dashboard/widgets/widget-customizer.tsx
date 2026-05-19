@@ -2,19 +2,33 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
   Check,
   Copy,
+  CreditCard,
   ExternalLink,
+  Globe,
   GripVertical,
+  ImageIcon,
   Loader2,
+  MapPin,
   Plus,
-  RefreshCw,
+  User,
+  Wallet,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { saveWidgetDesignAction } from "@/lib/widget/actions";
-import { WIDGET_LOCALES, type WidgetLocale } from "@/lib/widget/i18n";
+import {
+  WIDGET_LOCALES,
+  makeT,
+  normalizeLocale,
+  type WidgetLocale,
+  type Translator,
+} from "@/lib/widget/i18n";
 
 interface InitialDesign {
   accent: string;
@@ -28,6 +42,8 @@ interface InitialDesign {
 
 interface Props {
   slug: string;
+  orgName: string;
+  logoUrl: string | null;
   publicEmbedKey: string;
   initialDesign: InitialDesign;
   defaultAccent: string;
@@ -46,6 +62,8 @@ const MAX_USPS = 6;
 
 export function WidgetCustomizer({
   slug,
+  orgName,
+  logoUrl,
   publicEmbedKey,
   initialDesign,
   defaultAccent,
@@ -114,28 +132,6 @@ export function WidgetCustomizer({
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accent, radius, shadow, tagline, defaultLocale, usps, dirty]);
-
-  // Live voorbeeld = iframe van de échte /book pagina (1-op-1 design,
-  // echte bedrijfsnaam). Preview-query overschrijft tijdelijk de
-  // opgeslagen waarden zodat het meebeweegt vóór de save klaar is.
-  const previewUrl = useMemo(() => {
-    const qs = new URLSearchParams();
-    qs.set("preview", "1");
-    qs.set("accent", accent.replace(/^#/, ""));
-    qs.set("radius", String(radius));
-    qs.set("shadow", shadow ? "1" : "0");
-    qs.set("tagline", tagline.trim());
-    qs.set("usps", cleanUsps.map((u) => encodeURIComponent(u)).join("|"));
-    qs.set("lang", defaultLocale);
-    return `${shareUrl}?${qs.toString()}`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, radius, shadow, tagline, usps, defaultLocale, shareUrl]);
-
-  const [previewSrc, setPreviewSrc] = useState(previewUrl);
-  useEffect(() => {
-    const h = window.setTimeout(() => setPreviewSrc(previewUrl), 500);
-    return () => window.clearTimeout(h);
-  }, [previewUrl]);
 
   const copyText = (
     text: string,
@@ -399,14 +395,13 @@ export function WidgetCustomizer({
         </p>
       </div>
 
-      {/* Voorbeeld — iframe van de échte /book pagina (0,0 afwijking) */}
+      {/* Voorbeeld — klikbare stappen, exact dezelfde layout als /book */}
       <div>
         <div className="sticky top-4">
           <div className="flex items-center justify-between pb-2">
-            <h2 className="text-sm font-semibold">Live voorbeeld</h2>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <RefreshCw className="size-3" />
-              exact zoals bezoekers het zien
+            <h2 className="text-sm font-semibold">Voorbeeld</h2>
+            <span className="text-[11px] text-muted-foreground">
+              klik de stappen om elke schermweergave te zien
             </span>
           </div>
           <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
@@ -418,15 +413,493 @@ export function WidgetCustomizer({
                 🔒 {shareUrl.replace(/^https?:\/\//, "")}
               </span>
             </div>
-            <iframe
-              key={previewSrc}
-              src={previewSrc}
-              title="Widget voorbeeld"
-              className="h-[760px] w-full bg-background"
-            />
+            <div className="p-4 sm:p-6">
+              <WidgetPreview
+                orgName={orgName}
+                logoUrl={logoUrl}
+                accent={accent}
+                radius={radius}
+                shadow={shadow}
+                tagline={tagline.trim()}
+                usps={cleanUsps}
+                locale={defaultLocale}
+              />
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------------- */
+/* Voorbeeld — statische, klikbare replica van de échte /book widget.     */
+/* Zelfde markup/classes als SmartBookingWidget + PublicBookingForm zodat */
+/* de layout 0,0 afwijkt; alleen de inhoud is voorbeeld-data.             */
+/* --------------------------------------------------------------------- */
+
+const PREVIEW_CATS = [
+  { name: "Boten", n: 6 },
+  { name: "Fietsen", n: 12 },
+  { name: "Tenten", n: 4 },
+  { name: "Gereedschap", n: 9 },
+];
+const PREVIEW_ITEMS = [
+  { name: "Sloep Classic", price: "120", desc: "8 personen · incl. zwemtrap" },
+  { name: "Kano duo", price: "45", desc: "2 personen · incl. peddels" },
+];
+
+function WidgetPreview({
+  orgName,
+  logoUrl,
+  accent,
+  radius,
+  shadow,
+  tagline,
+  usps,
+  locale,
+}: {
+  orgName: string;
+  logoUrl: string | null;
+  accent: string;
+  radius: number;
+  shadow: boolean;
+  tagline: string;
+  usps: string[];
+  locale: string;
+}) {
+  const t = useMemo<Translator>(
+    () => makeT(normalizeLocale(locale)),
+    [locale],
+  );
+  const loc = WIDGET_LOCALES.find(
+    (l) => l.code === normalizeLocale(locale),
+  )!;
+  const [step, setStep] = useState(0);
+  const labels = [
+    t("progress.category"),
+    t("progress.item"),
+    t("progress.book"),
+  ];
+
+  return (
+    <div className="mx-auto max-w-md">
+      <div
+        className="border border-border bg-card p-6 sm:p-8"
+        style={{
+          borderRadius: `${radius}px`,
+          boxShadow: shadow
+            ? "0 8px 30px -12px rgba(0,0,0,0.10)"
+            : undefined,
+        }}
+      >
+        {/* Merk-header (replica van BrandHeader) */}
+        <div className="mb-6 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={orgName}
+                className="size-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-border"
+              />
+            ) : (
+              <div
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white shadow-sm"
+                style={{
+                  background: accent,
+                  boxShadow: `0 4px 14px -4px ${accent}80`,
+                }}
+              >
+                {orgName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p
+                className="text-[10px] font-semibold tracking-wider uppercase"
+                style={{ color: accent }}
+              >
+                {t("header.bookAt")}
+              </p>
+              <p className="truncate text-sm font-bold tracking-tight">
+                {orgName}
+              </p>
+              {tagline && (
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {tagline}
+                </p>
+              )}
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+            <Globe className="size-3.5" />
+            <span className="uppercase">{loc.code}</span>
+          </span>
+        </div>
+
+        {/* Voortgang (replica van ProgressIndicator, klikbaar) */}
+        <div className="mb-6 flex items-center gap-2">
+          {labels.map((label, i) => {
+            const done = i < step;
+            const active = i === step;
+            return (
+              <div key={label} className="flex flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(i)}
+                  className="flex items-center gap-2"
+                >
+                  <span
+                    className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all"
+                    style={{
+                      background: done || active ? accent : "transparent",
+                      color:
+                        done || active ? "#fff" : "var(--muted-foreground)",
+                      border:
+                        done || active
+                          ? "none"
+                          : "1.5px solid var(--border)",
+                    }}
+                  >
+                    {done ? <Check className="size-3" /> : i + 1}
+                  </span>
+                  <span
+                    className="text-xs font-medium tracking-wide"
+                    style={{
+                      color: active
+                        ? accent
+                        : done
+                          ? "var(--foreground)"
+                          : "var(--muted-foreground)",
+                    }}
+                  >
+                    {label}
+                  </span>
+                </button>
+                {i < labels.length - 1 && (
+                  <div
+                    className="h-px flex-1 transition-all"
+                    style={{
+                      background: i < step ? accent : "var(--border)",
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {step === 0 && <PreviewCategory accent={accent} t={t} />}
+        {step === 1 && <PreviewItem accent={accent} t={t} />}
+        {step === 2 && <PreviewForm accent={accent} t={t} />}
+
+        {/* USP-footer (replica van UspFooter) */}
+        {usps.length > 0 && (
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
+            {usps.map((u) => (
+              <span
+                key={u}
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
+              >
+                <Check
+                  className="size-3.5 shrink-0"
+                  style={{ color: accent }}
+                />
+                {u}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="mt-4 text-center text-[11px] text-muted-foreground">
+        Powered by <span className="font-medium">BookingBay</span>
+      </p>
+    </div>
+  );
+}
+
+function PreviewCategory({
+  accent,
+  t,
+}: {
+  accent: string;
+  t: Translator;
+}) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold tracking-tight">
+        {t("cat.title")}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("cat.subtitle")}
+      </p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {PREVIEW_CATS.map((c, i) => (
+          <li key={c.name}>
+            <div
+              className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 text-left"
+              style={
+                i === 0
+                  ? {
+                      borderColor: `${accent}66`,
+                      background: `${accent}08`,
+                    }
+                  : undefined
+              }
+            >
+              <div
+                className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted"
+                style={{ background: `${accent}15` }}
+              >
+                <ImageIcon className="size-5" style={{ color: accent }} />
+              </div>
+              <div className="relative min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold tracking-tight">
+                  {c.name}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {t("cat.itemsAvailable", { n: c.n })}
+                </p>
+              </div>
+              <ArrowRight
+                className="relative size-4 shrink-0"
+                style={{ color: accent }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PreviewItem({ accent, t }: { accent: string; t: Translator }) {
+  return (
+    <div>
+      <div className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <ArrowLeft className="size-3" />
+        {t("item.otherCategory")}
+      </div>
+      <p
+        className="text-[11px] font-semibold tracking-wider uppercase"
+        style={{ color: accent }}
+      >
+        {PREVIEW_CATS[0].name}
+      </p>
+      <h2 className="mt-1 text-lg font-semibold tracking-tight">
+        {t("item.title")}
+      </h2>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {PREVIEW_ITEMS.map((it, i) => (
+          <li key={it.name}>
+            <div className="group flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card text-left">
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <div
+                  className="size-full"
+                  style={{ background: `${accent}${i === 0 ? "22" : "12"}` }}
+                />
+                <span
+                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur"
+                  style={{ background: `${accent}E0` }}
+                >
+                  {t("price.perDay", { price: it.price })}
+                </span>
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-3.5">
+                <h3 className="text-sm font-semibold tracking-tight">
+                  {it.name}
+                </h3>
+                <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {it.desc}
+                </p>
+                <span
+                  className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-medium"
+                  style={{ color: accent }}
+                >
+                  {t("item.book")} <ArrowRight className="size-3" />
+                </span>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PreviewSection({
+  icon: Icon,
+  title,
+  accent,
+  children,
+}: {
+  icon: typeof CalendarDays;
+  title: string;
+  accent: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-2.5 flex items-center gap-2">
+        <span
+          className="grid size-6 place-items-center rounded-md"
+          style={{ background: `${accent}15`, color: accent }}
+        >
+          <Icon className="size-3.5" />
+        </span>
+        <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+          {title}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Gekozen item (replica van FormStep-header) */}
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+        <div
+          className="size-12 shrink-0 rounded-lg"
+          style={{ background: `${accent}15` }}
+        />
+        <div className="min-w-0 flex-1">
+          <p
+            className="text-[10px] font-semibold tracking-wider uppercase"
+            style={{ color: accent }}
+          >
+            {t("form.youBook")}
+          </p>
+          <p className="truncate text-sm font-semibold tracking-tight">
+            {PREVIEW_ITEMS[0].name}
+          </p>
+        </div>
+      </div>
+
+      <PreviewSection icon={CalendarDays} title={t("sec.when")} accent={accent}>
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
+          {[t("chip.from"), t("chip.to")].map((lbl) => (
+            <div
+              key={lbl}
+              className="rounded-md border border-border bg-background px-3 py-2"
+            >
+              <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+                {lbl}
+              </p>
+              <p className="text-sm font-semibold tracking-tight">
+                14 jun
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+                  · 10:00
+                </span>
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 rounded-xl border border-border bg-card p-3">
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 28 }).map((_, i) => (
+              <span
+                key={i}
+                className="grid aspect-square place-items-center rounded-md text-[10px] text-muted-foreground"
+                style={
+                  i === 13
+                    ? { background: accent, color: "#fff" }
+                    : i % 9 === 4
+                      ? { background: "var(--muted)" }
+                      : undefined
+                }
+              >
+                {i + 1}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div
+          className="mt-3 flex items-center justify-between gap-3 rounded-lg px-3.5 py-2.5"
+          style={{ background: `${accent}0D`, border: `1px solid ${accent}33` }}
+        >
+          <div>
+            <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t("price.estimate")}
+            </p>
+            <p
+              className="text-lg font-semibold leading-tight tabular-nums"
+              style={{ color: accent }}
+            >
+              € 240,00
+            </p>
+          </div>
+        </div>
+      </PreviewSection>
+
+      <PreviewSection icon={User} title={t("sec.you")} accent={accent}>
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="h-9 rounded-md border border-border bg-background" />
+            <div className="h-9 rounded-md border border-border bg-background" />
+          </div>
+          <div className="h-9 rounded-md border border-border bg-background" />
+          <div className="h-16 rounded-md border border-border bg-background" />
+        </div>
+      </PreviewSection>
+
+      <PreviewSection icon={Wallet} title={t("sec.pay")} accent={accent}>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div
+            className="flex flex-col gap-1.5 rounded-xl border p-3.5"
+            style={{
+              borderColor: accent,
+              background: `${accent}0D`,
+              boxShadow: `inset 0 0 0 1px ${accent}55`,
+            }}
+          >
+            <span
+              className="grid size-8 place-items-center rounded-md text-white"
+              style={{ background: accent }}
+            >
+              <MapPin className="size-4" />
+            </span>
+            <span className="text-sm font-semibold tracking-tight">
+              {t("pay.location")}
+            </span>
+            <span className="text-[11px] leading-relaxed text-muted-foreground">
+              {t("pay.locationDesc")}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5 rounded-xl border border-border p-3.5">
+            <span
+              className="grid size-8 place-items-center rounded-md"
+              style={{ background: `${accent}15`, color: accent }}
+            >
+              <CreditCard className="size-4" />
+            </span>
+            <span className="text-sm font-semibold tracking-tight">
+              {t("pay.online")}
+            </span>
+            <span className="text-[11px] leading-relaxed text-muted-foreground">
+              {t("pay.onlineDesc")}
+            </span>
+          </div>
+        </div>
+      </PreviewSection>
+
+      <button
+        type="button"
+        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold text-white shadow-sm"
+        style={{
+          background: accent,
+          boxShadow: `0 4px 14px -4px ${accent}80`,
+        }}
+      >
+        {t("submit.book")}
+        <ArrowRight className="size-4" />
+      </button>
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        {t("submit.nextStep")}
+      </p>
     </div>
   );
 }

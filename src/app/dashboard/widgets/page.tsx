@@ -19,6 +19,7 @@ export default async function WidgetsPage() {
       id: true,
       name: true,
       slug: true,
+      logoUrl: true,
       primaryColor: true,
       publicEmbedKey: true,
       widgetAccent: true,
@@ -68,6 +69,8 @@ export default async function WidgetsPage() {
         <div className="mt-6">
           <WidgetCustomizer
             slug={org.slug}
+            orgName={org.name}
+            logoUrl={org.logoUrl}
             publicEmbedKey={publicEmbedKey}
             initialDesign={initialDesign}
             defaultAccent={defaultAccent}
