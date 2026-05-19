@@ -110,9 +110,11 @@ export function PublicBookingForm({
   const [slotConfig, setSlotConfig] = useState<SlotConfig>(DEFAULT_SLOT_CONFIG);
   const [bookings, setBookings] = useState<BookingInterval[]>([]);
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<"location" | "online">(
-    "location",
-  );
+  // null = nog niet gekozen. De boeking mag pas door als de klant
+  // expliciet een betaalwijze heeft geselecteerd.
+  const [paymentChoice, setPaymentChoice] = useState<
+    "location" | "online" | null
+  >(null);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -231,6 +233,11 @@ export function PublicBookingForm({
   }, [selectedItem, watchedStart, watchedEnd]);
 
   const onSubmit = handleSubmit((values) => {
+    // Harde gate: geen boeking zonder expliciet gekozen betaalwijze.
+    if (!paymentChoice) {
+      toast.error("Kies eerst hoe je wilt betalen.");
+      return;
+    }
     startTransition(async () => {
       let res: {
         ok: boolean;
@@ -244,7 +251,7 @@ export function PublicBookingForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...values,
-            paymentChoice: onlinePaymentAvailable ? paymentChoice : "location",
+            paymentChoice: paymentChoice ?? "location",
           }),
         });
         res = await r.json();
@@ -546,19 +553,26 @@ export function PublicBookingForm({
         </div>
       </Section>
 
-      {/* Betaalkeuze — alleen tonen als de tenant online betalen aan heeft.
-          Anders is "op locatie" impliciet. */}
-      {onlinePaymentAvailable && (
-        <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <PayChoiceCard
-              icon={MapPin}
-              title="Op locatie"
-              description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
-              active={paymentChoice === "location"}
-              onClick={() => setPaymentChoice("location")}
-              accent={accent}
-            />
+      {/* Betaalkeuze — ALTIJD verplicht. Geen boeking zonder expliciete
+          keuze. "Op locatie" is er altijd; "Online" alleen als de tenant
+          een Mollie/Stripe-key heeft. */}
+      <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
+        <div
+          className={
+            onlinePaymentAvailable
+              ? "grid gap-2 sm:grid-cols-2"
+              : "grid gap-2"
+          }
+        >
+          <PayChoiceCard
+            icon={MapPin}
+            title="Op locatie"
+            description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
+            active={paymentChoice === "location"}
+            onClick={() => setPaymentChoice("location")}
+            accent={accent}
+          />
+          {onlinePaymentAvailable && (
             <PayChoiceCard
               icon={CreditCard}
               title="Online betalen"
@@ -567,13 +581,18 @@ export function PublicBookingForm({
               onClick={() => setPaymentChoice("online")}
               accent={accent}
             />
-          </div>
-        </Section>
-      )}
+          )}
+        </div>
+        {!paymentChoice && (
+          <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+            Kies een betaalwijze om je boeking af te ronden.
+          </p>
+        )}
+      </Section>
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !paymentChoice}
         className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         style={{
           background: accent,
@@ -585,7 +604,7 @@ export function PublicBookingForm({
             <Loader2 className="size-4 animate-spin" />
             Versturen...
           </>
-        ) : onlinePaymentAvailable && paymentChoice === "online" ? (
+        ) : paymentChoice === "online" ? (
           <>
             Doorgaan naar betalen
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -599,7 +618,7 @@ export function PublicBookingForm({
       </button>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-        {onlinePaymentAvailable && paymentChoice === "online"
+        {paymentChoice === "online"
           ? `Je wordt doorgestuurd naar de beveiligde betaalpagina.`
           : `Geen geld nu afgeschreven. ${orgName} bevestigt per e-mail.`}
       </p>
