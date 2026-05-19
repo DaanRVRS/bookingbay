@@ -23,11 +23,17 @@ interface Booking {
   customerName: string;
   startAt: string;
   endAt: string;
+  createdAt: string;
   status: BookingStatus;
   totalPrice: string;
   paymentStatus: string | null;
   paymentProvider: string | null;
 }
+
+const SORT_OPTIONS = [
+  { value: "created", label: "Op reserveringsdatum" },
+  { value: "date", label: "Op boekingsdatum" },
+];
 
 /**
  * Eén bron van waarheid (src/lib/bookings/status.ts): hoofdlabel afgeleid van
@@ -53,9 +59,11 @@ function deriveStatus(b: Booking): {
 export function BookingList({
   bookings,
   currentStatus,
+  currentSort,
 }: {
   bookings: Booking[];
   currentStatus?: string;
+  currentSort?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,6 +73,13 @@ export function BookingList({
     const sp = new URLSearchParams(searchParams.toString());
     if (!v || v === "__all__") sp.delete("status");
     else sp.set("status", v);
+    startTransition(() => router.replace(`/dashboard/bookings?${sp.toString()}`));
+  };
+
+  const onSortChange = (v: string | null) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (!v || v === "created") sp.delete("sort");
+    else sp.set("sort", v);
     startTransition(() => router.replace(`/dashboard/bookings?${sp.toString()}`));
   };
 
@@ -91,6 +106,23 @@ export function BookingList({
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+          items={SORT_OPTIONS}
+          value={currentSort ?? "created"}
+          onValueChange={onSortChange}
+        >
+          <SelectTrigger className="sm:w-52">
+            <SelectValue placeholder="Sorteren" />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className={`mt-5 overflow-hidden rounded-xl border border-border bg-card ${pending ? "opacity-60" : ""}`}>
@@ -110,6 +142,16 @@ export function BookingList({
                     <p className="truncate text-sm font-medium">{b.itemName}</p>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {b.customerName}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground/80 tabular-nums">
+                      Geboekt op{" "}
+                      {new Date(b.createdAt).toLocaleString("nl-NL", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                     {/* Compact date on mobile only */}
                     <p className="mt-0.5 truncate text-[11px] text-muted-foreground tabular-nums sm:hidden">

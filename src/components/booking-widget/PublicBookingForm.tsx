@@ -75,19 +75,28 @@ function generateSlots(cfg: SlotConfig): string[] {
   return out;
 }
 
-function slotOverlapsAnyBooking(
-  dayDate: Date,
-  hhmm: string,
-  intervalMinutes: number,
+function atTimeMs(day: Date, hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date(day);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
+function rangeOverlapsBooking(
+  startMs: number,
+  endMs: number,
   bookings: BookingInterval[],
 ): boolean {
-  const [h, m] = hhmm.split(":").map(Number);
-  const start = new Date(dayDate);
-  start.setHours(h, m, 0, 0);
-  const end = new Date(start.getTime() + intervalMinutes * 60_000);
-  const startMs = start.getTime();
-  const endMs = end.getTime();
+  if (!(endMs > startMs)) return false;
   return bookings.some((b) => b.startMs < endMs && b.endMs > startMs);
+}
+
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 export function PublicBookingForm({
@@ -587,7 +596,8 @@ export function PublicBookingForm({
               label={t("slot.start")}
               value={startTime}
               onChange={setStartTime}
-              dayDate={range?.from ?? null}
+              rangeFromDate={range?.from ?? null}
+              rangeToDate={range?.to ?? range?.from ?? null}
               cfg={slotConfig}
               bookings={bookings}
               isStart
@@ -598,7 +608,8 @@ export function PublicBookingForm({
               label={t("slot.end")}
               value={endTime}
               onChange={setEndTime}
-              dayDate={range?.to ?? range?.from ?? null}
+              rangeFromDate={range?.from ?? null}
+              rangeToDate={range?.to ?? range?.from ?? null}
               cfg={slotConfig}
               bookings={bookings}
               isStart={false}
@@ -894,7 +905,8 @@ function SlotGrid({
   label,
   value,
   onChange,
-  dayDate,
+  rangeFromDate,
+  rangeToDate,
   cfg,
   bookings,
   isStart,
@@ -904,7 +916,8 @@ function SlotGrid({
   label: string;
   value: string;
   onChange: (v: string) => void;
-  dayDate: Date | null;
+  rangeFromDate: Date | null;
+  rangeToDate: Date | null;
   cfg: SlotConfig;
   bookings: BookingInterval[];
   isStart: boolean;
@@ -927,11 +940,42 @@ function SlotGrid({
         {slots.map((slot) => {
           const otherTimeMin = hhmmToMin(otherTime);
           const slotMin = hhmmToMin(slot);
-          const beforeStart = !isStart && slotMin <= otherTimeMin;
-          const afterEnd = isStart && slotMin >= otherTimeMin;
-          const overlap = dayDate
-            ? slotOverlapsAnyBooking(dayDate, slot, cfg.intervalMinutes, bookings)
-            : false;
+
+          const fromD = rangeFromDate;
+          const toD = rangeToDate ?? rangeFromDate;
+          const singleDay =
+            !!fromD && !!toD && sameCalendarDay(fromD, toD);
+
+          // Tijd-volgorde alleen afdwingen binnen één dag (bij een
+          // meerdaagse boeking mag de eindtijd vóór de starttijd liggen).
+          const beforeStart =
+            !isStart && singleDay && slotMin <= otherTimeMin;
+          const afterEnd = isStart && singleDay && slotMin >= otherTimeMin;
+
+          // Blokkeer elke keuze waarvan het VOLLEDIGE gekozen bereik een
+          // bestaande boeking overlapt — niet alleen het losse slot.
+          let overlap = false;
+          if (fromD && toD) {
+            const startAbs = isStart
+              ? atTimeMs(fromD, slot)
+              : atTimeMs(fromD, otherTime);
+            const endAbs = isStart
+              ? atTimeMs(toD, otherTime)
+              : atTimeMs(toD, slot);
+            if (endAbs > startAbs) {
+              overlap = rangeOverlapsBooking(startAbs, endAbs, bookings);
+            } else {
+              // Tegenhanger nog niet (zinvol) gekozen: blokkeer in elk
+              // geval het slot-interval zelf als dat al volzit.
+              const base = atTimeMs(isStart ? fromD : toD, slot);
+              overlap = rangeOverlapsBooking(
+                base,
+                base + cfg.intervalMinutes * 60_000,
+                bookings,
+              );
+            }
+          }
+
           const disabled = beforeStart || afterEnd || overlap;
           const selected = value === slot;
           return (

@@ -270,34 +270,42 @@ export async function getItemAvailability(
   const occupiers = [...bookings, ...blocks];
 
   const unavailable: string[] = [];
-  const dayMs = 86_400_000;
   const cursor = new Date(fromDate);
+
+  // Beschikbaarheid per dag wordt berekend BINNEN het boekvenster van
+  // het item (bookingWindowStartMin..EndMin), niet over de hele 24u.
+  // Anders telt vrije tijd buiten openingstijden mee en wordt een dag
+  // waarvan het hele venster vol zit nooit als "Vol" gemarkeerd.
+  const isPerDay = item.bookingIntervalMinutes === 1440;
+  const winStartMin = isPerDay ? 0 : item.bookingWindowStartMin;
+  const winEndMin = isPerDay ? 1440 : item.bookingWindowEndMin;
 
   while (cursor < toDate) {
     const dayStart = cursor.getTime();
-    const dayEnd = dayStart + dayMs;
+    const winStart = dayStart + winStartMin * 60_000;
+    const winEnd = dayStart + winEndMin * 60_000;
 
     const events: { time: number; delta: number }[] = [];
     for (const b of occupiers) {
-      const overlapStart = Math.max(b.startAt.getTime(), dayStart);
-      const overlapEnd = Math.min(b.endAt.getTime(), dayEnd);
+      const overlapStart = Math.max(b.startAt.getTime(), winStart);
+      const overlapEnd = Math.min(b.endAt.getTime(), winEnd);
       if (overlapStart < overlapEnd) {
         events.push({ time: overlapStart, delta: 1 });
         events.push({ time: overlapEnd, delta: -1 });
       }
     }
 
-    if (events.length > 0) {
+    if (events.length > 0 && winEnd > winStart) {
       events.sort((a, b) => a.time - b.time);
       let concurrent = 0;
-      let lastTime = dayStart;
+      let lastTime = winStart;
       let availableMs = 0;
       for (const e of events) {
         if (concurrent < item.quantity) availableMs += e.time - lastTime;
         concurrent += e.delta;
         lastTime = e.time;
       }
-      if (concurrent < item.quantity) availableMs += dayEnd - lastTime;
+      if (concurrent < item.quantity) availableMs += winEnd - lastTime;
 
       if (availableMs < 60_000) {
         const y = cursor.getFullYear();

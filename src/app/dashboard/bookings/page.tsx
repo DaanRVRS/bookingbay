@@ -11,7 +11,16 @@ import { BookingList } from "./booking-list";
 export const metadata = { title: "Boekingen" };
 
 interface PageProps {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; sort?: string }>;
+}
+
+/**
+ * Twee weergaven: "created" = op reserveringsdatum (wanneer geboekt,
+ * nieuwste eerst) — standaard. "date" = op boekingsdatum (de
+ * gereserveerde startdatum, nieuwste eerst).
+ */
+function sortOrder(sort: string | undefined): Prisma.BookingOrderByWithRelationInput {
+  return sort === "date" ? { startAt: "desc" } : { createdAt: "desc" };
 }
 
 /**
@@ -44,6 +53,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const params = await searchParams;
   const status = params.status;
+  const sort = params.sort === "date" ? "date" : "created";
 
   const bookings = await db.booking.findMany({
     where: {
@@ -54,7 +64,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       item: { select: { name: true } },
       customer: { select: { name: true } },
     },
-    orderBy: { startAt: "desc" },
+    orderBy: sortOrder(sort),
     take: 100,
   });
   // paymentStatus/paymentProvider zitten niet in include maar wel op de row.
@@ -110,12 +120,14 @@ export default async function BookingsPage({ searchParams }: PageProps) {
                 customerName: b.customer.name,
                 startAt: b.startAt.toISOString(),
                 endAt: b.endAt.toISOString(),
+                createdAt: b.createdAt.toISOString(),
                 status: b.status,
                 totalPrice: b.totalPrice.toString(),
                 paymentStatus: b.paymentStatus,
                 paymentProvider: b.paymentProvider,
               }))}
               currentStatus={status}
+              currentSort={sort}
             />
           )}
         </div>
