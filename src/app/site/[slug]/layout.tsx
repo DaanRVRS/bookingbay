@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Geist } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
@@ -8,7 +8,11 @@ import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
 import { TenantMobileNav } from "@/components/tenants/TenantMobileNav";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+const geist = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 export async function generateMetadata({
   params,

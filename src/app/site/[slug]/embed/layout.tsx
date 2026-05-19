@@ -1,10 +1,16 @@
 import { notFound } from "next/navigation";
-import { Geist } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "../../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
 import { EmbedHeightReporter } from "@/components/embed/EmbedHeightReporter";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+// Zelfde huisletter als de rest van BookingBay. CSS-var-naam blijft
+// --font-geist-sans zodat globals/tailwind ongemoeid blijven.
+const geist = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 export async function generateMetadata({
   params,
