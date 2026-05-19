@@ -135,7 +135,7 @@ function UspFooter({ usps, accent }: { usps: WidgetUsp[]; accent: string }) {
   const clean = usps.filter((u) => u.text.trim());
   if (clean.length === 0) return null;
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
+    <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-border pt-4 text-center">
       {clean.map((u, i) => (
         <span
           key={`${u.text}-${i}`}

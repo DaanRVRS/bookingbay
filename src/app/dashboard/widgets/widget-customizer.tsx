@@ -692,7 +692,7 @@ function WidgetPreview({
 
         {/* USP-footer (replica van UspFooter) */}
         {usps.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-border pt-4 text-center">
             {usps.map((u, i) => (
               <span
                 key={`${u.text}-${i}`}
