@@ -10,8 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { STATUS_LABELS, bookingStatusValues } from "@/lib/bookings/schemas";
-import { deriveBookingStatus, paymentSublabel } from "@/lib/bookings/status";
+import {
+  DERIVED_FILTERS,
+  deriveBookingStatus,
+  paymentSublabel,
+} from "@/lib/bookings/status";
 import type { BookingStatus } from "@prisma/client";
 
 interface Booking {
@@ -71,7 +74,7 @@ export function BookingList({
         <Select
           items={[
             { value: "__all__", label: "Alle statussen" },
-            ...bookingStatusValues.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+            ...DERIVED_FILTERS.map((s) => ({ value: s.key, label: s.label })),
           ]}
           value={currentStatus ?? "__all__"}
           onValueChange={onStatusChange}
@@ -81,9 +84,9 @@ export function BookingList({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Alle statussen</SelectItem>
-            {bookingStatusValues.map((s) => (
-              <SelectItem key={s} value={s}>
-                {STATUS_LABELS[s]}
+            {DERIVED_FILTERS.map((s) => (
+              <SelectItem key={s.key} value={s.key}>
+                {s.label}
               </SelectItem>
             ))}
           </SelectContent>

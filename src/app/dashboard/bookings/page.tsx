@@ -4,12 +4,40 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { EmptyState } from "@/components/dashboard/EmptyState";
+import { isDerivedKey } from "@/lib/bookings/status";
+import type { Prisma } from "@prisma/client";
 import { BookingList } from "./booking-list";
 
 export const metadata = { title: "Boekingen" };
 
 interface PageProps {
   searchParams: Promise<{ status?: string }>;
+}
+
+/**
+ * Vertaalt een afgeleide filter-key (Gereserveerd/Bezig/Voltooid/
+ * Geannuleerd) naar een tijd-gebaseerde Prisma-where. Spiegelt exact
+ * deriveBookingStatus() in src/lib/bookings/status.ts.
+ */
+function derivedWhere(
+  status: string | undefined,
+  now: Date,
+): Prisma.BookingWhereInput {
+  if (!isDerivedKey(status)) return {};
+  switch (status) {
+    case "CANCELED":
+      return { status: "CANCELED" };
+    case "COMPLETED":
+      return { status: { not: "CANCELED" }, endAt: { lte: now } };
+    case "ACTIVE":
+      return {
+        status: { not: "CANCELED" },
+        startAt: { lte: now },
+        endAt: { gt: now },
+      };
+    case "RESERVED":
+      return { status: { not: "CANCELED" }, startAt: { gt: now } };
+  }
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
@@ -20,7 +48,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const bookings = await db.booking.findMany({
     where: {
       organizationId: ctx.organization.id,
-      ...(status && { status: status as "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELED" }),
+      ...derivedWhere(status, new Date()),
     },
     include: {
       item: { select: { name: true } },

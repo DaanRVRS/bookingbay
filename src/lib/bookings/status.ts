@@ -16,6 +16,24 @@ export type DerivedKey =
   | "COMPLETED"
   | "CANCELED";
 
+/**
+ * Filter-opties voor de boekingenlijst. Bewust afgeleide statussen i.p.v.
+ * de ruwe DB-enum (PENDING/CONFIRMED/IN_PROGRESS bestaan voor de gebruiker
+ * niet meer). De server vertaalt deze keys naar een tijd-gebaseerde query.
+ */
+export const DERIVED_FILTERS: { key: DerivedKey; label: string }[] = [
+  { key: "RESERVED", label: "Gereserveerd" },
+  { key: "ACTIVE", label: "Bezig" },
+  { key: "COMPLETED", label: "Voltooid" },
+  { key: "CANCELED", label: "Geannuleerd" },
+];
+
+export function isDerivedKey(v: unknown): v is DerivedKey {
+  return (
+    v === "RESERVED" || v === "ACTIVE" || v === "COMPLETED" || v === "CANCELED"
+  );
+}
+
 export interface DerivedStatus {
   key: DerivedKey;
   main: string;
