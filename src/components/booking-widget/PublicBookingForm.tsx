@@ -91,14 +91,6 @@ function rangeOverlapsBooking(
   return bookings.some((b) => b.startMs < endMs && b.endMs > startMs);
 }
 
-function sameCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 export function PublicBookingForm({
   slug,
   orgName,
@@ -273,6 +265,19 @@ export function PublicBookingForm({
     return d;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today.getTime(), lookaheadDays]);
+
+  // Klik op een starttijd na de huidige eindtijd (of andersom) wordt
+  // toegestaan: de tegenhanger wordt geleegd zodat de klant 'm opnieuw
+  // kiest. Liever dat dan slots blokkeren — anders zit je vast aan een
+  // eerdere keuze.
+  const onPickStart = (s: string) => {
+    setStartTime(s);
+    if (endTime && hhmmToMin(s) >= hhmmToMin(endTime)) setEndTime("");
+  };
+  const onPickEnd = (e: string) => {
+    setEndTime(e);
+    if (startTime && hhmmToMin(e) <= hhmmToMin(startTime)) setStartTime("");
+  };
 
   // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
   // zijn voordat we naar de gegevens/betaal-stap gaan.
@@ -618,7 +623,7 @@ export function PublicBookingForm({
             <SlotGrid
               label={t("slot.start")}
               value={startTime}
-              onChange={setStartTime}
+              onChange={onPickStart}
               rangeFromDate={date ?? null}
               rangeToDate={date ?? null}
               cfg={slotConfig}
@@ -630,7 +635,7 @@ export function PublicBookingForm({
             <SlotGrid
               label={t("slot.end")}
               value={endTime}
-              onChange={setEndTime}
+              onChange={onPickEnd}
               rangeFromDate={date ?? null}
               rangeToDate={date ?? null}
               cfg={slotConfig}
@@ -994,20 +999,13 @@ function SlotGrid({
       <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
         {slots.map((slot) => {
           const otherSet = otherTime !== "";
-          const otherTimeMin = hhmmToMin(otherTime);
-          const slotMin = hhmmToMin(slot);
-
           const fromD = rangeFromDate;
           const toD = rangeToDate ?? rangeFromDate;
-          const singleDay =
-            !!fromD && !!toD && sameCalendarDay(fromD, toD);
 
-          // Tijd-volgorde alleen afdwingen als de tegenhanger al gekozen
-          // is én binnen één dag (meerdaags mag eind vóór start liggen).
-          const beforeStart =
-            !isStart && otherSet && singleDay && slotMin <= otherTimeMin;
-          const afterEnd =
-            isStart && otherSet && singleDay && slotMin >= otherTimeMin;
+          // Tijd-volgorde wordt NIET op slot-niveau afgedwongen: anders zit
+          // je vast aan een eerdere keuze (kun je starttijd niet meer naar
+          // achter zetten zonder eerst de eindtijd te wissen). De parent
+          // ledigt zelf de tegenhanger zodra de keuze "omdraait".
 
           // Toon onbeschikbare slots METEEN — zonder dat de klant eerst de
           // tegenhanger hoeft te kiezen:
@@ -1039,7 +1037,7 @@ function SlotGrid({
             }
           }
 
-          const disabled = beforeStart || afterEnd || overlap;
+          const disabled = overlap;
           const selected = value === slot;
           return (
             <button
