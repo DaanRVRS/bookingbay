@@ -236,6 +236,18 @@ export function PublicBookingForm({
     return null;
   }, [selectedItem, watchedStart, watchedEnd]);
 
+  // ALLE hooks moeten vóór elke conditionele return staan (Rules of Hooks).
+  // De `if (done)` / `if (reviewing)` returns hieronder zouden anders deze
+  // useMemo overslaan en React laten crashen bij elke toggle.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const lookaheadEnd = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + lookaheadDays);
+    return d;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today.getTime(), lookaheadDays]);
+
   // Stap 1: "Boeken" geklikt → valideer + ga naar de review-stap.
   // Hier wordt NOG GEEN boeking aangemaakt.
   const onSubmit = handleSubmit((values) => {
@@ -437,14 +449,6 @@ export function PublicBookingForm({
 
   const showItemPicker =
     !fixedItem && (!itemOptions || itemOptions.length > 0);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const lookaheadEnd = useMemo(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + lookaheadDays);
-    return d;
-  }, [today, lookaheadDays]);
 
   const formatDateKey = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
