@@ -115,6 +115,9 @@ export function PublicBookingForm({
   const [paymentChoice, setPaymentChoice] = useState<
     "location" | "online" | null
   >(null);
+  // Review-stap: na "Boeken" laten we eerst een overzicht zien. Pas op
+  // "Bevestigen" wordt de boeking echt aangemaakt.
+  const [reviewing, setReviewing] = useState(false);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -130,6 +133,7 @@ export function PublicBookingForm({
     setError,
     setValue,
     watch,
+    getValues,
   } = useForm<PublicBookingInput>({
     resolver: zodResolver(publicBookingSchema),
     defaultValues: {
@@ -232,10 +236,22 @@ export function PublicBookingForm({
     return null;
   }, [selectedItem, watchedStart, watchedEnd]);
 
+  // Stap 1: "Boeken" geklikt → valideer + ga naar de review-stap.
+  // Hier wordt NOG GEEN boeking aangemaakt.
   const onSubmit = handleSubmit((values) => {
-    // Harde gate: geen boeking zonder expliciet gekozen betaalwijze.
     if (!paymentChoice) {
       toast.error("Kies eerst hoe je wilt betalen.");
+      return;
+    }
+    void values;
+    setReviewing(true);
+  });
+
+  // Stap 2: op de review-stap "Bevestigen" geklikt → boeking echt aanmaken.
+  const confirmBooking = () => {
+    if (!paymentChoice) {
+      toast.error("Kies eerst hoe je wilt betalen.");
+      setReviewing(false);
       return;
     }
     startTransition(async () => {
@@ -250,8 +266,8 @@ export function PublicBookingForm({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...values,
-            paymentChoice: paymentChoice ?? "location",
+            ...getValues(),
+            paymentChoice,
           }),
         });
         res = await r.json();
@@ -267,14 +283,13 @@ export function PublicBookingForm({
           }
         }
         toast.error(res.error ?? "Er ging iets mis");
+        setReviewing(false);
         return;
       }
-      // Tenant heeft online betalen aan staan → redirect naar checkout.
+      // Online gekozen → door naar Mollie/Stripe checkout.
       if (res.redirectUrl) {
         const target = res.redirectUrl;
         if (window.top && window.top !== window.self) {
-          // Iframe-context (embed): break out of iframe zodat de checkout-page
-          // op volle breedte opent ipv binnen de host-pagina.
           try {
             window.top.location.href = target;
             return;
@@ -287,9 +302,10 @@ export function PublicBookingForm({
         window.location.href = target;
         return;
       }
+      // Op locatie → boeking bevestigd.
       setDone(true);
     });
-  });
+  };
 
   if (done) {
     return (
@@ -319,6 +335,102 @@ export function PublicBookingForm({
             (en spam) in de gaten — meestal binnen één werkdag.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Review-stap: overzicht van wat er geboekt wordt vóór definitief
+  // bevestigen. Geen boeking aangemaakt tot "Bevestigen".
+  if (reviewing) {
+    const reviewItemName =
+      fixedItem?.name ?? selectedItem?.name ?? "Geselecteerd item";
+    const rFrom = range?.from ?? null;
+    const rTo = range?.to ?? range?.from ?? null;
+    const isPerDay = slotConfig.intervalMinutes === 1440;
+    const whenLine =
+      rFrom && rTo
+        ? isPerDay
+          ? `${format(rFrom, "EEEE d MMM yyyy", { locale: nl })} t/m ${format(rTo, "EEEE d MMM yyyy", { locale: nl })}`
+          : `${format(rFrom, "EEEE d MMM", { locale: nl })} ${startTime} — ${format(rTo, "d MMM", { locale: nl })} ${endTime}`
+        : "—";
+    const isOnline = paymentChoice === "online";
+
+    return (
+      <div className="flex flex-col gap-4">
+        <div>
+          <button
+            type="button"
+            onClick={() => setReviewing(false)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowRight className="size-3 rotate-180" />
+            Aanpassen
+          </button>
+          <h2 className="mt-2 text-lg font-semibold tracking-tight">
+            Klopt dit zo?
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Controleer je boeking en bevestig.
+          </p>
+        </div>
+
+        <dl className="overflow-hidden rounded-xl border border-border bg-card">
+          <ReviewRow label="Item" value={reviewItemName} accent={accent} />
+          <ReviewRow label="Wanneer" value={whenLine} accent={accent} />
+          <ReviewRow
+            label="Naam"
+            value={getValues("customerName") || "—"}
+            accent={accent}
+          />
+          <ReviewRow
+            label="E-mail"
+            value={getValues("customerEmail") || "—"}
+            accent={accent}
+          />
+          {estimate !== null && (
+            <ReviewRow
+              label="Geschatte prijs"
+              value={`€ ${estimate.toFixed(2)}`}
+              accent={accent}
+              highlight
+            />
+          )}
+          <ReviewRow
+            label="Betaalwijze"
+            value={isOnline ? "Online betalen" : "Op locatie"}
+            accent={accent}
+          />
+        </dl>
+
+        <button
+          type="button"
+          onClick={confirmBooking}
+          disabled={pending}
+          className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          style={{ background: accent, boxShadow: `0 4px 14px -4px ${accent}80` }}
+        >
+          {pending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Bezig...
+            </>
+          ) : isOnline ? (
+            <>
+              Doorgaan naar betalen
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </>
+          ) : (
+            <>
+              Boeking bevestigen
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </>
+          )}
+        </button>
+        <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+          {isOnline
+            ? "Je wordt doorgestuurd naar de beveiligde betaalpagina."
+            : `Geen geld nu afgeschreven. ${orgName} bevestigt per e-mail.`}
+        </p>
       </div>
     );
   }
@@ -599,28 +711,12 @@ export function PublicBookingForm({
           boxShadow: `0 4px 14px -4px ${accent}80`,
         }}
       >
-        {pending ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            Versturen...
-          </>
-        ) : paymentChoice === "online" ? (
-          <>
-            Doorgaan naar betalen
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-          </>
-        ) : (
-          <>
-            Boeking bevestigen
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-          </>
-        )}
+        Boeken
+        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
       </button>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-        {paymentChoice === "online"
-          ? `Je wordt doorgestuurd naar de beveiligde betaalpagina.`
-          : `Geen geld nu afgeschreven. ${orgName} bevestigt per e-mail.`}
+        Volgende stap: je ziet een overzicht en bevestigt dan pas.
       </p>
     </form>
   );
@@ -666,6 +762,32 @@ function PayChoiceCard({
         {description}
       </span>
     </button>
+  );
+}
+
+function ReviewRow({
+  label,
+  value,
+  accent,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 last:border-b-0">
+      <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className="text-right text-sm font-medium tabular-nums"
+        style={highlight ? { color: accent, fontWeight: 700 } : undefined}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
