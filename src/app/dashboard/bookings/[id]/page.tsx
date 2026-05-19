@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
-import { BookingForm } from "../booking-form";
+import { BookingDetail } from "./booking-detail";
 
 export const metadata = { title: "Boeking" };
 
@@ -10,14 +10,17 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function EditBookingPage({ params }: PageProps) {
+export default async function BookingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const ctx = await requireOrg();
 
   const [booking, items, customers] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: ctx.organization.id },
-      include: { item: { select: { name: true } }, customer: { select: { name: true } } },
+      include: {
+        item: { select: { name: true } },
+        customer: { select: { name: true, email: true } },
+      },
     }),
     db.item.findMany({
       where: { organizationId: ctx.organization.id, isActive: true },
@@ -45,11 +48,11 @@ export default async function EditBookingPage({ params }: PageProps) {
       <div className="mx-auto max-w-2xl">
         <PageHeader
           title={`${booking.customer.name} · ${booking.item.name}`}
-          description="Wijzig de details van deze boeking."
+          description="Boekingsdetails. Klik op Bewerken om aan te passen."
           back={{ href: "/dashboard/bookings", label: "Terug naar boekingen" }}
         />
         <div className="mt-6">
-          <BookingForm
+          <BookingDetail
             items={items.map((i) => ({
               id: i.id,
               name: i.name,
@@ -58,16 +61,25 @@ export default async function EditBookingPage({ params }: PageProps) {
               pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
               pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
             }))}
-            customers={customers.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
-            existing={{
+            customers={customers.map((c) => ({
+              id: c.id,
+              name: c.name,
+              email: c.email,
+            }))}
+            view={{
               id: booking.id,
               itemId: booking.itemId,
               customerId: booking.customerId,
+              itemName: booking.item.name,
+              customerName: booking.customer.name,
+              customerEmail: booking.customer.email,
               startAt: booking.startAt.toISOString(),
               endAt: booking.endAt.toISOString(),
               status: booking.status,
               totalPrice: Number(booking.totalPrice),
               notes: booking.notes ?? "",
+              paymentStatus: booking.paymentStatus,
+              paymentProvider: booking.paymentProvider,
             }}
           />
         </div>

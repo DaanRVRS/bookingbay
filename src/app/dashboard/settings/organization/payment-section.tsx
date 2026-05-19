@@ -8,6 +8,7 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react";
+import { Icon } from "@iconify/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,11 +81,18 @@ export function PaymentSection({ initial, disabled }: Props) {
         <ToggleCard
           icon={CreditCard}
           title="Online betalen"
-          description="Klant rekent direct af via je eigen Mollie- of Stripe-account."
+          description="Klant rekent direct af via je eigen account."
           on={onlineOn}
           onToggle={() => setOnlineOn((v) => !v)}
           disabled={disabled}
           accent="oklch(0.55 0.18 270)"
+          logos={
+            <span className="flex items-center gap-1.5">
+              <Icon icon="logos:mollie" className="h-3.5 w-auto" />
+              <span className="text-muted-foreground/40">·</span>
+              <Icon icon="logos:stripe" className="h-3.5 w-auto" />
+            </span>
+          }
         />
       </div>
 
@@ -97,12 +105,14 @@ export function PaymentSection({ initial, disabled }: Props) {
           <div className="mt-2 inline-flex rounded-lg border border-border bg-background p-0.5">
             <ProviderTab
               label="Mollie"
+              icon="logos:mollie"
               active={onlineProvider === "MOLLIE"}
               onClick={() => setOnlineProvider("MOLLIE")}
               disabled={disabled}
             />
             <ProviderTab
               label="Stripe"
+              icon="logos:stripe"
               active={onlineProvider === "STRIPE"}
               onClick={() => setOnlineProvider("STRIPE")}
               disabled={disabled}
@@ -248,6 +258,7 @@ function ToggleCard({
   onToggle,
   disabled,
   accent,
+  logos,
 }: {
   icon: typeof MapPin;
   title: string;
@@ -256,6 +267,7 @@ function ToggleCard({
   onToggle: () => void;
   disabled?: boolean;
   accent: string;
+  logos?: React.ReactNode;
 }) {
   return (
     <button
@@ -293,17 +305,20 @@ function ToggleCard({
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         {description}
       </p>
+      {logos && <div className="mt-1">{logos}</div>}
     </button>
   );
 }
 
 function ProviderTab({
   label,
+  icon,
   active,
   onClick,
   disabled,
 }: {
   label: string;
+  icon: string;
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
@@ -313,12 +328,13 @@ function ProviderTab({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
         active
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:text-foreground"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
+      <Icon icon={icon} className="h-4 w-auto" />
       {label}
     </button>
   );

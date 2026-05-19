@@ -125,8 +125,17 @@ export function RevenueChart({ points }: { points: Point[] }) {
       ? `${linePath} L ${x(n - 1).toFixed(1)} ${(padTop + innerH).toFixed(1)} L ${x(0).toFixed(1)} ${(padTop + innerH).toFixed(1)} Z`
       : "";
 
-  // X-axis labels: ~5 evenly spaced
-  const labelEvery = Math.max(1, Math.ceil(n / 5));
+  // X-as labels: max ~5 gelijk verdeeld, inclusief eerste + laatste, en
+  // nooit twee labels te dicht op elkaar (voorkomt overlap aan de rand).
+  const labelIdx = (() => {
+    if (n <= 1) return new Set<number>([0]);
+    const want = Math.min(5, n);
+    const s = new Set<number>();
+    for (let k = 0; k < want; k++) {
+      s.add(Math.round((k / (want - 1)) * (n - 1)));
+    }
+    return s;
+  })();
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -262,7 +271,7 @@ export function RevenueChart({ points }: { points: Point[] }) {
 
             {/* X-as labels */}
             {buckets.map((b, i) =>
-              i % labelEvery === 0 || i === n - 1 ? (
+              labelIdx.has(i) ? (
                 <text
                   key={`l-${b.ts}`}
                   x={x(i)}

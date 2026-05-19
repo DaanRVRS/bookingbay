@@ -355,22 +355,7 @@ export function BookingForm({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="totalPrice">Totaalbedrag</Label>
-              {selectedItem && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const sug = computeSuggestion();
-                    if (sug != null) setValue("totalPrice", sug, { shouldValidate: true });
-                    else toast("Stel eerst een prijs in op het item");
-                  }}
-                  className="text-[11px] font-medium text-primary hover:underline"
-                >
-                  Bereken
-                </button>
-              )}
-            </div>
+            <Label htmlFor="totalPrice">Totaalbedrag</Label>
             <div className="relative">
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
                 €
@@ -380,10 +365,16 @@ export function BookingForm({
                 type="text"
                 inputMode="decimal"
                 placeholder="0,00"
-                className="pl-7"
+                className="pl-7 bg-muted/40 cursor-not-allowed"
+                readOnly
+                tabIndex={-1}
                 {...register("totalPrice")}
               />
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Automatisch berekend op basis van item-prijs × duur — niet handmatig
+              aanpasbaar.
+            </p>
             {errors.totalPrice?.message && (
               <p className="text-xs font-medium text-destructive">{errors.totalPrice.message}</p>
             )}

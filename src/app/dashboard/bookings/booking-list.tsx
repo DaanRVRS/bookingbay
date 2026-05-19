@@ -21,15 +21,50 @@ interface Booking {
   endAt: string;
   status: BookingStatus;
   totalPrice: string;
+  paymentStatus: string | null;
+  paymentProvider: string | null;
 }
 
-const statusStyles: Record<BookingStatus, string> = {
-  PENDING: "bg-[oklch(0.85_0.13_85)]/20 text-[oklch(0.45_0.13_70)]",
-  CONFIRMED: "bg-primary/12 text-primary",
-  IN_PROGRESS: "bg-[oklch(0.7_0.13_150)]/15 text-[oklch(0.5_0.14_150)]",
-  COMPLETED: "bg-muted text-muted-foreground",
-  CANCELED: "bg-destructive/10 text-destructive",
-};
+/**
+ * Vertaalt status + betaal-velden naar een leesbare pill: een hoofdlabel
+ * (Gereserveerd / Voltooid / Geannuleerd) + een betaal-sublabel
+ * (Online betaald / Betalen op locatie), met bijpassende kleur.
+ */
+function deriveStatus(b: Booking): {
+  main: string;
+  sub: string | null;
+  cls: string;
+} {
+  if (b.status === "CANCELED") {
+    return {
+      main: "Geannuleerd",
+      sub: null,
+      cls: "bg-destructive/10 text-destructive",
+    };
+  }
+  if (b.status === "COMPLETED") {
+    return {
+      main: "Voltooid",
+      sub: null,
+      cls: "bg-muted text-muted-foreground",
+    };
+  }
+  // PENDING / CONFIRMED / IN_PROGRESS = de boeking staat = "Gereserveerd"
+  const paidOnline =
+    Boolean(b.paymentProvider) && b.paymentStatus === "PAID";
+  if (paidOnline) {
+    return {
+      main: "Gereserveerd",
+      sub: "Online betaald",
+      cls: "bg-[oklch(0.7_0.13_150)]/15 text-[oklch(0.48_0.14_150)]",
+    };
+  }
+  return {
+    main: "Gereserveerd",
+    sub: "Betalen op locatie",
+    cls: "bg-[oklch(0.85_0.13_85)]/22 text-[oklch(0.45_0.13_70)]",
+  };
+}
 
 export function BookingList({
   bookings,
@@ -127,11 +162,23 @@ export function BookingList({
                   <span className="hidden text-sm font-semibold tabular-nums sm:block">
                     € {Number(b.totalPrice).toFixed(2)}
                   </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusStyles[b.status]}`}
-                  >
-                    {STATUS_LABELS[b.status]}
-                  </span>
+                  {(() => {
+                    const d = deriveStatus(b);
+                    return (
+                      <span
+                        className={`flex shrink-0 flex-col items-end gap-0.5 rounded-lg px-2.5 py-1 text-right ${d.cls}`}
+                      >
+                        <span className="text-[11px] font-semibold leading-none">
+                          {d.main}
+                        </span>
+                        {d.sub && (
+                          <span className="text-[10px] font-medium leading-none opacity-80">
+                            {d.sub}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </Link>
               </li>
             ))}

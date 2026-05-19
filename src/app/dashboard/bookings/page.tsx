@@ -29,6 +29,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     orderBy: { startAt: "desc" },
     take: 100,
   });
+  // paymentStatus/paymentProvider zitten niet in include maar wel op de row.
 
   const totalCount = await db.booking.count({
     where: { organizationId: ctx.organization.id },
@@ -83,6 +84,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
                 endAt: b.endAt.toISOString(),
                 status: b.status,
                 totalPrice: b.totalPrice.toString(),
+                paymentStatus: b.paymentStatus,
+                paymentProvider: b.paymentProvider,
               }))}
               currentStatus={status}
             />
