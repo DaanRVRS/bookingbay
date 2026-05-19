@@ -140,7 +140,9 @@ export async function createPublicBooking(
   }
 
   let redirectUrl: string | undefined;
-  if (estimate > 0) {
+  // Alleen online afrekenen als de klant daar expliciet voor koos én er
+  // een bedrag is. "location" = betalen bij ophalen → boeking blijft PENDING.
+  if (data.paymentChoice === "online" && estimate > 0) {
     try {
       const paymentCfg = await readPaymentConfig(org.id);
       const baseUrl = env.APP_URL.replace(/\/$/, "");
@@ -204,6 +206,8 @@ export interface ItemAvailability {
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
   bookings: { startMs: number; endMs: number }[];
+  /** Of de tenant online betalen aan heeft (Mollie of Stripe key gezet). */
+  onlinePaymentAvailable: boolean;
 }
 
 export async function getItemAvailability(
@@ -230,6 +234,11 @@ export async function getItemAvailability(
     },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
+
+  const paymentCfg = await readPaymentConfig(org.id);
+  const onlinePaymentAvailable =
+    (paymentCfg.provider === "MOLLIE" && Boolean(paymentCfg.mollieKey)) ||
+    (paymentCfg.provider === "STRIPE" && Boolean(paymentCfg.stripeKey));
 
   const fromDate = new Date();
   fromDate.setHours(0, 0, 0, 0);
@@ -311,5 +320,6 @@ export async function getItemAvailability(
       startMs: b.startAt.getTime(),
       endMs: b.endAt.getTime(),
     })),
+    onlinePaymentAvailable,
   };
 }

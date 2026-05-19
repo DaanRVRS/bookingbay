@@ -7,7 +7,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { ArrowRight, CalendarDays, CheckCircle2, Loader2, User } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  MapPin,
+  User,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
@@ -100,6 +109,10 @@ export function PublicBookingForm({
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [slotConfig, setSlotConfig] = useState<SlotConfig>(DEFAULT_SLOT_CONFIG);
   const [bookings, setBookings] = useState<BookingInterval[]>([]);
+  const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<"location" | "online">(
+    "location",
+  );
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -178,6 +191,7 @@ export function PublicBookingForm({
             windowEndMin: res.bookingWindowEndMin,
           });
           setBookings(res.bookings);
+          setOnlinePaymentAvailable(Boolean(res.onlinePaymentAvailable));
           if (res.bookingIntervalMinutes === 1440) {
             setStartTime("00:00");
             setEndTime("23:59");
@@ -228,7 +242,10 @@ export function PublicBookingForm({
         const r = await fetch("/api/public/booking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
+          body: JSON.stringify({
+            ...values,
+            paymentChoice: onlinePaymentAvailable ? paymentChoice : "location",
+          }),
         });
         res = await r.json();
       } catch {
@@ -529,6 +546,31 @@ export function PublicBookingForm({
         </div>
       </Section>
 
+      {/* Betaalkeuze — alleen tonen als de tenant online betalen aan heeft.
+          Anders is "op locatie" impliciet. */}
+      {onlinePaymentAvailable && (
+        <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <PayChoiceCard
+              icon={MapPin}
+              title="Op locatie"
+              description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
+              active={paymentChoice === "location"}
+              onClick={() => setPaymentChoice("location")}
+              accent={accent}
+            />
+            <PayChoiceCard
+              icon={CreditCard}
+              title="Online betalen"
+              description="Reken nu direct af en je boeking is meteen bevestigd."
+              active={paymentChoice === "online"}
+              onClick={() => setPaymentChoice("online")}
+              accent={accent}
+            />
+          </div>
+        </Section>
+      )}
+
       <button
         type="submit"
         disabled={pending}
@@ -543,18 +585,68 @@ export function PublicBookingForm({
             <Loader2 className="size-4 animate-spin" />
             Versturen...
           </>
+        ) : onlinePaymentAvailable && paymentChoice === "online" ? (
+          <>
+            Doorgaan naar betalen
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </>
         ) : (
           <>
-            Boeking aanvragen
+            Boeking bevestigen
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </>
         )}
       </button>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-        Geen geld nu afgeschreven. {orgName} bevestigt per e-mail.
+        {onlinePaymentAvailable && paymentChoice === "online"
+          ? `Je wordt doorgestuurd naar de beveiligde betaalpagina.`
+          : `Geen geld nu afgeschreven. ${orgName} bevestigt per e-mail.`}
       </p>
     </form>
+  );
+}
+
+function PayChoiceCard({
+  icon: Icon,
+  title,
+  description,
+  active,
+  onClick,
+  accent,
+}: {
+  icon: typeof MapPin;
+  title: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+  accent: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col gap-1.5 rounded-xl border p-3.5 text-left transition-all"
+      style={{
+        borderColor: active ? accent : "var(--border)",
+        background: active ? `${accent}0D` : "transparent",
+        boxShadow: active ? `inset 0 0 0 1px ${accent}55` : undefined,
+      }}
+    >
+      <span
+        className="grid size-8 place-items-center rounded-md"
+        style={{
+          background: active ? accent : `${accent}15`,
+          color: active ? "#fff" : accent,
+        }}
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="text-sm font-semibold tracking-tight">{title}</span>
+      <span className="text-[11px] leading-relaxed text-muted-foreground">
+        {description}
+      </span>
+    </button>
   );
 }
 

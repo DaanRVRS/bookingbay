@@ -10,6 +10,9 @@ export const publicBookingSchema = z
     customerEmail: z.email("Ongeldig e-mailadres"),
     customerPhone: z.string().max(40).optional().or(z.literal("")),
     notes: z.string().max(2000).optional().or(z.literal("")),
+    // Hoe de klant wil betalen. "online" = direct via tenant's Mollie/Stripe;
+    // alles anders (incl. afwezig) = "location" → bij ophalen, booking PENDING.
+    paymentChoice: z.enum(["location", "online"]).optional(),
   })
   .refine(
     (d) => {
