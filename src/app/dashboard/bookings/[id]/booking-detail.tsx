@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   CalendarClock,
   CreditCard,
+  Loader2,
   MapPin,
   Package,
   Pencil,
@@ -11,7 +14,10 @@ import {
   User,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { BookingForm } from "../booking-form";
+import { cancelBookingAction } from "@/lib/bookings/actions";
+import { deriveBookingStatus, paymentSublabel } from "@/lib/bookings/status";
 
 type BookingStatus =
   | "PENDING"
@@ -55,22 +61,14 @@ interface Props {
 }
 
 function deriveStatus(v: Props["view"]) {
-  if (v.status === "CANCELED")
-    return { main: "Geannuleerd", sub: null, cls: "bg-destructive/10 text-destructive" };
-  if (v.status === "COMPLETED")
-    return { main: "Voltooid", sub: null, cls: "bg-muted text-muted-foreground" };
-  const paidOnline =
-    Boolean(v.paymentProvider) && v.paymentStatus === "PAID";
-  if (paidOnline)
-    return {
-      main: "Gereserveerd",
-      sub: "Online betaald",
-      cls: "bg-[oklch(0.7_0.13_150)]/15 text-[oklch(0.48_0.14_150)]",
-    };
+  const d = deriveBookingStatus(v.status, v.startAt, v.endAt);
   return {
-    main: "Gereserveerd",
-    sub: "Betalen op locatie",
-    cls: "bg-[oklch(0.85_0.13_85)]/22 text-[oklch(0.45_0.13_70)]",
+    main: d.main,
+    cls: d.cls,
+    sub:
+      d.key === "CANCELED"
+        ? null
+        : paymentSublabel(v.paymentProvider, v.paymentStatus),
   };
 }
 
@@ -98,7 +96,26 @@ function durationLabel(a: string, b: string) {
 }
 
 export function BookingDetail({ items, customers, view }: Props) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [canceling, startCancel] = useTransition();
+
+  const alreadyCanceled = view.status === "CANCELED";
+
+  const onCancel = () => {
+    startCancel(async () => {
+      const res = await cancelBookingAction(view.id);
+      if (res.ok) {
+        toast.success("Boeking geannuleerd");
+        setConfirmingCancel(false);
+        setEditing(false);
+        router.refresh();
+      } else {
+        toast.error(res.error ?? "Annuleren mislukt");
+      }
+    });
+  };
 
   if (editing) {
     return (
@@ -125,6 +142,58 @@ export function BookingDetail({ items, customers, view }: Props) {
             notes: view.notes,
           }}
         />
+
+        {/* Gevarenzone — annuleren kan maar één keer, met bevestiging */}
+        {!alreadyCanceled && (
+          <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-destructive">
+                  Boeking annuleren
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  De boeking wordt op{" "}
+                  <span className="font-medium">Geannuleerd</span> gezet en de
+                  reservering komt vrij. Dit kan niet ongedaan worden gemaakt.
+                </p>
+
+                {confirmingCancel ? (
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={onCancel}
+                      disabled={canceling}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+                    >
+                      {canceling && (
+                        <Loader2 className="size-4 animate-spin" />
+                      )}
+                      Ja, definitief annuleren
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingCancel(false)}
+                      disabled={canceling}
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+                    >
+                      Nee, behouden
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingCancel(true)}
+                    className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <X className="size-4" />
+                    Annuleer boeking
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

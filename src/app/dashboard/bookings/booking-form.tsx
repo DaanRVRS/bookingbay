@@ -22,8 +22,6 @@ import { CustomerDialog } from "@/app/dashboard/customers/customer-dialog";
 import { z } from "zod";
 import {
   bookingCreateSchema,
-  bookingStatusValues,
-  STATUS_LABELS,
   type BookingCreateInput,
 } from "@/lib/bookings/schemas";
 
@@ -332,53 +330,39 @@ export function BookingForm({
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Status & prijs</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label>Status</Label>
-            <Select
-              items={bookingStatusValues.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
-              value={status}
-              onValueChange={(v) => v && setValue("status", v as BookingCreateInput["status"])}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {bookingStatusValues.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <h2 className="text-sm font-semibold">Bedrag & notities</h2>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="totalPrice">Totaalbedrag</Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
-                €
-              </span>
-              <Input
-                id="totalPrice"
-                type="text"
-                inputMode="decimal"
-                placeholder="0,00"
-                className="pl-7 bg-muted/40 cursor-not-allowed"
-                readOnly
-                tabIndex={-1}
-                {...register("totalPrice")}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Automatisch berekend op basis van item-prijs × duur — niet handmatig
-              aanpasbaar.
-            </p>
-            {errors.totalPrice?.message && (
-              <p className="text-xs font-medium text-destructive">{errors.totalPrice.message}</p>
-            )}
+        {/* Status wordt afgeleid van de tijd (Gereserveerd → Bezig →
+            Voltooid) of via "Annuleer boeking" — niet handmatig instelbaar.
+            We sturen de bestaande waarde stilletjes mee. */}
+        <input type="hidden" {...register("status")} />
+
+        <div className="mt-4 flex flex-col gap-1.5">
+          <Label htmlFor="totalPrice">Totaalbedrag</Label>
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+              €
+            </span>
+            <Input
+              id="totalPrice"
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
+              className="pl-7 bg-muted/40 cursor-not-allowed"
+              readOnly
+              tabIndex={-1}
+              {...register("totalPrice")}
+            />
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Automatisch berekend op basis van item-prijs × duur — niet
+            handmatig aanpasbaar.
+          </p>
+          {errors.totalPrice?.message && (
+            <p className="text-xs font-medium text-destructive">
+              {errors.totalPrice.message}
+            </p>
+          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-1.5">

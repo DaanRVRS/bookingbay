@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STATUS_LABELS, bookingStatusValues } from "@/lib/bookings/schemas";
+import { deriveBookingStatus, paymentSublabel } from "@/lib/bookings/status";
 import type { BookingStatus } from "@prisma/client";
 
 interface Booking {
@@ -26,43 +27,23 @@ interface Booking {
 }
 
 /**
- * Vertaalt status + betaal-velden naar een leesbare pill: een hoofdlabel
- * (Gereserveerd / Voltooid / Geannuleerd) + een betaal-sublabel
- * (Online betaald / Betalen op locatie), met bijpassende kleur.
+ * Eén bron van waarheid (src/lib/bookings/status.ts): hoofdlabel afgeleid van
+ * tijd (Gereserveerd → Bezig → Voltooid) of handmatig Geannuleerd, plus een
+ * betaal-sublabel (Online betaald / Betalen op locatie).
  */
 function deriveStatus(b: Booking): {
   main: string;
   sub: string | null;
   cls: string;
 } {
-  if (b.status === "CANCELED") {
-    return {
-      main: "Geannuleerd",
-      sub: null,
-      cls: "bg-destructive/10 text-destructive",
-    };
-  }
-  if (b.status === "COMPLETED") {
-    return {
-      main: "Voltooid",
-      sub: null,
-      cls: "bg-muted text-muted-foreground",
-    };
-  }
-  // PENDING / CONFIRMED / IN_PROGRESS = de boeking staat = "Gereserveerd"
-  const paidOnline =
-    Boolean(b.paymentProvider) && b.paymentStatus === "PAID";
-  if (paidOnline) {
-    return {
-      main: "Gereserveerd",
-      sub: "Online betaald",
-      cls: "bg-[oklch(0.7_0.13_150)]/15 text-[oklch(0.48_0.14_150)]",
-    };
-  }
+  const d = deriveBookingStatus(b.status, b.startAt, b.endAt);
   return {
-    main: "Gereserveerd",
-    sub: "Betalen op locatie",
-    cls: "bg-[oklch(0.85_0.13_85)]/22 text-[oklch(0.45_0.13_70)]",
+    main: d.main,
+    cls: d.cls,
+    sub:
+      d.key === "CANCELED"
+        ? null
+        : paymentSublabel(b.paymentProvider, b.paymentStatus),
   };
 }
 

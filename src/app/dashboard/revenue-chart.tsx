@@ -102,12 +102,15 @@ export function RevenueChart({ points }: { points: Point[] }) {
         ? 100
         : 0;
 
-  // SVG geometry
+  // SVG geometry. De SVG wordt met preserveAspectRatio="none" uitgerekt om
+  // de kaart te vullen — daarom staan ALLE teksten en de punt-marker als
+  // HTML-overlay erbovenop (in % gepositioneerd), nooit als <text> binnen
+  // de SVG. SVG-tekst zou meevervormen en onleesbaar worden ("€ ll").
   const W = 760;
-  const H = 220;
-  const padX = 8;
+  const H = 200;
+  const padX = 6;
   const padTop = 16;
-  const padBottom = 28;
+  const padBottom = 8;
   const innerW = W - padX * 2;
   const innerH = H - padTop - padBottom;
   const n = buckets.length;
@@ -117,6 +120,11 @@ export function RevenueChart({ points }: { points: Point[] }) {
     n <= 1 ? padX + innerW / 2 : padX + (i / (n - 1)) * innerW;
   const y = (v: number) => padTop + innerH - (v / maxV) * innerH;
 
+  // Naar % van de container — werkt 1-op-1 omdat de SVG niet-uniform
+  // wordt opgerekt tot exact de container-afmetingen.
+  const leftPct = (i: number) => (x(i) / W) * 100;
+  const topPct = (v: number) => (y(v) / H) * 100;
+
   const linePath = buckets
     .map((b, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(b.value).toFixed(1)}`)
     .join(" ");
@@ -125,17 +133,26 @@ export function RevenueChart({ points }: { points: Point[] }) {
       ? `${linePath} L ${x(n - 1).toFixed(1)} ${(padTop + innerH).toFixed(1)} L ${x(0).toFixed(1)} ${(padTop + innerH).toFixed(1)} Z`
       : "";
 
-  // X-as labels: max ~5 gelijk verdeeld, inclusief eerste + laatste, en
-  // nooit twee labels te dicht op elkaar (voorkomt overlap aan de rand).
+  const lastIdx = n - 1;
+  const peakIdx = buckets.findIndex((b) => b.value === peak && b.value > 0);
+
+  // X-as labels: max ~5 gelijk verdeeld, inclusief eerste + laatste.
   const labelIdx = (() => {
-    if (n <= 1) return new Set<number>([0]);
+    if (n <= 1) return [0];
     const want = Math.min(5, n);
     const s = new Set<number>();
     for (let k = 0; k < want; k++) {
       s.add(Math.round((k / (want - 1)) * (n - 1)));
     }
-    return s;
+    return [...s].sort((a, b) => a - b);
   })();
+
+  // Edge-aware uitlijning zodat rand-labels niet wegvallen.
+  const anchorStyle = (i: number) => {
+    if (i === 0) return { transform: "translateX(0)" };
+    if (i === lastIdx) return { transform: "translateX(-100%)" };
+    return { transform: "translateX(-50%)" };
+  };
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -193,97 +210,94 @@ export function RevenueChart({ points }: { points: Point[] }) {
             Nog geen omzet in deze periode.
           </div>
         ) : (
-          <svg
-            viewBox={`0 0 ${W} ${H}`}
-            className="h-[220px] w-full"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label="Omzetgrafiek"
-          >
-            <defs>
-              <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor="var(--primary)"
-                  stopOpacity="0.28"
-                />
-                <stop
-                  offset="100%"
-                  stopColor="var(--primary)"
-                  stopOpacity="0"
-                />
-              </linearGradient>
-            </defs>
+          <div>
+            <div className="relative h-[200px] w-full">
+              <svg
+                viewBox={`0 0 ${W} ${H}`}
+                className="absolute inset-0 h-full w-full"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
 
-            {/* Horizontale rasterlijnen */}
-            {[0.25, 0.5, 0.75, 1].map((f) => (
-              <line
-                key={f}
-                x1={padX}
-                x2={W - padX}
-                y1={padTop + innerH - f * innerH}
-                y2={padTop + innerH - f * innerH}
-                stroke="var(--border)"
-                strokeWidth="1"
-                strokeDasharray="3 5"
-                opacity="0.5"
-              />
-            ))}
-
-            <path d={areaPath} fill="url(#revFill)" />
-            <path
-              d={linePath}
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* Punten + waarde-label op de piek */}
-            {buckets.map((b, i) => {
-              const isPeak = b.value === peak && b.value > 0;
-              const isLast = i === n - 1;
-              if (!isPeak && !isLast) return null;
-              return (
-                <g key={b.ts}>
-                  <circle
-                    cx={x(i)}
-                    cy={y(b.value)}
-                    r={isLast ? 4 : 3}
-                    fill="var(--primary)"
-                    stroke="var(--card)"
-                    strokeWidth="2"
+                {/* Horizontale rasterlijnen */}
+                {[0.25, 0.5, 0.75, 1].map((f) => (
+                  <line
+                    key={f}
+                    x1={padX}
+                    x2={W - padX}
+                    y1={padTop + innerH - f * innerH}
+                    y2={padTop + innerH - f * innerH}
+                    stroke="var(--border)"
+                    strokeWidth="1"
+                    strokeDasharray="3 5"
+                    opacity="0.5"
+                    vectorEffect="non-scaling-stroke"
                   />
-                  {isPeak && (
-                    <text
-                      x={x(i)}
-                      y={y(b.value) - 10}
-                      textAnchor="middle"
-                      className="fill-foreground text-[11px] font-semibold"
-                    >
-                      {fmtEuro(b.value)}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+                ))}
 
-            {/* X-as labels */}
-            {buckets.map((b, i) =>
-              labelIdx.has(i) ? (
-                <text
-                  key={`l-${b.ts}`}
-                  x={x(i)}
-                  y={H - 8}
-                  textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
-                  className="fill-muted-foreground text-[10px]"
+                <path d={areaPath} fill="url(#revFill)" />
+                <path
+                  d={linePath}
+                  fill="none"
+                  stroke="var(--primary)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+
+              {/* Punt-marker op laatste waarde (crisp, als HTML) */}
+              {n > 0 && (
+                <span
+                  className="absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow-sm"
+                  style={{
+                    left: `${leftPct(lastIdx)}%`,
+                    top: `${topPct(buckets[lastIdx].value)}%`,
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+
+              {/* Waarde-label op de piek (crisp, als HTML) */}
+              {peakIdx >= 0 && (
+                <div
+                  className="absolute z-10 whitespace-nowrap rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
+                  style={{
+                    left: `${leftPct(peakIdx)}%`,
+                    top: `${topPct(buckets[peakIdx].value)}%`,
+                    transform:
+                      peakIdx === lastIdx
+                        ? "translate(-100%, calc(-100% - 10px))"
+                        : peakIdx === 0
+                          ? "translate(0, calc(-100% - 10px))"
+                          : "translate(-50%, calc(-100% - 10px))",
+                  }}
                 >
-                  {b.label}
-                </text>
-              ) : null,
-            )}
-          </svg>
+                  {fmtEuro(peak)}
+                </div>
+              )}
+            </div>
+
+            {/* X-as labels — gewone HTML, dus altijd scherp */}
+            <div className="relative mt-2 h-4">
+              {labelIdx.map((i) => (
+                <span
+                  key={`l-${buckets[i].ts}`}
+                  className="absolute text-[10px] text-muted-foreground tabular-nums"
+                  style={{ left: `${leftPct(i)}%`, ...anchorStyle(i) }}
+                >
+                  {buckets[i].label}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

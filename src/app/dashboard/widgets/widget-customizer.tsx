@@ -107,6 +107,82 @@ export function WidgetCustomizer({
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       {/* Settings */}
       <div className="space-y-5">
+        {/* Embed-code — staat bewust bovenaan: dit is wat de gebruiker nodig
+            heeft om de widget op zijn site te zetten. Alle styling daaronder. */}
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-sm font-semibold">Embed-code</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Plak deze HTML op je eigen site (WordPress, Wix, Squarespace,
+              eigen HTML). Eén regel — alle styling beheer je hieronder.
+            </p>
+          </div>
+          <div className="bg-[oklch(0.18_0.01_260)]">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
+              <span className="text-[11px] font-medium tracking-wide text-white/55 uppercase">
+                HTML
+              </span>
+              <button
+                type="button"
+                onClick={() => copyText(snippet, setCopiedSnippet, "Code")}
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20"
+              >
+                {copiedSnippet ? (
+                  <>
+                    <Check className="size-3.5 text-[oklch(0.78_0.16_150)]" />
+                    Gekopieerd
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3.5" />
+                    Kopieer
+                  </>
+                )}
+              </button>
+            </div>
+            <pre className="max-w-full overflow-x-auto px-4 py-3.5 text-[11px] leading-relaxed text-white">
+              <code>{snippet}</code>
+            </pre>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold">Direct te delen link</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Voor WhatsApp, e-mailhandtekening of Instagram-bio. Geen embed
+            nodig.
+          </p>
+          <div className="mt-3 flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <code className="min-w-0 flex-1 truncate text-xs">{shareUrl}</code>
+            <a
+              href={shareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium hover:bg-accent"
+            >
+              <ExternalLink className="size-3" />
+              Open
+            </a>
+            <button
+              type="button"
+              onClick={() => copyText(shareUrl, setCopiedLink, "Link")}
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium hover:bg-accent"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+                  OK
+                </>
+              ) : (
+                <>
+                  <Copy className="size-3" />
+                  Kopieer
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+
         <section className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Stijl</h2>
@@ -171,77 +247,6 @@ export function WidgetCustomizer({
             van je site aan. Wijzigingen worden direct opgeslagen en zijn
             overal live waar de widget al staat.
           </p>
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Embed-code</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Plak deze HTML op je eigen site (WordPress, Wix, Squarespace, eigen
-            HTML). Eén regel — alle styling beheer je hier.
-          </p>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-muted/40">
-            <div className="flex items-center justify-between border-b border-border bg-background/50 px-3 py-2">
-              <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                HTML
-              </span>
-              <button
-                type="button"
-                onClick={() => copyText(snippet, setCopiedSnippet, "Code")}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
-              >
-                {copiedSnippet ? (
-                  <>
-                    <Check className="size-3.5 text-[oklch(0.5_0.14_150)]" />
-                    Gekopieerd
-                  </>
-                ) : (
-                  <>
-                    <Copy className="size-3.5" />
-                    Kopieer
-                  </>
-                )}
-              </button>
-            </div>
-            <pre className="max-w-full overflow-x-auto p-3 text-[11px] leading-relaxed text-foreground/90">
-              <code>{snippet}</code>
-            </pre>
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Direct te delen link</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Voor WhatsApp, e-mailhandtekening of Instagram-bio. Geen embed nodig.
-          </p>
-          <div className="mt-3 flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
-            <code className="min-w-0 flex-1 truncate text-xs">{shareUrl}</code>
-            <a
-              href={shareUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium hover:bg-accent"
-            >
-              <ExternalLink className="size-3" />
-              Open
-            </a>
-            <button
-              type="button"
-              onClick={() => copyText(shareUrl, setCopiedLink, "Link")}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium hover:bg-accent"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
-                  OK
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3" />
-                  Kopieer
-                </>
-              )}
-            </button>
-          </div>
         </section>
       </div>
 
