@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { WidgetCustomizer } from "./widget-customizer";
 import { ensurePublicEmbedKey } from "@/lib/orgs/embed-key";
+import { parseUsps, parseTheme } from "@/lib/widget/theme";
 
 export const metadata = { title: "Widget" };
 
@@ -29,6 +30,7 @@ export default async function WidgetsPage() {
       widgetUsps: true,
       widgetTagline: true,
       widgetDefaultLocale: true,
+      widgetTheme: true,
     },
   });
   if (!org) throw new Error("Organization not found");
@@ -49,13 +51,10 @@ export default async function WidgetsPage() {
       : ("600" as AllowedWidth),
     radius: org.widgetRadius,
     shadow: org.widgetShadow,
-    usps: Array.isArray(org.widgetUsps)
-      ? (org.widgetUsps as unknown[]).filter(
-          (x): x is string => typeof x === "string",
-        )
-      : [],
+    usps: parseUsps(org.widgetUsps),
     tagline: org.widgetTagline ?? "",
     defaultLocale: org.widgetDefaultLocale ?? "nl",
+    theme: parseTheme(org.widgetTheme),
   };
 
   return (

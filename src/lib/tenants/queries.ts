@@ -26,6 +26,7 @@ export const getOrgBySlug = cache(async (slug: string) => {
       widgetUsps: true,
       widgetTagline: true,
       widgetDefaultLocale: true,
+      widgetTheme: true,
     },
   });
   return org;

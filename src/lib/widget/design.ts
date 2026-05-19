@@ -1,5 +1,11 @@
 import "server-only";
 import { normalizeLocale } from "@/lib/widget/i18n";
+import {
+  parseUsps,
+  parseTheme,
+  type WidgetUsp,
+  type WidgetTheme,
+} from "@/lib/widget/theme";
 
 /**
  * Eén plek die de widget-stijl bepaalt voor zowel /book als de embed,
@@ -12,9 +18,10 @@ export interface ResolvedWidgetDesign {
   accent: string;
   radius: number;
   shadow: boolean;
-  usps: string[];
+  usps: WidgetUsp[];
   tagline: string | null;
   defaultLocale: string;
+  theme: WidgetTheme;
 }
 
 interface OrgDesignFields {
@@ -25,6 +32,7 @@ interface OrgDesignFields {
   widgetUsps: unknown;
   widgetTagline: string | null;
   widgetDefaultLocale: string;
+  widgetTheme: unknown;
 }
 
 const FALLBACK_ACCENT = "#ef5934";
@@ -37,17 +45,6 @@ function normalizeAccent(
   const cleaned = input.replace(/^#/, "").trim();
   if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(cleaned)) return `#${cleaned}`;
   return fallback;
-}
-
-function parseUsps(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    return raw
-      .filter((x): x is string => typeof x === "string")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 6);
-  }
-  return [];
 }
 
 export function resolveWidgetDesign(
@@ -72,14 +69,7 @@ export function resolveWidgetDesign(
   const shadow =
     sp.shadow !== undefined ? sp.shadow === "1" : org.widgetShadow;
 
-  const usps =
-    sp.usps !== undefined
-      ? sp.usps
-          .split("|")
-          .map((s) => decodeURIComponent(s).trim())
-          .filter(Boolean)
-          .slice(0, 6)
-      : parseUsps(org.widgetUsps);
+  const usps = parseUsps(org.widgetUsps);
 
   const tagline =
     sp.tagline !== undefined
@@ -90,5 +80,7 @@ export function resolveWidgetDesign(
     sp.lang ?? org.widgetDefaultLocale,
   );
 
-  return { accent, radius, shadow, usps, tagline, defaultLocale };
+  const theme = parseTheme(org.widgetTheme);
+
+  return { accent, radius, shadow, usps, tagline, defaultLocale, theme };
 }

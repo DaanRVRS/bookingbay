@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
   Globe,
-  GripVertical,
   ImageIcon,
   Loader2,
   MapPin,
@@ -19,6 +18,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import type { CSSProperties } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { saveWidgetDesignAction } from "@/lib/widget/actions";
@@ -29,15 +29,25 @@ import {
   type WidgetLocale,
   type Translator,
 } from "@/lib/widget/i18n";
+import {
+  WIDGET_THEME_TOKENS,
+  USP_ICON_KEYS,
+  themeStyle,
+  type WidgetTheme,
+  type WidgetThemeKey,
+  type WidgetUsp,
+} from "@/lib/widget/theme";
+import { UspIcon } from "@/components/booking-widget/usp-icons";
 
 interface InitialDesign {
   accent: string;
   width: "400" | "600" | "800" | "100%";
   radius: number;
   shadow: boolean;
-  usps: string[];
+  usps: WidgetUsp[];
   tagline: string;
   defaultLocale: string;
+  theme: WidgetTheme;
 }
 
 interface Props {
@@ -74,7 +84,8 @@ export function WidgetCustomizer({
   const [radius, setRadius] = useState<number>(initialDesign.radius);
   const [shadow, setShadow] = useState(initialDesign.shadow);
   const [tagline, setTagline] = useState(initialDesign.tagline);
-  const [usps, setUsps] = useState<string[]>(initialDesign.usps);
+  const [usps, setUsps] = useState<WidgetUsp[]>(initialDesign.usps);
+  const [theme, setTheme] = useState<WidgetTheme>(initialDesign.theme);
   const [defaultLocale, setDefaultLocale] = useState(
     initialDesign.defaultLocale,
   );
@@ -87,7 +98,20 @@ export function WidgetCustomizer({
   const shareUrl = `${shareBaseUrl}/book/${slug}`;
   const snippet = `<div data-bookingbay-book="${publicEmbedKey}"></div>\n<script src="${scriptBaseUrl}/embed.js" defer></script>`;
 
-  const cleanUsps = usps.map((u) => u.trim()).filter(Boolean);
+  const cleanUsps = usps
+    .map((u) => ({ text: u.text.trim(), icon: u.icon }))
+    .filter((u) => u.text.length > 0);
+
+  const sig = (
+    u: WidgetUsp[] = [],
+    th: WidgetTheme = {},
+  ) =>
+    JSON.stringify([
+      u.map((x) => `${x.text.trim()}|${x.icon}`),
+      Object.entries(th)
+        .filter(([, v]) => v)
+        .sort(),
+    ]);
 
   const dirty =
     accent !== initialRef.current.accent ||
@@ -95,8 +119,13 @@ export function WidgetCustomizer({
     shadow !== initialRef.current.shadow ||
     tagline.trim() !== initialRef.current.tagline.trim() ||
     defaultLocale !== initialRef.current.defaultLocale ||
-    cleanUsps.join("|") !==
-      initialRef.current.usps.map((u) => u.trim()).filter(Boolean).join("|");
+    sig(cleanUsps, theme) !==
+      sig(
+        initialRef.current.usps
+          .map((u) => ({ text: u.text.trim(), icon: u.icon }))
+          .filter((u) => u.text.length > 0),
+        initialRef.current.theme,
+      );
 
   // Auto-save (700ms debounce). Breedte is altijd "100%" → de widget is
   // responsive en past zich aan de host-container aan.
@@ -112,6 +141,7 @@ export function WidgetCustomizer({
           usps: cleanUsps,
           tagline: tagline.trim() || null,
           defaultLocale: defaultLocale as WidgetLocale,
+          theme,
         });
         if (res.ok) {
           initialRef.current = {
@@ -122,6 +152,7 @@ export function WidgetCustomizer({
             usps: cleanUsps,
             tagline: tagline.trim(),
             defaultLocale,
+            theme,
           };
           setSavedAt(Date.now());
         } else {
@@ -131,7 +162,7 @@ export function WidgetCustomizer({
     }, 700);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, radius, shadow, tagline, defaultLocale, usps, dirty]);
+  }, [accent, radius, shadow, tagline, defaultLocale, usps, theme, dirty]);
 
   const copyText = (
     text: string,
@@ -148,12 +179,29 @@ export function WidgetCustomizer({
     );
   };
 
-  const updateUsp = (i: number, v: string) =>
-    setUsps((prev) => prev.map((u, idx) => (idx === i ? v : u)));
+  const updateUspText = (i: number, v: string) =>
+    setUsps((prev) =>
+      prev.map((u, idx) => (idx === i ? { ...u, text: v } : u)),
+    );
+  const updateUspIcon = (i: number, icon: string) =>
+    setUsps((prev) =>
+      prev.map((u, idx) => (idx === i ? { ...u, icon } : u)),
+    );
   const removeUsp = (i: number) =>
     setUsps((prev) => prev.filter((_, idx) => idx !== i));
   const addUsp = () =>
-    setUsps((prev) => (prev.length >= MAX_USPS ? prev : [...prev, ""]));
+    setUsps((prev) =>
+      prev.length >= MAX_USPS ? prev : [...prev, { text: "", icon: "check" }],
+    );
+
+  const setThemeColor = (key: WidgetThemeKey, hex: string) =>
+    setTheme((prev) => ({ ...prev, [key]: hex }));
+  const resetThemeColor = (key: WidgetThemeKey) =>
+    setTheme((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
 
   return (
     <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
@@ -296,6 +344,26 @@ export function WidgetCustomizer({
         </section>
 
         <section className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold">Kleuren</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Stel elk onderdeel apart in. Leeg = standaard. Klik op de kleur
+            om te kiezen, of op &quot;Standaard&quot; om terug te zetten.
+          </p>
+          <div className="mt-3 flex flex-col divide-y divide-border">
+            {WIDGET_THEME_TOKENS.map((tk) => (
+              <ColorRow
+                key={tk.key}
+                label={tk.label}
+                hint={tk.hint}
+                value={theme[tk.key]}
+                onChange={(hex) => setThemeColor(tk.key, hex)}
+                onReset={() => resetThemeColor(tk.key)}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Tekst & taal</h2>
 
           <div className="mt-4 flex flex-col gap-4">
@@ -355,12 +423,28 @@ export function WidgetCustomizer({
             )}
             {usps.map((u, i) => (
               <div key={i} className="flex items-center gap-2">
-                <GripVertical className="size-3.5 shrink-0 text-muted-foreground/50" />
+                <div className="relative shrink-0">
+                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
+                    <UspIcon icon={u.icon} className="size-4 text-foreground" />
+                  </span>
+                  <select
+                    aria-label="Icoon"
+                    value={u.icon}
+                    onChange={(e) => updateUspIcon(i, e.target.value)}
+                    className="h-9 w-16 appearance-none rounded-md border border-border bg-background pl-7 pr-1 text-xs"
+                  >
+                    {USP_ICON_KEYS.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <input
                   type="text"
-                  value={u}
+                  value={u.text}
                   maxLength={60}
-                  onChange={(e) => updateUsp(i, e.target.value)}
+                  onChange={(e) => updateUspText(i, e.target.value)}
                   placeholder={`USP ${i + 1}`}
                   className="h-9 flex-1 rounded-md border border-border bg-background px-2.5 text-sm"
                 />
@@ -423,6 +507,7 @@ export function WidgetCustomizer({
                 tagline={tagline.trim()}
                 usps={cleanUsps}
                 locale={defaultLocale}
+                theme={theme}
               />
             </div>
           </div>
@@ -449,6 +534,10 @@ const PREVIEW_ITEMS = [
   { name: "Kano duo", price: "45", desc: "2 personen · incl. peddels" },
 ];
 
+const PREVIEW_ORG_NAME = "var(--bb-orgname, var(--foreground))";
+const PREVIEW_ON_ACCENT = "var(--bb-on-accent, #fff)";
+const previewItemLink = (accent: string) => `var(--bb-item-link, ${accent})`;
+
 function WidgetPreview({
   orgName,
   logoUrl,
@@ -458,6 +547,7 @@ function WidgetPreview({
   tagline,
   usps,
   locale,
+  theme,
 }: {
   orgName: string;
   logoUrl: string | null;
@@ -465,8 +555,9 @@ function WidgetPreview({
   radius: number;
   shadow: boolean;
   tagline: string;
-  usps: string[];
+  usps: WidgetUsp[];
   locale: string;
+  theme: WidgetTheme;
 }) {
   const t = useMemo<Translator>(
     () => makeT(normalizeLocale(locale)),
@@ -483,7 +574,7 @@ function WidgetPreview({
   ];
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-md" style={themeStyle(theme) as CSSProperties}>
       <div
         className="border border-border bg-card p-6 sm:p-8"
         style={{
@@ -505,9 +596,10 @@ function WidgetPreview({
               />
             ) : (
               <div
-                className="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white shadow-sm"
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold shadow-sm"
                 style={{
                   background: accent,
+                  color: PREVIEW_ON_ACCENT,
                   boxShadow: `0 4px 14px -4px ${accent}80`,
                 }}
               >
@@ -521,7 +613,10 @@ function WidgetPreview({
               >
                 {t("header.bookAt")}
               </p>
-              <p className="truncate text-sm font-bold tracking-tight">
+              <p
+                className="truncate text-sm font-bold tracking-tight"
+                style={{ color: PREVIEW_ORG_NAME }}
+              >
                 {orgName}
               </p>
               {tagline && (
@@ -554,7 +649,9 @@ function WidgetPreview({
                     style={{
                       background: done || active ? accent : "transparent",
                       color:
-                        done || active ? "#fff" : "var(--muted-foreground)",
+                        done || active
+                          ? PREVIEW_ON_ACCENT
+                          : "var(--muted-foreground)",
                       border:
                         done || active
                           ? "none"
@@ -596,16 +693,17 @@ function WidgetPreview({
         {/* USP-footer (replica van UspFooter) */}
         {usps.length > 0 && (
           <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
-            {usps.map((u) => (
+            {usps.map((u, i) => (
               <span
-                key={u}
+                key={`${u.text}-${i}`}
                 className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
               >
-                <Check
+                <UspIcon
+                  icon={u.icon}
                   className="size-3.5 shrink-0"
-                  style={{ color: accent }}
+                  style={{ color: previewItemLink(accent) }}
                 />
-                {u}
+                {u.text}
               </span>
             ))}
           </div>
@@ -700,8 +798,8 @@ function PreviewItem({ accent, t }: { accent: string; t: Translator }) {
                   style={{ background: `${accent}${i === 0 ? "22" : "12"}` }}
                 />
                 <span
-                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur"
-                  style={{ background: `${accent}E0` }}
+                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur"
+                  style={{ background: `${accent}E0`, color: PREVIEW_ON_ACCENT }}
                 >
                   {t("price.perDay", { price: it.price })}
                 </span>
@@ -715,7 +813,7 @@ function PreviewItem({ accent, t }: { accent: string; t: Translator }) {
                 </p>
                 <span
                   className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-medium"
-                  style={{ color: accent }}
+                  style={{ color: previewItemLink(accent) }}
                 >
                   {t("item.book")} <ArrowRight className="size-3" />
                 </span>
@@ -806,7 +904,7 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
                 className="grid aspect-square place-items-center rounded-md text-[10px] text-muted-foreground"
                 style={
                   i === 13
-                    ? { background: accent, color: "#fff" }
+                    ? { background: accent, color: PREVIEW_ON_ACCENT }
                     : i % 9 === 4
                       ? { background: "var(--muted)" }
                       : undefined
@@ -857,8 +955,8 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
             }}
           >
             <span
-              className="grid size-8 place-items-center rounded-md text-white"
-              style={{ background: accent }}
+              className="grid size-8 place-items-center rounded-md"
+              style={{ background: accent, color: PREVIEW_ON_ACCENT }}
             >
               <MapPin className="size-4" />
             </span>
@@ -888,9 +986,10 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
 
       <button
         type="button"
-        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold text-white shadow-sm"
+        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm"
         style={{
           background: accent,
+          color: PREVIEW_ON_ACCENT,
           boxShadow: `0 4px 14px -4px ${accent}80`,
         }}
       >
@@ -900,6 +999,59 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         {t("submit.nextStep")}
       </p>
+    </div>
+  );
+}
+
+function ColorRow({
+  label,
+  hint,
+  value,
+  onChange,
+  onReset,
+}: {
+  label: string;
+  hint: string;
+  value: string | undefined;
+  onChange: (hex: string) => void;
+  onReset: () => void;
+}) {
+  const isSet = Boolean(value);
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <label
+        className="relative size-8 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border"
+        style={{
+          background: isSet
+            ? value
+            : "repeating-conic-gradient(var(--muted) 0% 25%, transparent 0% 50%) 50% / 10px 10px",
+        }}
+      >
+        <input
+          type="color"
+          value={value ?? "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          aria-label={label}
+        />
+      </label>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{label}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{hint}</p>
+      </div>
+      {isSet ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          Standaard
+        </button>
+      ) : (
+        <span className="shrink-0 text-[11px] text-muted-foreground/60">
+          Standaard
+        </span>
+      )}
     </div>
   );
 }

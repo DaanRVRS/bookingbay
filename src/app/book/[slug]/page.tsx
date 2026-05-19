@@ -1,7 +1,9 @@
+import type { CSSProperties } from "react";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 import { resolveWidgetDesign } from "@/lib/widget/design";
+import { themeStyle } from "@/lib/widget/theme";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -90,12 +92,15 @@ export default async function BookPage({ params, searchParams }: PageProps) {
       <div className="relative mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         <div
           className="border border-border bg-card p-6 sm:p-8"
-          style={{
-            borderRadius: `${radius}px`,
-            boxShadow: shadow
-              ? "0 8px 30px -12px rgba(0,0,0,0.10)"
-              : undefined,
-          }}
+          style={
+            {
+              ...themeStyle(design.theme),
+              borderRadius: `${radius}px`,
+              boxShadow: shadow
+                ? "0 8px 30px -12px rgba(0,0,0,0.10)"
+                : undefined,
+            } as CSSProperties
+          }
         >
           <SmartBookingWidget
             slug={slug}

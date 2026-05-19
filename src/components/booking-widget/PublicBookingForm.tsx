@@ -26,6 +26,9 @@ import {
   type PublicBookingInput,
 } from "@/lib/bookings/public-schemas";
 
+// CSS-vars gezet door themeStyle() op een ouder; nette fallbacks.
+const ON_ACCENT = "var(--bb-on-accent, #fff)";
+
 interface ItemOption {
   id: string;
   name: string;
@@ -351,9 +354,10 @@ export function PublicBookingForm({
         />
         <div className="relative">
           <span
-            className="mx-auto grid size-16 place-items-center rounded-full text-white shadow-lg"
+            className="mx-auto grid size-16 place-items-center rounded-full shadow-lg"
             style={{
               background: accent,
+              color: ON_ACCENT,
               boxShadow: `0 8px 24px -6px ${accent}80`,
             }}
           >
@@ -445,8 +449,12 @@ export function PublicBookingForm({
           type="button"
           onClick={confirmBooking}
           disabled={pending}
-          className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-          style={{ background: accent, boxShadow: `0 4px 14px -4px ${accent}80` }}
+          className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          style={{
+            background: accent,
+            color: ON_ACCENT,
+            boxShadow: `0 4px 14px -4px ${accent}80`,
+          }}
         >
           {pending ? (
             <>
@@ -741,9 +749,10 @@ export function PublicBookingForm({
       <button
         type="submit"
         disabled={pending || !paymentChoice}
-        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         style={{
           background: accent,
+          color: ON_ACCENT,
           boxShadow: `0 4px 14px -4px ${accent}80`,
         }}
       >
@@ -788,7 +797,7 @@ function PayChoiceCard({
         className="grid size-8 place-items-center rounded-md"
         style={{
           background: active ? accent : `${accent}15`,
-          color: active ? "#fff" : accent,
+          color: active ? ON_ACCENT : accent,
         }}
       >
         <Icon className="size-4" />
@@ -987,14 +996,18 @@ function SlotGrid({
               title={overlap ? "Vol" : undefined}
               className={`h-9 rounded-md border text-xs font-semibold tabular-nums transition-all ${
                 selected
-                  ? "border-transparent text-white shadow-sm"
+                  ? "border-transparent shadow-sm"
                   : disabled
                     ? "cursor-not-allowed border-dashed border-border/60 bg-muted/20 text-muted-foreground/40 line-through"
                     : "border-border bg-background hover:-translate-y-0.5 hover:shadow-sm"
               }`}
               style={
                 selected
-                  ? { background: accent, boxShadow: `0 2px 8px -2px ${accent}80` }
+                  ? {
+                      background: accent,
+                      color: ON_ACCENT,
+                      boxShadow: `0 2px 8px -2px ${accent}80`,
+                    }
                   : !disabled
                     ? { borderColor: undefined }
                     : undefined

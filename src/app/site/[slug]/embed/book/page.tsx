@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
+import type { CSSProperties } from "react";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 import { resolveWidgetDesign } from "@/lib/widget/design";
+import { themeStyle } from "@/lib/widget/theme";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -69,7 +71,10 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
   const design = resolveWidgetDesign(org, sp);
 
   return (
-    <div className="px-4 py-6 sm:px-6">
+    <div
+      className="px-4 py-6 sm:px-6"
+      style={themeStyle(design.theme) as CSSProperties}
+    >
       <SmartBookingWidget
         slug={slug}
         orgName={org.name}

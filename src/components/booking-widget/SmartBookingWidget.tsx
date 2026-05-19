@@ -8,7 +8,15 @@ import {
   LanguageSwitcher,
   useWidgetI18n,
 } from "./widget-i18n";
+import { UspIcon } from "./usp-icons";
 import type { Translator } from "@/lib/widget/i18n";
+import type { WidgetUsp } from "@/lib/widget/theme";
+
+// Door themeStyle() op een ouder gezette CSS-vars; met nette fallbacks
+// zodat niets verandert als de tenant geen kleur koos.
+const ORG_NAME_COLOR = "var(--bb-orgname, var(--foreground))";
+const ON_ACCENT = "var(--bb-on-accent, #fff)";
+const itemLink = (accent: string) => `var(--bb-item-link, ${accent})`;
 
 interface ItemRow {
   id: string;
@@ -31,7 +39,7 @@ interface Props {
   logoUrl?: string | null;
   accent: string;
   categories: CategoryBucket[];
-  usps?: string[];
+  usps?: WidgetUsp[];
   tagline?: string | null;
   defaultLocale?: string;
 }
@@ -105,7 +113,10 @@ function BrandHeader({
           >
             {t("header.bookAt")}
           </p>
-          <p className="truncate text-sm font-bold tracking-tight">
+          <p
+            className="truncate text-sm font-bold tracking-tight"
+            style={{ color: ORG_NAME_COLOR }}
+          >
             {orgName}
           </p>
           {tagline && (
@@ -120,18 +131,22 @@ function BrandHeader({
   );
 }
 
-function UspFooter({ usps, accent }: { usps: string[]; accent: string }) {
-  const clean = usps.map((u) => u.trim()).filter(Boolean);
+function UspFooter({ usps, accent }: { usps: WidgetUsp[]; accent: string }) {
+  const clean = usps.filter((u) => u.text.trim());
   if (clean.length === 0) return null;
   return (
     <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
-      {clean.map((u) => (
+      {clean.map((u, i) => (
         <span
-          key={u}
+          key={`${u.text}-${i}`}
           className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
         >
-          <Check className="size-3.5 shrink-0" style={{ color: accent }} />
-          {u}
+          <UspIcon
+            icon={u.icon}
+            className="size-3.5 shrink-0"
+            style={{ color: itemLink(accent) }}
+          />
+          {u.text}
         </span>
       ))}
     </div>
@@ -152,7 +167,7 @@ function WidgetInner({
   logoUrl: string | null;
   accent: string;
   categories: CategoryBucket[];
-  usps: string[];
+  usps: WidgetUsp[];
   tagline: string | null;
 }) {
   const { t } = useWidgetI18n();
@@ -287,7 +302,7 @@ function ProgressIndicator({
                 className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all"
                 style={{
                   background: done || active ? accent : "transparent",
-                  color: done || active ? "#fff" : "var(--muted-foreground)",
+                  color: done || active ? ON_ACCENT : "var(--muted-foreground)",
                   border: done || active ? "none" : "1.5px solid var(--border)",
                 }}
               >
@@ -456,8 +471,8 @@ function ItemStep({
                   </div>
                 )}
                 <span
-                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm backdrop-blur"
-                  style={{ background: `${accent}E0` }}
+                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur"
+                  style={{ background: `${accent}E0`, color: ON_ACCENT }}
                 >
                   {priceLabelShort(item, t)}
                 </span>
@@ -473,7 +488,7 @@ function ItemStep({
                 )}
                 <span
                   className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-medium opacity-70 transition-opacity group-hover:opacity-100"
-                  style={{ color: accent }}
+                  style={{ color: itemLink(accent) }}
                 >
                   {t("item.book")} <ArrowRight className="size-3" />
                 </span>
