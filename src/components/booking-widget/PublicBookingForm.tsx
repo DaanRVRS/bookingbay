@@ -1007,30 +1007,25 @@ function SlotGrid({
           // achter zetten zonder eerst de eindtijd te wissen). De parent
           // ledigt zelf de tegenhanger zodra de keuze "omdraait".
 
-          // Toon onbeschikbare slots METEEN — zonder dat de klant eerst de
-          // tegenhanger hoeft te kiezen:
-          //   START S onbeschikbaar als S binnen [b.start, b.end) ligt
-          //     (je kunt niet starten tijdens een lopende boeking)
-          //   EIND  E onbeschikbaar als E binnen (b.start, b.end] ligt
-          //     (er bestaat geen geldige start die niet zou overlappen).
-          // Zodra de tegenhanger óók gekozen is, blokkeren we daarbovenop
-          // ieder bereik dat over een boeking heen valt.
+          // Eén symmetrische regel: een uur-slot staat voor het tijdvak
+          // [slot, slot+interval). Als dat tijdvak een bestaande boeking
+          // raakt → uitgegrijsd, in zowel start- als eind-grid. Zo zie je
+          // direct welke uren al bezet zijn, zonder eerst iets te klikken.
+          // Daarbovenop blokkeren we, zodra ook de tegenhanger gekozen is,
+          // élk gekozen totaal-bereik dat over een boeking heen valt.
           let overlap = false;
           if (fromD && toD) {
             const slotDay = isStart ? fromD : toD;
-            const slotAbs = atTimeMs(slotDay, slot);
-            overlap = bookings.some((b) =>
-              isStart
-                ? b.startMs <= slotAbs && slotAbs < b.endMs
-                : b.startMs < slotAbs && slotAbs <= b.endMs,
-            );
+            const slotStartAbs = atTimeMs(slotDay, slot);
+            const slotEndAbs = slotStartAbs + cfg.intervalMinutes * 60_000;
+            overlap = rangeOverlapsBooking(slotStartAbs, slotEndAbs, bookings);
             if (!overlap && otherSet) {
               const startAbs = isStart
-                ? slotAbs
+                ? slotStartAbs
                 : atTimeMs(fromD, otherTime);
               const endAbs = isStart
                 ? atTimeMs(toD, otherTime)
-                : slotAbs;
+                : slotStartAbs;
               if (endAbs > startAbs) {
                 overlap = rangeOverlapsBooking(startAbs, endAbs, bookings);
               }
