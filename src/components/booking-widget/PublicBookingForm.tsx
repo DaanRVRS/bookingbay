@@ -4,7 +4,7 @@ import "react-day-picker/style.css";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DayPicker, type DateRange } from "react-day-picker";
+import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import { useWidgetI18n } from "./widget-i18n";
 import {
@@ -112,7 +112,7 @@ export function PublicBookingForm({
   // Twee sub-stappen binnen het boekformulier: eerst datum/tijd, dan pas
   // (op een aparte stap) gegevens + betaalwijze.
   const [formStep, setFormStep] = useState<"when" | "details">("when");
-  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [date, setDate] = useState<Date | undefined>(undefined);
   // Niets vooraf geselecteerd — de klant kiest zelf start- en eindtijd.
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -168,22 +168,22 @@ export function PublicBookingForm({
   // hidden — only the calendar/time UI mutates them).
   useEffect(() => {
     // Pas een datum/tijd doorzetten als de klant ze écht heeft gekozen.
-    if (range?.from && startTime) {
-      setValue("startAt", `${format(range.from, "yyyy-MM-dd")}T${startTime}`, {
+    // Eén-dag boeking: start- en eindtijd liggen op dezelfde dag.
+    if (date && startTime) {
+      setValue("startAt", `${format(date, "yyyy-MM-dd")}T${startTime}`, {
         shouldValidate: true,
       });
     } else {
       setValue("startAt", "", { shouldValidate: false });
     }
-    const endDay = range?.to ?? range?.from ?? null;
-    if (endDay && endTime) {
-      setValue("endAt", `${format(endDay, "yyyy-MM-dd")}T${endTime}`, {
+    if (date && endTime) {
+      setValue("endAt", `${format(date, "yyyy-MM-dd")}T${endTime}`, {
         shouldValidate: true,
       });
     } else {
       setValue("endAt", "", { shouldValidate: false });
     }
-  }, [range, startTime, endTime, setValue]);
+  }, [date, startTime, endTime, setValue]);
 
   const watchedItemId = watch("itemId");
   const watchedStart = watch("startAt");
@@ -277,7 +277,7 @@ export function PublicBookingForm({
   // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
   // zijn voordat we naar de gegevens/betaal-stap gaan.
   const goToDetails = () => {
-    if (!range?.from) {
+    if (!date) {
       toast.error(t("when.pickDate"));
       return;
     }
@@ -402,15 +402,12 @@ export function PublicBookingForm({
   if (reviewing) {
     const reviewItemName =
       fixedItem?.name ?? selectedItem?.name ?? t("review.selectedItem");
-    const rFrom = range?.from ?? null;
-    const rTo = range?.to ?? range?.from ?? null;
     const isPerDay = slotConfig.intervalMinutes === 1440;
-    const whenLine =
-      rFrom && rTo
-        ? isPerDay
-          ? `${format(rFrom, "EEEE d MMM yyyy", { locale: df })} ${t("when.until")} ${format(rTo, "EEEE d MMM yyyy", { locale: df })}`
-          : `${format(rFrom, "EEEE d MMM", { locale: df })} ${startTime} — ${format(rTo, "d MMM", { locale: df })} ${endTime}`
-        : "—";
+    const whenLine = date
+      ? isPerDay
+        ? format(date, "EEEE d MMM yyyy", { locale: df })
+        : `${format(date, "EEEE d MMM", { locale: df })} ${startTime} — ${endTime}`
+      : "—";
     const isOnline = paymentChoice === "online";
 
     return (
@@ -520,9 +517,8 @@ export function PublicBookingForm({
     return !unavailableDates.has(formatDateKey(date));
   };
 
-  // Single-day if no `to` selected — display same date for both ends
-  const displayFrom = range?.from ?? null;
-  const displayTo = range?.to ?? range?.from ?? null;
+  // Eén-dag selectie — geen aparte from/to meer.
+  const displayDate = date ?? null;
 
   return (
     <form
@@ -562,32 +558,26 @@ export function PublicBookingForm({
 
       {/* Wanneer — visible calendar */}
       <Section icon={CalendarDays} accent={accent} title={t("sec.when")}>
-        {/* Selected range summary */}
-        <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
+        {/* Gekozen dag (één samenvatting-chip; één-dag boeking) */}
+        <div className="mb-3 rounded-lg border border-border bg-muted/30 p-2">
           <DateChip
-            label={t("chip.from")}
-            date={displayFrom}
-            time={startTime}
+            label={t("sec.when")}
+            date={displayDate}
+            time={
+              startTime && endTime ? `${startTime} — ${endTime}` : startTime
+            }
             placeholder={t("chip.pickDay")}
             accent={accent}
-            active={Boolean(displayFrom)}
-          />
-          <DateChip
-            label={t("chip.to")}
-            date={displayTo}
-            time={endTime}
-            placeholder={t("chip.pickDay")}
-            accent={accent}
-            active={Boolean(displayTo)}
+            active={Boolean(displayDate)}
           />
         </div>
 
         <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
           <div className="flex justify-center">
             <DayPicker
-              mode="range"
-              selected={range}
-              onSelect={setRange}
+              mode="single"
+              selected={date}
+              onSelect={setDate}
               numberOfMonths={1}
               weekStartsOn={1}
               locale={df}
@@ -629,8 +619,8 @@ export function PublicBookingForm({
               label={t("slot.start")}
               value={startTime}
               onChange={setStartTime}
-              rangeFromDate={range?.from ?? null}
-              rangeToDate={range?.to ?? range?.from ?? null}
+              rangeFromDate={date ?? null}
+              rangeToDate={date ?? null}
               cfg={slotConfig}
               bookings={bookings}
               isStart
@@ -641,8 +631,8 @@ export function PublicBookingForm({
               label={t("slot.end")}
               value={endTime}
               onChange={setEndTime}
-              rangeFromDate={range?.from ?? null}
-              rangeToDate={range?.to ?? range?.from ?? null}
+              rangeFromDate={date ?? null}
+              rangeToDate={date ?? null}
               cfg={slotConfig}
               bookings={bookings}
               isStart={false}
@@ -1019,27 +1009,33 @@ function SlotGrid({
           const afterEnd =
             isStart && otherSet && singleDay && slotMin >= otherTimeMin;
 
-          // Blokkeer elke keuze waarvan het VOLLEDIGE gekozen bereik een
-          // bestaande boeking overlapt — niet alleen het losse slot.
+          // Toon onbeschikbare slots METEEN — zonder dat de klant eerst de
+          // tegenhanger hoeft te kiezen:
+          //   START S onbeschikbaar als S binnen [b.start, b.end) ligt
+          //     (je kunt niet starten tijdens een lopende boeking)
+          //   EIND  E onbeschikbaar als E binnen (b.start, b.end] ligt
+          //     (er bestaat geen geldige start die niet zou overlappen).
+          // Zodra de tegenhanger óók gekozen is, blokkeren we daarbovenop
+          // ieder bereik dat over een boeking heen valt.
           let overlap = false;
           if (fromD && toD) {
-            const startAbs = isStart
-              ? atTimeMs(fromD, slot)
-              : atTimeMs(fromD, otherTime);
-            const endAbs = isStart
-              ? atTimeMs(toD, otherTime)
-              : atTimeMs(toD, slot);
-            if (endAbs > startAbs) {
-              overlap = rangeOverlapsBooking(startAbs, endAbs, bookings);
-            } else {
-              // Tegenhanger nog niet (zinvol) gekozen: blokkeer in elk
-              // geval het slot-interval zelf als dat al volzit.
-              const base = atTimeMs(isStart ? fromD : toD, slot);
-              overlap = rangeOverlapsBooking(
-                base,
-                base + cfg.intervalMinutes * 60_000,
-                bookings,
-              );
+            const slotDay = isStart ? fromD : toD;
+            const slotAbs = atTimeMs(slotDay, slot);
+            overlap = bookings.some((b) =>
+              isStart
+                ? b.startMs <= slotAbs && slotAbs < b.endMs
+                : b.startMs < slotAbs && slotAbs <= b.endMs,
+            );
+            if (!overlap && otherSet) {
+              const startAbs = isStart
+                ? slotAbs
+                : atTimeMs(fromD, otherTime);
+              const endAbs = isStart
+                ? atTimeMs(toD, otherTime)
+                : slotAbs;
+              if (endAbs > startAbs) {
+                overlap = rangeOverlapsBooking(startAbs, endAbs, bookings);
+              }
             }
           }
 
