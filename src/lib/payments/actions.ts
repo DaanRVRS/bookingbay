@@ -9,26 +9,16 @@ import { audit } from "@/lib/audit/log";
 import { encryptIfPresent } from "./config";
 import type { ActionResult } from "@/lib/auth/schemas";
 
-const inputSchema = z
-  .object({
-    provider: z.enum(["LOCATION", "MOLLIE", "STRIPE"]),
-    // Optionele nieuwe waarden. Lege string = leegmaken; null/undefined = laat staan.
-    mollieKey: z.string().optional(),
-    clearMollie: z.boolean().optional(),
-    stripeKey: z.string().optional(),
-    clearStripe: z.boolean().optional(),
-    stripeWebhookSecret: z.string().optional(),
-  })
-  .refine(
-    (d) => {
-      // XOR: provider MOLLIE vereist een mollie key (huidig of nieuw); STRIPE
-      // idem voor stripe.
-      if (d.provider === "MOLLIE" && d.clearMollie) return false;
-      if (d.provider === "STRIPE" && d.clearStripe) return false;
-      return true;
-    },
-    { message: "Je kunt de actieve provider's key niet leegmaken." },
-  );
+const inputSchema = z.object({
+  acceptLocation: z.boolean(),
+  // null/"" = online uit
+  onlineProvider: z.enum(["MOLLIE", "STRIPE"]).nullable().optional(),
+  mollieKey: z.string().optional(),
+  clearMollie: z.boolean().optional(),
+  stripeKey: z.string().optional(),
+  clearStripe: z.boolean().optional(),
+  stripeWebhookSecret: z.string().optional(),
+});
 
 type Input = z.infer<typeof inputSchema>;
 
@@ -43,25 +33,23 @@ export async function savePaymentConfigAction(
     return { ok: false, error: "Ongeldige invoer" };
   }
   const data = parsed.data;
+  const onlineProvider = data.onlineProvider ?? null;
 
   const current = await db.organization.findUnique({
     where: { id: ctx.organization.id },
-    select: {
-      paymentMollieKeyEnc: true,
-      paymentStripeKeyEnc: true,
-    },
+    select: { paymentMollieKeyEnc: true, paymentStripeKeyEnc: true },
   });
   if (!current) return { ok: false, error: "Organisatie niet gevonden" };
 
-  // Bepaal nieuwe waarden:
-  // - clearX === true → null
-  // - keyX is non-empty → versleutel
-  // - anders: laat huidige waarde staan
+  // Sleutel-resolutie: clear → null; nieuwe waarde → versleutel; anders behouden.
   let nextMollie = current.paymentMollieKeyEnc;
   if (data.clearMollie) {
     nextMollie = null;
   } else if (data.mollieKey && data.mollieKey.trim().length > 0) {
-    if (!data.mollieKey.startsWith("test_") && !data.mollieKey.startsWith("live_")) {
+    if (
+      !data.mollieKey.startsWith("test_") &&
+      !data.mollieKey.startsWith("live_")
+    ) {
       return {
         ok: false,
         error: "Mollie API-key moet beginnen met 'test_' of 'live_'.",
@@ -86,20 +74,30 @@ export async function savePaymentConfigAction(
     nextStripe = encryptIfPresent(data.stripeKey);
   }
 
-  // Provider-validatie: MOLLIE vereist mollie key, STRIPE vereist stripe key.
-  if (data.provider === "MOLLIE" && !nextMollie) {
-    return { ok: false, error: "Vul een Mollie API-key in om Mollie te gebruiken." };
+  // Validatie: gekozen online provider vereist een bijbehorende key.
+  if (onlineProvider === "MOLLIE" && !nextMollie) {
+    return {
+      ok: false,
+      error: "Vul een Mollie API-key in om online via Mollie te accepteren.",
+    };
   }
-  if (data.provider === "STRIPE" && !nextStripe) {
-    return { ok: false, error: "Vul een Stripe key in om Stripe te gebruiken." };
+  if (onlineProvider === "STRIPE" && !nextStripe) {
+    return {
+      ok: false,
+      error: "Vul een Stripe key in om online via Stripe te accepteren.",
+    };
   }
 
-  // XOR: bij activatie van Mollie de stripe key clearen (en vice versa) zodat
-  // er geen verwarring ontstaat.
-  if (data.provider === "MOLLIE") nextStripe = null;
-  if (data.provider === "STRIPE") nextMollie = null;
+  // Minstens één betaalmethode moet aan staan.
+  if (!data.acceptLocation && !onlineProvider) {
+    return {
+      ok: false,
+      error: "Zet minimaal één betaalmethode aan (op locatie of online).",
+    };
+  }
 
-  let nextStripeWh: string | null = null;
+  // undefined = niet wijzigen (laat bestaande secret staan).
+  let nextStripeWh: string | null | undefined = undefined;
   if (data.stripeWebhookSecret && data.stripeWebhookSecret.trim().length > 0) {
     nextStripeWh = encryptIfPresent(data.stripeWebhookSecret);
   }
@@ -107,10 +105,15 @@ export async function savePaymentConfigAction(
   await db.organization.update({
     where: { id: ctx.organization.id },
     data: {
-      paymentProvider: data.provider,
+      acceptLocationPayment: data.acceptLocation,
+      onlinePaymentProvider: onlineProvider,
       paymentMollieKeyEnc: nextMollie,
       paymentStripeKeyEnc: nextStripe,
-      paymentStripeWebhookSecretEnc: nextStripeWh,
+      ...(nextStripeWh !== undefined
+        ? { paymentStripeWebhookSecretEnc: nextStripeWh }
+        : {}),
+      // Legacy kolom in sync houden voor het geval iets het nog leest.
+      paymentProvider: onlineProvider ?? "LOCATION",
     },
   });
 
@@ -120,7 +123,7 @@ export async function savePaymentConfigAction(
     action: "org.payment.update",
     resource: "organization",
     resourceId: ctx.organization.id,
-    metadata: { provider: data.provider },
+    metadata: { acceptLocation: data.acceptLocation, onlineProvider },
   });
 
   revalidatePath("/dashboard/settings/organization");

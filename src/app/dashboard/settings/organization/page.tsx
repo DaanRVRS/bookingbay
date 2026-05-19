@@ -86,7 +86,8 @@ export default async function OrgSettingsPage() {
         <div className="mt-5">
           <PaymentSection
             initial={{
-              provider: paymentConfig.provider,
+              acceptLocation: paymentConfig.acceptLocation,
+              onlineProvider: paymentConfig.onlineProvider,
               mollieKeyMasked: maskKey(paymentConfig.mollieKey),
               stripeKeyMasked: maskKey(paymentConfig.stripeKey),
               hasStripeWebhookSecret: Boolean(paymentConfig.stripeWebhookSecret),

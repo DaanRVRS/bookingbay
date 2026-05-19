@@ -110,6 +110,8 @@ export function PublicBookingForm({
   const [slotConfig, setSlotConfig] = useState<SlotConfig>(DEFAULT_SLOT_CONFIG);
   const [bookings, setBookings] = useState<BookingInterval[]>([]);
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false);
+  const [locationPaymentAvailable, setLocationPaymentAvailable] =
+    useState(true);
   // null = nog niet gekozen. De boeking mag pas door als de klant
   // expliciet een betaalwijze heeft geselecteerd.
   const [paymentChoice, setPaymentChoice] = useState<
@@ -198,6 +200,14 @@ export function PublicBookingForm({
           });
           setBookings(res.bookings);
           setOnlinePaymentAvailable(Boolean(res.onlinePaymentAvailable));
+          setLocationPaymentAvailable(res.locationPaymentAvailable !== false);
+          // Eén optie beschikbaar → automatisch voorselecteren (geen
+          // zinloze keuze forceren).
+          if (res.onlinePaymentAvailable && res.locationPaymentAvailable === false) {
+            setPaymentChoice("online");
+          } else if (!res.onlinePaymentAvailable) {
+            setPaymentChoice("location");
+          }
           if (res.bookingIntervalMinutes === 1440) {
             setStartTime("00:00");
             setEndTime("23:59");
@@ -669,42 +679,47 @@ export function PublicBookingForm({
         </div>
       </Section>
 
-      {/* Betaalkeuze — ALTIJD verplicht. Geen boeking zonder expliciete
-          keuze. "Op locatie" is er altijd; "Online" alleen als de tenant
-          een Mollie/Stripe-key heeft. */}
-      <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
-        <div
-          className={
-            onlinePaymentAvailable
-              ? "grid gap-2 sm:grid-cols-2"
-              : "grid gap-2"
-          }
-        >
-          <PayChoiceCard
-            icon={MapPin}
-            title="Op locatie"
-            description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
-            active={paymentChoice === "location"}
-            onClick={() => setPaymentChoice("location")}
-            accent={accent}
-          />
-          {onlinePaymentAvailable && (
-            <PayChoiceCard
-              icon={CreditCard}
-              title="Online betalen"
-              description="Reken nu direct af en je boeking is meteen bevestigd."
-              active={paymentChoice === "online"}
-              onClick={() => setPaymentChoice("online")}
-              accent={accent}
-            />
-          )}
-        </div>
-        {!paymentChoice && (
-          <p className="mt-2 text-[11px] font-medium text-muted-foreground">
-            Kies een betaalwijze om je boeking af te ronden.
-          </p>
-        )}
-      </Section>
+      {/* Betaalkeuze. Alleen de methodes die de tenant aan heeft. Bij twee
+          opties is een expliciete keuze verplicht; bij één is 'ie al voorgeselecteerd. */}
+      {(() => {
+        const bothAvailable =
+          locationPaymentAvailable && onlinePaymentAvailable;
+        return (
+          <Section icon={Wallet} accent={accent} title="Hoe wil je betalen?">
+            <div
+              className={
+                bothAvailable ? "grid gap-2 sm:grid-cols-2" : "grid gap-2"
+              }
+            >
+              {locationPaymentAvailable && (
+                <PayChoiceCard
+                  icon={MapPin}
+                  title="Op locatie"
+                  description="Betaal bij het ophalen. Je boeking wordt vastgelegd."
+                  active={paymentChoice === "location"}
+                  onClick={() => setPaymentChoice("location")}
+                  accent={accent}
+                />
+              )}
+              {onlinePaymentAvailable && (
+                <PayChoiceCard
+                  icon={CreditCard}
+                  title="Online betalen"
+                  description="Reken nu direct af en je boeking is meteen bevestigd."
+                  active={paymentChoice === "online"}
+                  onClick={() => setPaymentChoice("online")}
+                  accent={accent}
+                />
+              )}
+            </div>
+            {bothAvailable && !paymentChoice && (
+              <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                Kies een betaalwijze om je boeking af te ronden.
+              </p>
+            )}
+          </Section>
+        );
+      })()}
 
       <button
         type="submit"

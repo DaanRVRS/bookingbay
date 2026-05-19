@@ -6,7 +6,7 @@ import { audit } from "@/lib/audit/log";
 import { publicBookingSchema, type PublicBookingInput } from "./public-schemas";
 import { syncBookingExternal } from "@/lib/integrations/sync-booking";
 import { env } from "@/lib/env";
-import { readPaymentConfig } from "@/lib/payments/config";
+import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 
@@ -149,7 +149,7 @@ export async function createPublicBooking(
       const successUrl = `${baseUrl}/book/${data.slug}/betaling/${booking.id}?status=ok`;
       const cancelUrl = `${baseUrl}/book/${data.slug}/betaling/${booking.id}?status=annulered`;
 
-      if (paymentCfg.provider === "MOLLIE" && paymentCfg.mollieKey) {
+      if (paymentCfg.onlineProvider === "MOLLIE" && paymentCfg.mollieKey) {
         const webhookUrl = `${baseUrl}/api/payments/mollie/webhook`;
         const result = await createMolliePaymentForBooking({
           apiKey: paymentCfg.mollieKey,
@@ -168,7 +168,7 @@ export async function createPublicBooking(
           },
         });
         redirectUrl = result.checkoutUrl;
-      } else if (paymentCfg.provider === "STRIPE" && paymentCfg.stripeKey) {
+      } else if (paymentCfg.onlineProvider === "STRIPE" && paymentCfg.stripeKey) {
         const result = await createStripeCheckoutForBooking({
           apiKey: paymentCfg.stripeKey,
           amountEuro: estimate,
@@ -206,7 +206,9 @@ export interface ItemAvailability {
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
   bookings: { startMs: number; endMs: number }[];
-  /** Of de tenant online betalen aan heeft (Mollie of Stripe key gezet). */
+  /** Tenant accepteert betalen op locatie. */
+  locationPaymentAvailable: boolean;
+  /** Tenant heeft werkende online betaling (provider + key). */
   onlinePaymentAvailable: boolean;
 }
 
@@ -236,9 +238,8 @@ export async function getItemAvailability(
   if (!item) return { ok: false, error: "Item niet gevonden" };
 
   const paymentCfg = await readPaymentConfig(org.id);
-  const onlinePaymentAvailable =
-    (paymentCfg.provider === "MOLLIE" && Boolean(paymentCfg.mollieKey)) ||
-    (paymentCfg.provider === "STRIPE" && Boolean(paymentCfg.stripeKey));
+  const onlinePaymentAvailable = onlineReady(paymentCfg);
+  const locationPaymentAvailable = paymentCfg.acceptLocation;
 
   const fromDate = new Date();
   fromDate.setHours(0, 0, 0, 0);
@@ -320,6 +321,7 @@ export async function getItemAvailability(
       startMs: b.startAt.getTime(),
       endMs: b.endAt.getTime(),
     })),
+    locationPaymentAvailable,
     onlinePaymentAvailable,
   };
 }

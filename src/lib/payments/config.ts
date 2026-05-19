@@ -2,10 +2,13 @@ import "server-only";
 import { db } from "@/lib/db";
 import { encryptSecret, decryptSecret } from "@/lib/integrations/crypto";
 
-export type PaymentProvider = "LOCATION" | "MOLLIE" | "STRIPE";
+export type OnlineProvider = "MOLLIE" | "STRIPE" | null;
 
 export interface DecryptedPaymentConfig {
-  provider: PaymentProvider;
+  /** "Op locatie betalen" toegestaan in de widget. */
+  acceptLocation: boolean;
+  /** Actieve online provider (of null = online uit). */
+  onlineProvider: OnlineProvider;
   mollieKey: string | null;
   stripeKey: string | null;
   stripeWebhookSecret: string | null;
@@ -17,7 +20,8 @@ export async function readPaymentConfig(
   const org = await db.organization.findUnique({
     where: { id: organizationId },
     select: {
-      paymentProvider: true,
+      acceptLocationPayment: true,
+      onlinePaymentProvider: true,
       paymentMollieKeyEnc: true,
       paymentStripeKeyEnc: true,
       paymentStripeWebhookSecretEnc: true,
@@ -25,18 +29,29 @@ export async function readPaymentConfig(
   });
   if (!org) {
     return {
-      provider: "LOCATION",
+      acceptLocation: true,
+      onlineProvider: null,
       mollieKey: null,
       stripeKey: null,
       stripeWebhookSecret: null,
     };
   }
+  const prov = org.onlinePaymentProvider;
   return {
-    provider: (org.paymentProvider as PaymentProvider) ?? "LOCATION",
+    acceptLocation: org.acceptLocationPayment,
+    onlineProvider:
+      prov === "MOLLIE" || prov === "STRIPE" ? prov : null,
     mollieKey: safeDecrypt(org.paymentMollieKeyEnc),
     stripeKey: safeDecrypt(org.paymentStripeKeyEnc),
     stripeWebhookSecret: safeDecrypt(org.paymentStripeWebhookSecretEnc),
   };
+}
+
+/** Heeft de org een werkende online-betaling (provider + bijbehorende key)? */
+export function onlineReady(cfg: DecryptedPaymentConfig): boolean {
+  if (cfg.onlineProvider === "MOLLIE") return Boolean(cfg.mollieKey);
+  if (cfg.onlineProvider === "STRIPE") return Boolean(cfg.stripeKey);
+  return false;
 }
 
 function safeDecrypt(enc: string | null): string | null {
@@ -55,7 +70,7 @@ export function encryptIfPresent(value: string | null | undefined): string | nul
 }
 
 /**
- * Mask everything except first 4 + last 4 characters — UI-safe representation
+ * Mask everything except first 6 + last 4 characters — UI-safe representation
  * of an API-key zonder de waarde aan de client te lekken.
  */
 export function maskKey(key: string | null): string | null {

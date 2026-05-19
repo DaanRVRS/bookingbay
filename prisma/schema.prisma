@@ -179,12 +179,15 @@ model Organization {
   crmStatus String @default("active")
   crmTags   Json   @default("[]")
 
-  // Tenant-side payment configuration. Bepaalt wat een klant ziet bij een
-  // boeking via de publieke widget. "LOCATION" = standaard, klant betaalt bij
-  // ophalen. "MOLLIE" of "STRIPE" = redirect naar checkout met de tenant's
-  // EIGEN API-key (versleuteld via lib/integrations/crypto). Slechts één van
-  // de twee keys mag tegelijk gevuld zijn.
-  paymentProvider     String  @default("LOCATION") // LOCATION | MOLLIE | STRIPE
+  // Tenant-side payment configuration. "Op locatie" en "Online" staan LOS
+  // van elkaar — beide mogen tegelijk aan, zodat de klant in de widget
+  // kiest. Online wordt afgehandeld door Mollie ÓF Stripe (één van de twee).
+  acceptLocationPayment Boolean @default(true)
+  // null = online uit. "MOLLIE" of "STRIPE" = welke online provider actief is.
+  onlinePaymentProvider String?
+  // Legacy (pre-split). Niet meer gebruikt; kolom blijft staan voor data-
+  // historie. Lees/schrijf via acceptLocationPayment + onlinePaymentProvider.
+  paymentProvider     String  @default("LOCATION")
   // Encrypted API-keys (AES-256-GCM). Null als niet ingesteld.
   paymentMollieKeyEnc String?
   paymentStripeKeyEnc String?
