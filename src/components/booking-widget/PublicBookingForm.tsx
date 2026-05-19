@@ -44,9 +44,6 @@ interface Props {
   itemOptions?: ItemOption[];
 }
 
-const DEFAULT_START_TIME = "09:00";
-const DEFAULT_END_TIME = "17:00";
-
 interface SlotConfig {
   intervalMinutes: number;
   windowStartMin: number;
@@ -112,9 +109,13 @@ export function PublicBookingForm({
   const { t, df } = useWidgetI18n();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
+  // Twee sub-stappen binnen het boekformulier: eerst datum/tijd, dan pas
+  // (op een aparte stap) gegevens + betaalwijze.
+  const [formStep, setFormStep] = useState<"when" | "details">("when");
   const [range, setRange] = useState<DateRange | undefined>(undefined);
-  const [startTime, setStartTime] = useState(DEFAULT_START_TIME);
-  const [endTime, setEndTime] = useState(DEFAULT_END_TIME);
+  // Niets vooraf geselecteerd — de klant kiest zelf start- en eindtijd.
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(
     new Set(),
   );
@@ -166,19 +167,19 @@ export function PublicBookingForm({
   // Sync calendar range + times into the form state (startAt/endAt are
   // hidden — only the calendar/time UI mutates them).
   useEffect(() => {
-    if (range?.from) {
-      const startStr = `${format(range.from, "yyyy-MM-dd")}T${startTime}`;
-      setValue("startAt", startStr, { shouldValidate: true });
+    // Pas een datum/tijd doorzetten als de klant ze écht heeft gekozen.
+    if (range?.from && startTime) {
+      setValue("startAt", `${format(range.from, "yyyy-MM-dd")}T${startTime}`, {
+        shouldValidate: true,
+      });
     } else {
       setValue("startAt", "", { shouldValidate: false });
     }
-    if (range?.to) {
-      const endStr = `${format(range.to, "yyyy-MM-dd")}T${endTime}`;
-      setValue("endAt", endStr, { shouldValidate: true });
-    } else if (range?.from) {
-      // Single-day booking: end on same day at end time.
-      const endStr = `${format(range.from, "yyyy-MM-dd")}T${endTime}`;
-      setValue("endAt", endStr, { shouldValidate: true });
+    const endDay = range?.to ?? range?.from ?? null;
+    if (endDay && endTime) {
+      setValue("endAt", `${format(endDay, "yyyy-MM-dd")}T${endTime}`, {
+        shouldValidate: true,
+      });
     } else {
       setValue("endAt", "", { shouldValidate: false });
     }
@@ -221,12 +222,14 @@ export function PublicBookingForm({
           } else if (!res.onlinePaymentAvailable) {
             setPaymentChoice("location");
           }
+          // Per-dag items hebben geen tijdkeuze → impliciet de hele dag.
+          // Voor uur-items NIETS voorselecteren: de klant kiest zelf.
           if (res.bookingIntervalMinutes === 1440) {
             setStartTime("00:00");
             setEndTime("23:59");
           } else {
-            setStartTime(minToHHMM(res.bookingWindowStartMin));
-            setEndTime(minToHHMM(res.bookingWindowEndMin));
+            setStartTime("");
+            setEndTime("");
           }
         } else {
           setUnavailableDates(new Set());
@@ -271,7 +274,27 @@ export function PublicBookingForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today.getTime(), lookaheadDays]);
 
-  // Stap 1: "Boeken" geklikt → valideer + ga naar de review-stap.
+  // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
+  // zijn voordat we naar de gegevens/betaal-stap gaan.
+  const goToDetails = () => {
+    if (!range?.from) {
+      toast.error(t("when.pickDate"));
+      return;
+    }
+    if (slotConfig.intervalMinutes !== 1440 && (!startTime || !endTime)) {
+      toast.error(t("when.pickTime"));
+      return;
+    }
+    const s = getValues("startAt");
+    const e = getValues("endAt");
+    if (!s || !e || !(new Date(e).getTime() > new Date(s).getTime())) {
+      toast.error(t("when.pickTime"));
+      return;
+    }
+    setFormStep("details");
+  };
+
+  // Sub-stap "Gegevens": "Boeken" geklikt → valideer + ga naar review.
   // Hier wordt NOG GEEN boeking aangemaakt.
   const onSubmit = handleSubmit((values) => {
     if (!paymentChoice) {
@@ -513,6 +536,8 @@ export function PublicBookingForm({
         </div>
       )}
 
+      {formStep === "when" && (
+        <>
       {showItemPicker && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="itemId">{t("form.whichItem")}</Label>
@@ -659,6 +684,33 @@ export function PublicBookingForm({
         )}
       </Section>
 
+          <button
+            type="button"
+            onClick={goToDetails}
+            className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+            style={{
+              background: accent,
+              color: ON_ACCENT,
+              boxShadow: `0 4px 14px -4px ${accent}80`,
+            }}
+          >
+            {t("nav.next")}
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </>
+      )}
+
+      {formStep === "details" && (
+        <>
+          <button
+            type="button"
+            onClick={() => setFormStep("when")}
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowRight className="size-3 rotate-180" />
+            {t("nav.back")}
+          </button>
+
       {/* Wie ben je */}
       <Section icon={User} accent={accent} title={t("sec.you")}>
         <div className="flex flex-col gap-3">
@@ -763,6 +815,8 @@ export function PublicBookingForm({
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         {t("submit.nextStep")}
       </p>
+        </>
+      )}
     </form>
   );
 }
@@ -899,9 +953,11 @@ function DateChip({
       {date ? (
         <p className="text-sm font-semibold tracking-tight">
           {format(date, "d MMM", { locale: df })}
-          <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
-            · {time}
-          </span>
+          {time && (
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+              · {time}
+            </span>
+          )}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">{placeholder}</p>
@@ -947,6 +1003,7 @@ function SlotGrid({
       </div>
       <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
         {slots.map((slot) => {
+          const otherSet = otherTime !== "";
           const otherTimeMin = hhmmToMin(otherTime);
           const slotMin = hhmmToMin(slot);
 
@@ -955,11 +1012,12 @@ function SlotGrid({
           const singleDay =
             !!fromD && !!toD && sameCalendarDay(fromD, toD);
 
-          // Tijd-volgorde alleen afdwingen binnen één dag (bij een
-          // meerdaagse boeking mag de eindtijd vóór de starttijd liggen).
+          // Tijd-volgorde alleen afdwingen als de tegenhanger al gekozen
+          // is én binnen één dag (meerdaags mag eind vóór start liggen).
           const beforeStart =
-            !isStart && singleDay && slotMin <= otherTimeMin;
-          const afterEnd = isStart && singleDay && slotMin >= otherTimeMin;
+            !isStart && otherSet && singleDay && slotMin <= otherTimeMin;
+          const afterEnd =
+            isStart && otherSet && singleDay && slotMin >= otherTimeMin;
 
           // Blokkeer elke keuze waarvan het VOLLEDIGE gekozen bereik een
           // bestaande boeking overlapt — niet alleen het losse slot.

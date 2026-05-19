@@ -129,6 +129,10 @@ export type TKey =
   | "submit.book"
   | "submit.nextStep"
   | "header.bookAt"
+  | "nav.next"
+  | "nav.back"
+  | "when.pickDate"
+  | "when.pickTime"
   | "err.connection"
   | "err.generic";
 
@@ -201,6 +205,10 @@ const NL: Dict = {
   "submit.book": "Boeken",
   "submit.nextStep": "Volgende stap: je ziet een overzicht en bevestigt dan pas.",
   "header.bookAt": "Boek bij",
+  "nav.next": "Volgende",
+  "nav.back": "Terug",
+  "when.pickDate": "Kies eerst een datum.",
+  "when.pickTime": "Kies een start- en eindtijd.",
   "err.connection": "Verbinding mislukt. Probeer 't opnieuw.",
   "err.generic": "Er ging iets mis",
 };
@@ -271,6 +279,10 @@ const EN: Dict = {
   "submit.book": "Book",
   "submit.nextStep": "Next step: you'll see a summary and only then confirm.",
   "header.bookAt": "Book with",
+  "nav.next": "Next",
+  "nav.back": "Back",
+  "when.pickDate": "Pick a date first.",
+  "when.pickTime": "Choose a start and end time.",
   "err.connection": "Connection failed. Please try again.",
   "err.generic": "Something went wrong",
 };
@@ -341,6 +353,10 @@ const FR: Dict = {
   "submit.book": "Réserver",
   "submit.nextStep": "Étape suivante : un récapitulatif, puis vous confirmez.",
   "header.bookAt": "Réserver chez",
+  "nav.next": "Suivant",
+  "nav.back": "Retour",
+  "when.pickDate": "Choisissez d'abord une date.",
+  "when.pickTime": "Choisissez une heure de début et de fin.",
   "err.connection": "Échec de la connexion. Réessayez.",
   "err.generic": "Une erreur s'est produite",
 };
@@ -412,6 +428,10 @@ const DE: Dict = {
   "submit.book": "Buchen",
   "submit.nextStep": "Nächster Schritt: Übersicht, dann bestätigen Sie.",
   "header.bookAt": "Buchen bei",
+  "nav.next": "Weiter",
+  "nav.back": "Zurück",
+  "when.pickDate": "Wählen Sie zuerst ein Datum.",
+  "when.pickTime": "Wählen Sie eine Start- und Endzeit.",
   "err.connection": "Verbindung fehlgeschlagen. Bitte erneut versuchen.",
   "err.generic": "Etwas ist schiefgelaufen",
 };
@@ -482,6 +502,10 @@ const ES: Dict = {
   "submit.book": "Reservar",
   "submit.nextStep": "Siguiente paso: verás un resumen y luego confirmas.",
   "header.bookAt": "Reserva en",
+  "nav.next": "Siguiente",
+  "nav.back": "Atrás",
+  "when.pickDate": "Elige primero una fecha.",
+  "when.pickTime": "Elige una hora de inicio y fin.",
   "err.connection": "Error de conexión. Inténtalo de nuevo.",
   "err.generic": "Algo salió mal",
 };
@@ -552,6 +576,10 @@ const IT: Dict = {
   "submit.book": "Prenota",
   "submit.nextStep": "Passo successivo: vedrai un riepilogo e poi confermi.",
   "header.bookAt": "Prenota da",
+  "nav.next": "Avanti",
+  "nav.back": "Indietro",
+  "when.pickDate": "Scegli prima una data.",
+  "when.pickTime": "Scegli un'ora di inizio e fine.",
   "err.connection": "Connessione non riuscita. Riprova.",
   "err.generic": "Qualcosa è andato storto",
 };
@@ -622,6 +650,10 @@ const RU: Dict = {
   "submit.book": "Забронировать",
   "submit.nextStep": "Далее: вы увидите сводку и затем подтвердите.",
   "header.bookAt": "Бронь в",
+  "nav.next": "Далее",
+  "nav.back": "Назад",
+  "when.pickDate": "Сначала выберите дату.",
+  "when.pickTime": "Выберите время начала и окончания.",
   "err.connection": "Сбой соединения. Попробуйте снова.",
   "err.generic": "Что-то пошло не так",
 };
@@ -692,6 +724,10 @@ const UK: Dict = {
   "submit.book": "Забронювати",
   "submit.nextStep": "Далі: ви побачите підсумок і потім підтвердите.",
   "header.bookAt": "Бронь у",
+  "nav.next": "Далі",
+  "nav.back": "Назад",
+  "when.pickDate": "Спершу оберіть дату.",
+  "when.pickTime": "Оберіть час початку та завершення.",
   "err.connection": "Помилка з'єднання. Спробуйте ще раз.",
   "err.generic": "Щось пішло не так",
 };
@@ -762,6 +798,10 @@ const PL: Dict = {
   "submit.book": "Rezerwuj",
   "submit.nextStep": "Następny krok: zobaczysz podsumowanie i potwierdzisz.",
   "header.bookAt": "Rezerwuj w",
+  "nav.next": "Dalej",
+  "nav.back": "Wstecz",
+  "when.pickDate": "Najpierw wybierz datę.",
+  "when.pickTime": "Wybierz godzinę rozpoczęcia i zakończenia.",
   "err.connection": "Błąd połączenia. Spróbuj ponownie.",
   "err.generic": "Coś poszło nie tak",
 };
@@ -832,6 +872,10 @@ const TR: Dict = {
   "submit.book": "Rezerve et",
   "submit.nextStep": "Sonraki adım: bir özet görür, sonra onaylarsınız.",
   "header.bookAt": "Rezervasyon:",
+  "nav.next": "İleri",
+  "nav.back": "Geri",
+  "when.pickDate": "Önce bir tarih seçin.",
+  "when.pickTime": "Başlangıç ve bitiş saatini seçin.",
   "err.connection": "Bağlantı başarısız. Tekrar deneyin.",
   "err.generic": "Bir şeyler ters gitti",
 };
