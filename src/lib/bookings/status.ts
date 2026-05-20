@@ -3,12 +3,12 @@ import type { BookingStatus } from "@prisma/client";
 /**
  * Eén bron van waarheid voor hoe een boeking-status getoond wordt.
  *
- * De DB-enum (PENDING/CONFIRMED/...) blijft bestaan, maar de gebruiker ziet
- * een afgeleide, tijd-gebaseerde status:
- *   - Geannuleerd  → status === CANCELED (handmatig, met bevestiging)
- *   - Voltooid     → eindtijd verstreken
- *   - Bezig        → nu tussen start en eind
- *   - Gereserveerd → in de toekomst
+ * Volledig DB-driven (geen tijd-automatisme meer): de eigenaar zet
+ * "Op bezig" en "Op voltooid" zelf vanuit het dashboard. Mapping:
+ *   - CANCELED                 → Geannuleerd
+ *   - COMPLETED                → Voltooid
+ *   - IN_PROGRESS              → Bezig
+ *   - PENDING / CONFIRMED      → Gereserveerd
  */
 export type DerivedKey =
   | "RESERVED"
@@ -43,10 +43,16 @@ export interface DerivedStatus {
 
 export function deriveBookingStatus(
   status: BookingStatus,
-  startAt: Date | string,
-  endAt: Date | string,
-  now: Date = new Date(),
+  // startAt/endAt blijven in de signature voor backward-compat (callers
+  // hoeven niet aangepast), maar worden niet meer gebruikt — de status
+  // wordt nu volledig uit de DB-enum afgeleid.
+  _startAt?: Date | string,
+  _endAt?: Date | string,
+  _now?: Date,
 ): DerivedStatus {
+  void _startAt;
+  void _endAt;
+  void _now;
   if (status === "CANCELED") {
     return {
       key: "CANCELED",
@@ -54,23 +60,21 @@ export function deriveBookingStatus(
       cls: "bg-destructive/10 text-destructive",
     };
   }
-  const start = typeof startAt === "string" ? new Date(startAt) : startAt;
-  const end = typeof endAt === "string" ? new Date(endAt) : endAt;
-
-  if (now.getTime() >= end.getTime()) {
+  if (status === "COMPLETED") {
     return {
       key: "COMPLETED",
       main: "Voltooid",
       cls: "bg-muted text-muted-foreground",
     };
   }
-  if (now.getTime() >= start.getTime()) {
+  if (status === "IN_PROGRESS") {
     return {
       key: "ACTIVE",
       main: "Bezig",
       cls: "bg-[oklch(0.62_0.16_250)]/15 text-[oklch(0.5_0.16_255)]",
     };
   }
+  // PENDING / CONFIRMED
   return {
     key: "RESERVED",
     main: "Gereserveerd",

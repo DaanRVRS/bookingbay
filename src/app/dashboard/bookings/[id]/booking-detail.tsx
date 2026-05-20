@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CalendarClock,
+  CheckCircle2,
   CreditCard,
   Loader2,
   MapPin,
@@ -59,6 +60,9 @@ interface Props {
     notes: string;
     paymentStatus: string | null;
     paymentProvider: string | null;
+    completionDamage: boolean;
+    completionNotes: string;
+    completedAt: string | null;
   };
 }
 
@@ -342,6 +346,50 @@ export function BookingDetail({
           <p className="mt-2 text-sm leading-relaxed whitespace-pre-line">
             {view.notes}
           </p>
+        </div>
+      )}
+
+      {/* Afronding — alleen na "Op voltooid" */}
+      {view.status === "COMPLETED" && (
+        <div
+          className={`rounded-xl border p-5 ${
+            view.completionDamage
+              ? "border-[oklch(0.7_0.16_60)]/40 bg-[oklch(0.7_0.16_60)]/8"
+              : "border-border bg-card"
+          }`}
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            {view.completionDamage ? (
+              <AlertTriangle className="size-4 text-[oklch(0.7_0.16_60)]" />
+            ) : (
+              <CheckCircle2 className="size-4 text-[oklch(0.5_0.14_150)]" />
+            )}
+            <span className="text-xs font-semibold tracking-wider uppercase">
+              Afronding
+              {view.completedAt && (
+                <span className="ml-1.5 font-normal normal-case text-muted-foreground/80">
+                  ·{" "}
+                  {new Date(view.completedAt).toLocaleString("nl-NL", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-medium">
+            {view.completionDamage
+              ? "Schade gemeld bij oplevering."
+              : "Zonder schade afgerond."}
+          </p>
+          {view.completionNotes && (
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+              {view.completionNotes}
+            </p>
+          )}
         </div>
       )}
     </div>

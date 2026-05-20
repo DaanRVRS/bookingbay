@@ -86,6 +86,11 @@ export default async function BookingDetailPage({ params }: PageProps) {
               notes: booking.notes ?? "",
               paymentStatus: booking.paymentStatus,
               paymentProvider: booking.paymentProvider,
+              completionDamage: booking.completionDamage,
+              completionNotes: booking.completionNotes ?? "",
+              completedAt: booking.completedAt
+                ? booking.completedAt.toISOString()
+                : null,
             }}
           />
         </div>

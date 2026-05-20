@@ -24,28 +24,20 @@ function sortOrder(sort: string | undefined): Prisma.BookingOrderByWithRelationI
 }
 
 /**
- * Vertaalt een afgeleide filter-key (Gereserveerd/Bezig/Voltooid/
- * Geannuleerd) naar een tijd-gebaseerde Prisma-where. Spiegelt exact
- * deriveBookingStatus() in src/lib/bookings/status.ts.
+ * Vertaalt een afgeleide filter-key naar een Prisma-where op de DB-
+ * status-enum (de eigenaar zet zelf "Op bezig" / "Op voltooid").
  */
-function derivedWhere(
-  status: string | undefined,
-  now: Date,
-): Prisma.BookingWhereInput {
+function derivedWhere(status: string | undefined): Prisma.BookingWhereInput {
   if (!isDerivedKey(status)) return {};
   switch (status) {
     case "CANCELED":
       return { status: "CANCELED" };
     case "COMPLETED":
-      return { status: { not: "CANCELED" }, endAt: { lte: now } };
+      return { status: "COMPLETED" };
     case "ACTIVE":
-      return {
-        status: { not: "CANCELED" },
-        startAt: { lte: now },
-        endAt: { gt: now },
-      };
+      return { status: "IN_PROGRESS" };
     case "RESERVED":
-      return { status: { not: "CANCELED" }, startAt: { gt: now } };
+      return { status: { in: ["PENDING", "CONFIRMED"] } };
   }
 }
 
@@ -58,7 +50,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const bookings = await db.booking.findMany({
     where: {
       organizationId: ctx.organization.id,
-      ...derivedWhere(status, new Date()),
+      ...derivedWhere(status),
     },
     include: {
       item: { select: { name: true } },

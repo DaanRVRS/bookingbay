@@ -437,6 +437,14 @@ model Booking {
   // de juiste boeking kunnen vinden.
   paymentRef      String? @unique
 
+  // Afronding: gevuld door "Op voltooid zetten" in het dashboard. Schade
+  // = vinkje of er bij oplevering iets stuk/ontbrekend was; completionNotes
+  // = vrij tekstveld (bv. "klein krasje bakboord"). completedAt = moment
+  // van afronden (niet automatisch op endAt — eigenaar bevestigt zelf).
+  completionDamage Boolean   @default(false)
+  completionNotes  String?
+  completedAt      DateTime?
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
   customer     Customer     @relation(fields: [customerId], references: [id])

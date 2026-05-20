@@ -203,6 +203,54 @@ export async function cancelBookingAction(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Voltooi een boeking handmatig — vraagt om optionele schade-vlag +
+ * opmerkingen. Slaat completedAt op zodat we later kunnen rapporteren.
+ */
+export async function completeBookingAction(input: {
+  id: string;
+  damage: boolean;
+  notes?: string;
+}): Promise<ActionResult> {
+  const ctx = await requireOrg();
+  assertCan(ctx.membership.role, "bookings:manage");
+
+  const existing = await db.booking.findFirst({
+    where: { id: input.id, organizationId: ctx.organization.id },
+    select: { id: true, status: true },
+  });
+  if (!existing) return { ok: false, error: "Niet gevonden" };
+  if (existing.status === "CANCELED") {
+    return { ok: false, error: "Geannuleerde boekingen kunnen niet worden voltooid." };
+  }
+
+  await db.booking.update({
+    where: { id: input.id },
+    data: {
+      status: "COMPLETED",
+      completionDamage: Boolean(input.damage),
+      completionNotes: input.notes?.trim() || null,
+      completedAt: new Date(),
+    },
+  });
+
+  await audit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    action: "booking.complete",
+    resource: "booking",
+    resourceId: input.id,
+    metadata: { damage: Boolean(input.damage), hasNotes: Boolean(input.notes?.trim()) },
+  });
+
+  await syncBookingExternal(input.id, "upsert");
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/bookings");
+  revalidatePath(`/dashboard/bookings/${input.id}`);
+  return { ok: true };
+}
+
 export async function setBookingStatusAction(
   id: string,
   status: (typeof bookingStatusValues)[number],

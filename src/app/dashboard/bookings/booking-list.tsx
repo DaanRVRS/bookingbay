@@ -16,6 +16,7 @@ import {
   paymentSublabel,
 } from "@/lib/bookings/status";
 import type { BookingStatus } from "@prisma/client";
+import { BookingRowActions } from "./booking-row-actions";
 
 interface Booking {
   id: string;
@@ -134,9 +135,10 @@ export function BookingList({
           <ul className="divide-y divide-border">
             {bookings.map((b) => (
               <li key={b.id}>
+                <div className="flex items-center gap-2 px-5 py-4 transition-colors hover:bg-muted/40 sm:gap-4">
                 <Link
                   href={`/dashboard/bookings/${b.id}`}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
+                  className="flex min-w-0 flex-1 items-center gap-4"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{b.itemName}</p>
@@ -206,6 +208,20 @@ export function BookingList({
                     );
                   })()}
                 </Link>
+                {(() => {
+                  const d = deriveBookingStatus(
+                    b.status,
+                    b.startAt,
+                    b.endAt,
+                  );
+                  return (
+                    <BookingRowActions
+                      bookingId={b.id}
+                      derivedKey={d.key}
+                    />
+                  );
+                })()}
+                </div>
               </li>
             ))}
           </ul>
