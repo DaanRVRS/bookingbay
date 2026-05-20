@@ -14,7 +14,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const ctx = await requireOrg();
 
-  const [booking, items, customers] = await Promise.all([
+  const [booking, items, customers, org] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: ctx.organization.id },
       include: {
@@ -39,9 +39,13 @@ export default async function BookingDetailPage({ params }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     }),
+    db.organization.findUnique({
+      where: { id: ctx.organization.id },
+      select: { slug: true, primaryColor: true },
+    }),
   ]);
 
-  if (!booking) notFound();
+  if (!booking || !org) notFound();
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -53,6 +57,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
         />
         <div className="mt-6">
           <BookingDetail
+            orgSlug={org.slug}
+            accent={org.primaryColor ?? undefined}
             items={items.map((i) => ({
               id: i.id,
               name: i.name,

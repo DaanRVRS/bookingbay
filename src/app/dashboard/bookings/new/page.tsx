@@ -22,7 +22,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const params = await searchParams;
 
-  const [items, customers] = await Promise.all([
+  const [items, customers, org] = await Promise.all([
     db.item.findMany({
       where: { organizationId: ctx.organization.id, isActive: true },
       orderBy: { name: "asc" },
@@ -40,7 +40,12 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     }),
+    db.organization.findUnique({
+      where: { id: ctx.organization.id },
+      select: { slug: true, primaryColor: true },
+    }),
   ]);
+  if (!org) redirect("/dashboard");
 
   if (items.length === 0) redirect("/dashboard/items/new");
 
@@ -78,6 +83,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         />
         <div className="mt-6">
           <BookingForm
+            orgSlug={org.slug}
+            accent={org.primaryColor ?? undefined}
             items={items.map((i) => ({
               id: i.id,
               name: i.name,

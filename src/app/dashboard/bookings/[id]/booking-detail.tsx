@@ -43,6 +43,8 @@ interface CustomerOpt {
 interface Props {
   items: ItemOpt[];
   customers: CustomerOpt[];
+  orgSlug: string;
+  accent?: string;
   view: {
     id: string;
     itemId: string;
@@ -95,7 +97,13 @@ function durationLabel(a: string, b: string) {
   return `${hours} uur`;
 }
 
-export function BookingDetail({ items, customers, view }: Props) {
+export function BookingDetail({
+  items,
+  customers,
+  view,
+  orgSlug,
+  accent,
+}: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -129,6 +137,8 @@ export function BookingDetail({ items, customers, view }: Props) {
           Bewerken annuleren
         </button>
         <BookingForm
+          orgSlug={orgSlug}
+          accent={accent}
           items={items}
           customers={customers}
           existing={{

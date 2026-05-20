@@ -206,6 +206,9 @@ export interface ItemAvailability {
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
   bookings: { startMs: number; endMs: number }[];
+  /** Externe agenda-blokken (Google Calendar etc.) — de slot-grid moet
+   *  deze ook als bezet tonen, anders weigert de backend later. */
+  blocks: { startMs: number; endMs: number }[];
   /** Tenant accepteert betalen op locatie. */
   locationPaymentAvailable: boolean;
   /** Tenant heeft werkende online betaling (provider + key). */
@@ -326,6 +329,10 @@ export async function getItemAvailability(
     bookingWindowStartMin: item.bookingWindowStartMin,
     bookingWindowEndMin: item.bookingWindowEndMin,
     bookings: bookings.map((b) => ({
+      startMs: b.startAt.getTime(),
+      endMs: b.endAt.getTime(),
+    })),
+    blocks: blocks.map((b) => ({
       startMs: b.startAt.getTime(),
       endMs: b.endAt.getTime(),
     })),

@@ -19,6 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CustomerDialog } from "@/app/dashboard/customers/customer-dialog";
+import {
+  DateTimePicker,
+  type DateTimeValue,
+} from "@/components/booking-widget/date-time-picker";
 import { z } from "zod";
 import {
   bookingCreateSchema,
@@ -61,6 +65,10 @@ interface Existing {
 interface Props {
   items: ItemOpt[];
   customers: CustomerOpt[];
+  /** Slug van de eigen organisatie — voor /api/public/availability. */
+  orgSlug: string;
+  /** Aksent-kleur voor de kalender/slot-grid. */
+  accent?: string;
   existing?: Existing;
   defaultItemId?: string;
   defaultCustomerId?: string;
@@ -98,6 +106,8 @@ function tryParseLocalIso(s: string | undefined): string | null {
 export function BookingForm({
   items,
   customers: initialCustomers,
+  orgSlug,
+  accent,
   existing,
   defaultItemId,
   defaultCustomerId,
@@ -143,6 +153,48 @@ export function BookingForm({
   const startAt = watch("startAt");
   const endAt = watch("endAt");
   const status = watch("status");
+
+  // Datum/tijd-state voor de DateTimePicker — gesynced naar RHF startAt/endAt.
+  const [dt, setDt] = useState<DateTimeValue>(() => {
+    const parse = (loc: string): { d: Date | null; t: string } => {
+      const [day, time] = loc.split("T");
+      if (!day || !time) return { d: null, t: "" };
+      const [y, m, d] = day.split("-").map(Number);
+      return { d: new Date(y, (m ?? 1) - 1, d ?? 1), t: time.slice(0, 5) };
+    };
+    const s = parse(String(startAt ?? ""));
+    const e = parse(String(endAt ?? ""));
+    const sameDay =
+      s.d &&
+      e.d &&
+      s.d.getFullYear() === e.d.getFullYear() &&
+      s.d.getMonth() === e.d.getMonth() &&
+      s.d.getDate() === e.d.getDate();
+    return {
+      date: s.d,
+      startTime: s.t,
+      endTime: sameDay ? e.t : "",
+    };
+  });
+
+  useEffect(() => {
+    const fmtDay = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (dt.date && dt.startTime) {
+      setValue("startAt", `${fmtDay(dt.date)}T${dt.startTime}`, {
+        shouldValidate: true,
+      });
+    } else {
+      setValue("startAt", "", { shouldValidate: false });
+    }
+    if (dt.date && dt.endTime) {
+      setValue("endAt", `${fmtDay(dt.date)}T${dt.endTime}`, {
+        shouldValidate: true,
+      });
+    } else {
+      setValue("endAt", "", { shouldValidate: false });
+    }
+  }, [dt, setValue]);
 
   const selectedItem = useMemo(
     () => items.find((i) => i.id === itemId) ?? null,
@@ -311,20 +363,28 @@ export function BookingForm({
 
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Tijdvak</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <FormField
-            label="Start"
-            type="datetime-local"
-            error={errors.startAt?.message as string | undefined}
-            {...register("startAt")}
-          />
-          <FormField
-            label="Einde"
-            type="datetime-local"
-            error={errors.endAt?.message as string | undefined}
-            {...register("endAt")}
+        <p className="mt-1 text-xs text-muted-foreground">
+          Zelfde kalender + uur-grid als klanten zien in de boek-widget —
+          uren die al bezet zijn (boekingen of gekoppelde agenda) staan
+          direct uitgegrijsd.
+        </p>
+        <div className="mt-4">
+          <DateTimePicker
+            slug={orgSlug}
+            itemId={itemId || null}
+            accent={accent}
+            value={dt}
+            onChange={setDt}
+            excludeBookingId={existing?.id}
           />
         </div>
+
+        {(errors.startAt?.message || errors.endAt?.message) && (
+          <p className="mt-2 text-xs font-medium text-destructive">
+            {(errors.startAt?.message as string | undefined) ||
+              (errors.endAt?.message as string | undefined)}
+          </p>
+        )}
 
         <AvailabilityHint state={availability} />
       </div>

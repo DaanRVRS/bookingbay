@@ -216,7 +216,14 @@ export function PublicBookingForm({
             windowStartMin: res.bookingWindowStartMin,
             windowEndMin: res.bookingWindowEndMin,
           });
-          setBookings(res.bookings);
+          // Externe agenda-blokken (Google Calendar etc.) gelden voor de
+          // slot-grid net zo zwaar als gewone boekingen — anders kan een
+          // slot vrij lijken maar weigert de backend bij submit.
+          const intervals = [
+            ...(res.bookings ?? []),
+            ...(res.blocks ?? []),
+          ];
+          setBookings(intervals);
           setOnlinePaymentAvailable(Boolean(res.onlinePaymentAvailable));
           setLocationPaymentAvailable(res.locationPaymentAvailable !== false);
           // Eén optie beschikbaar → automatisch voorselecteren (geen
