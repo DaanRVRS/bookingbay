@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ExternalLink, FileText } from "lucide-react";
+import { ArrowRight, ExternalLink, FileText, Puzzle } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -60,25 +60,49 @@ export default async function SitePage() {
           {tenantUrl}
         </p>
 
-        {/* Page builder shortcut — primary way to edit the homepage now */}
-        {builderEnabled && (
+        <div className="mt-6 flex flex-col gap-3">
+          {/* Boek-widget — zit in élk plan, óók Starter. */}
           <Link
-            href="/dashboard/site/pages"
-            className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent"
+            href="/dashboard/widgets"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent"
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="size-5" />
+              <Puzzle className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Bewerk je homepagina &amp; pagina&apos;s</p>
+              <p className="text-sm font-semibold">
+                Boek-widget {builderEnabled ? "" : "(zit in je Starter-plan)"}
+              </p>
               <p className="text-xs text-muted-foreground">
-                Hero, tekst, foto-slider, prijslijst, reviews — alles in de
-                drag-and-drop page-builder.
+                Plak 'm op je eigen website (WordPress, Wix, Squarespace,
+                eigen HTML) — alle styling beheer je hier in het dashboard.
               </p>
             </div>
             <ArrowRight className="size-4 text-muted-foreground" />
           </Link>
-        )}
+
+          {/* Page builder shortcut — primary way to edit the homepage now */}
+          {builderEnabled && (
+            <Link
+              href="/dashboard/site/pages"
+              className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent"
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <FileText className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  Bewerk je homepagina &amp; pagina&apos;s
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Hero, tekst, foto-slider, prijslijst, reviews — alles in
+                  de drag-and-drop page-builder.
+                </p>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
+            </Link>
+          )}
+        </div>
 
         <div className="mt-6">
           <SiteCustomizerForm

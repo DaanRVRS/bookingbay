@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Lock, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, Plus, Puzzle } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { planAllows, planLimits } from "@/lib/plans";
@@ -55,26 +55,47 @@ export default async function SitePagesPage() {
         />
 
         {!builderEnabled ? (
-          <div className="mt-8 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
-            <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
-              <Lock className="size-5" />
-            </span>
-            <h2 className="text-lg font-semibold">Page-builder beschikbaar vanaf Professional</h2>
-            <p className="max-w-md text-sm text-muted-foreground">
-              Op het Starter-plan kun je je homepagina aanpassen via de standaard customizer. Upgrade om
-              extra pagina&apos;s met eigen blokken te bouwen.
-            </p>
+          <div className="mt-8 flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+                <Lock className="size-5" />
+              </span>
+              <h2 className="text-lg font-semibold">Page-builder beschikbaar vanaf Professional</h2>
+              <p className="max-w-md text-sm text-muted-foreground">
+                Op het Starter-plan kun je je homepagina aanpassen via de standaard customizer. Upgrade om
+                extra pagina&apos;s met eigen blokken te bouwen.
+              </p>
+              <Link
+                href="/dashboard/settings/billing"
+                className="mt-2 inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Upgrade-opties bekijken
+              </Link>
+              <Link
+                href="/dashboard/site"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="size-3" /> Terug naar klantsite
+              </Link>
+            </div>
+
+            {/* Wat Starter WÉL geeft: de boek-widget. */}
             <Link
-              href="/dashboard/settings/billing"
-              className="mt-2 inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+              href="/dashboard/widgets"
+              className="flex items-center gap-3 rounded-xl border border-[oklch(0.7_0.13_150)]/30 bg-[oklch(0.7_0.13_150)]/8 p-4 transition-colors hover:bg-[oklch(0.7_0.13_150)]/12"
             >
-              Upgrade-opties bekijken
-            </Link>
-            <Link
-              href="/dashboard/site"
-              className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="size-3" /> Terug naar klantsite
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[oklch(0.7_0.13_150)]/15 text-[oklch(0.5_0.14_150)]">
+                <Puzzle className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  De boek-widget zit wél in je Starter-plan
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Plak 'm op je eigen website (WordPress, Wix, Squarespace, eigen HTML) — alle styling beheer je in het dashboard.
+                </p>
+              </div>
+              <ArrowRight className="size-4 text-muted-foreground" />
             </Link>
           </div>
         ) : (
