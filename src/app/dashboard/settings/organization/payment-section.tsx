@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { savePaymentConfigAction } from "@/lib/payments/actions";
 
 type OnlineProvider = "MOLLIE" | "STRIPE";
 
@@ -46,15 +45,28 @@ export function PaymentSection({ initial, disabled }: Props) {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     startTransition(async () => {
-      const res = await savePaymentConfigAction({
-        acceptLocation,
-        onlineProvider: onlineOn ? onlineProvider : null,
-        mollieKey: mollieKey || undefined,
-        stripeKey: stripeKey || undefined,
-        stripeWebhookSecret: stripeWebhookSecret || undefined,
-      });
+      // Plain API-route i.p.v. Server Action — deploy-stabiel (geen
+      // action-ID-skew die anders een "page couldn't load" geeft).
+      let res: { ok: boolean; error?: string };
+      try {
+        const r = await fetch("/api/dashboard/payment-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            acceptLocation,
+            onlineProvider: onlineOn ? onlineProvider : null,
+            mollieKey: mollieKey || undefined,
+            stripeKey: stripeKey || undefined,
+            stripeWebhookSecret: stripeWebhookSecret || undefined,
+          }),
+        });
+        res = await r.json();
+      } catch {
+        toast.error("Verbinding mislukt. Probeer het opnieuw.");
+        return;
+      }
       if (!res.ok) {
-        toast.error(res.error);
+        toast.error(res.error ?? "Opslaan mislukt");
         return;
       }
       toast.success("Betaalmethodes opgeslagen");

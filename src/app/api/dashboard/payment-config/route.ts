@@ -1,17 +1,24 @@
-"use server";
-
-import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
-import { encryptIfPresent } from "./config";
-import type { ActionResult } from "@/lib/auth/schemas";
+import { encryptIfPresent } from "@/lib/payments/config";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Opslaan van de betaal-configuratie (op locatie aan/uit, online-provider
+ * Mollie/Stripe, API-keys). Bewust een gewone API-route i.p.v. Server
+ * Action — Server Actions zijn na elke redeploy gevoelig voor action-ID-
+ * skew waardoor opslaan "This page couldn't be loaded" gaf. Dezelfde
+ * logica, alleen via fetch().
+ */
+
+export const dynamic = "force-dynamic";
 
 const inputSchema = z.object({
   acceptLocation: z.boolean(),
-  // null/"" = online uit
   onlineProvider: z.enum(["MOLLIE", "STRIPE"]).nullable().optional(),
   mollieKey: z.string().optional(),
   clearMollie: z.boolean().optional(),
@@ -20,18 +27,43 @@ const inputSchema = z.object({
   stripeWebhookSecret: z.string().optional(),
 });
 
-type Input = z.infer<typeof inputSchema>;
-
-export async function savePaymentConfigAction(
-  input: Input,
-): Promise<ActionResult> {
-  const ctx = await requireOrg();
-  assertCan(ctx.membership.role, "org:billing");
-
-  const parsed = inputSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: "Ongeldige invoer" };
+export async function POST(req: Request) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Ongeldige invoer" },
+      { status: 400 },
+    );
   }
+
+  const parsed = inputSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: "Ongeldige invoer" },
+      { status: 400 },
+    );
+  }
+
+  let ctx;
+  try {
+    ctx = await requireOrg();
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Niet ingelogd" },
+      { status: 401 },
+    );
+  }
+  try {
+    assertCan(ctx.membership.role, "org:billing");
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Geen rechten" },
+      { status: 403 },
+    );
+  }
+
   const data = parsed.data;
   const onlineProvider = data.onlineProvider ?? null;
 
@@ -39,7 +71,12 @@ export async function savePaymentConfigAction(
     where: { id: ctx.organization.id },
     select: { paymentMollieKeyEnc: true, paymentStripeKeyEnc: true },
   });
-  if (!current) return { ok: false, error: "Organisatie niet gevonden" };
+  if (!current) {
+    return NextResponse.json(
+      { ok: false, error: "Organisatie niet gevonden" },
+      { status: 404 },
+    );
+  }
 
   // Sleutel-resolutie: clear → null; nieuwe waarde → versleutel; anders behouden.
   let nextMollie = current.paymentMollieKeyEnc;
@@ -50,10 +87,10 @@ export async function savePaymentConfigAction(
       !data.mollieKey.startsWith("test_") &&
       !data.mollieKey.startsWith("live_")
     ) {
-      return {
+      return NextResponse.json({
         ok: false,
         error: "Mollie API-key moet beginnen met 'test_' of 'live_'.",
-      };
+      });
     }
     nextMollie = encryptIfPresent(data.mollieKey);
   }
@@ -66,37 +103,34 @@ export async function savePaymentConfigAction(
       !data.stripeKey.startsWith("sk_test_") &&
       !data.stripeKey.startsWith("sk_live_")
     ) {
-      return {
+      return NextResponse.json({
         ok: false,
         error: "Stripe key moet beginnen met 'sk_test_' of 'sk_live_'.",
-      };
+      });
     }
     nextStripe = encryptIfPresent(data.stripeKey);
   }
 
-  // Validatie: gekozen online provider vereist een bijbehorende key.
   if (onlineProvider === "MOLLIE" && !nextMollie) {
-    return {
+    return NextResponse.json({
       ok: false,
       error: "Vul een Mollie API-key in om online via Mollie te accepteren.",
-    };
+    });
   }
   if (onlineProvider === "STRIPE" && !nextStripe) {
-    return {
+    return NextResponse.json({
       ok: false,
       error: "Vul een Stripe key in om online via Stripe te accepteren.",
-    };
+    });
   }
 
-  // Minstens één betaalmethode moet aan staan.
   if (!data.acceptLocation && !onlineProvider) {
-    return {
+    return NextResponse.json({
       ok: false,
       error: "Zet minimaal één betaalmethode aan (op locatie of online).",
-    };
+    });
   }
 
-  // undefined = niet wijzigen (laat bestaande secret staan).
   let nextStripeWh: string | null | undefined = undefined;
   if (data.stripeWebhookSecret && data.stripeWebhookSecret.trim().length > 0) {
     nextStripeWh = encryptIfPresent(data.stripeWebhookSecret);
@@ -112,7 +146,6 @@ export async function savePaymentConfigAction(
       ...(nextStripeWh !== undefined
         ? { paymentStripeWebhookSecretEnc: nextStripeWh }
         : {}),
-      // Legacy kolom in sync houden voor het geval iets het nog leest.
       paymentProvider: onlineProvider ?? "LOCATION",
     },
   });
@@ -127,5 +160,5 @@ export async function savePaymentConfigAction(
   });
 
   revalidatePath("/dashboard/settings/organization");
-  return { ok: true };
+  return NextResponse.json({ ok: true });
 }
