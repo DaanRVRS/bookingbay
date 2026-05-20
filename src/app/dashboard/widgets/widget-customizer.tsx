@@ -566,11 +566,15 @@ function WidgetPreview({
   const loc = WIDGET_LOCALES.find(
     (l) => l.code === normalizeLocale(locale),
   )!;
+  // Spiegel de echte flow: Item → Wanneer → Gegevens → Bevestiging.
+  // (Geen Categorie-stap in de preview — het voorbeeld start standaard
+  // bij een gekozen item, net als bij een org met één categorie.)
   const [step, setStep] = useState(0);
   const labels = [
-    t("progress.category"),
     t("progress.item"),
-    t("progress.book"),
+    t("progress.when"),
+    t("progress.details"),
+    t("progress.confirm"),
   ];
 
   return (
@@ -686,9 +690,12 @@ function WidgetPreview({
           })}
         </div>
 
-        {step === 0 && <PreviewCategory accent={accent} t={t} />}
-        {step === 1 && <PreviewItem accent={accent} t={t} />}
-        {step === 2 && <PreviewForm accent={accent} t={t} />}
+        {step === 0 && <PreviewItem accent={accent} t={t} />}
+        {step === 1 && <PreviewWhen accent={accent} t={t} />}
+        {step === 2 && <PreviewDetails accent={accent} t={t} />}
+        {step === 3 && (
+          <PreviewConfirm accent={accent} t={t} orgName={orgName} />
+        )}
 
         {/* USP-footer (replica van UspFooter) */}
         {usps.length > 0 && (
@@ -713,61 +720,6 @@ function WidgetPreview({
       <p className="mt-4 text-center text-[11px] text-muted-foreground">
         Powered by <span className="font-medium">BookingBay</span>
       </p>
-    </div>
-  );
-}
-
-function PreviewCategory({
-  accent,
-  t,
-}: {
-  accent: string;
-  t: Translator;
-}) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold tracking-tight">
-        {t("cat.title")}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("cat.subtitle")}
-      </p>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-        {PREVIEW_CATS.map((c, i) => (
-          <li key={c.name}>
-            <div
-              className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 text-left"
-              style={
-                i === 0
-                  ? {
-                      borderColor: `${accent}66`,
-                      background: `${accent}08`,
-                    }
-                  : undefined
-              }
-            >
-              <div
-                className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted"
-                style={{ background: `${accent}15` }}
-              >
-                <ImageIcon className="size-5" style={{ color: accent }} />
-              </div>
-              <div className="relative min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold tracking-tight">
-                  {c.name}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {t("cat.itemsAvailable", { n: c.n })}
-                </p>
-              </div>
-              <ArrowRight
-                className="relative size-4 shrink-0"
-                style={{ color: accent }}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -855,46 +807,52 @@ function PreviewSection({
   );
 }
 
-function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
+function PreviewItemHeader({
+  accent,
+  t,
+}: {
+  accent: string;
+  t: Translator;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+      <div
+        className="size-12 shrink-0 rounded-lg"
+        style={{ background: `${accent}15` }}
+      />
+      <div className="min-w-0 flex-1">
+        <p
+          className="text-[10px] font-semibold tracking-wider uppercase"
+          style={{ color: accent }}
+        >
+          {t("form.youBook")}
+        </p>
+        <p className="truncate text-sm font-semibold tracking-tight">
+          {PREVIEW_ITEMS[0].name}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PreviewWhen({ accent, t }: { accent: string; t: Translator }) {
   return (
     <div className="flex flex-col gap-5">
-      {/* Gekozen item (replica van FormStep-header) */}
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
-        <div
-          className="size-12 shrink-0 rounded-lg"
-          style={{ background: `${accent}15` }}
-        />
-        <div className="min-w-0 flex-1">
-          <p
-            className="text-[10px] font-semibold tracking-wider uppercase"
-            style={{ color: accent }}
-          >
-            {t("form.youBook")}
-          </p>
-          <p className="truncate text-sm font-semibold tracking-tight">
-            {PREVIEW_ITEMS[0].name}
-          </p>
-        </div>
-      </div>
+      <PreviewItemHeader accent={accent} t={t} />
 
       <PreviewSection icon={CalendarDays} title={t("sec.when")} accent={accent}>
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/30 p-2">
-          {[t("chip.from"), t("chip.to")].map((lbl) => (
-            <div
-              key={lbl}
-              className="rounded-md border border-border bg-background px-3 py-2"
-            >
-              <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-                {lbl}
-              </p>
-              <p className="text-sm font-semibold tracking-tight">
-                14 jun
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
-                  · 10:00
-                </span>
-              </p>
-            </div>
-          ))}
+        <div className="rounded-lg border border-border bg-muted/30 p-2">
+          <div className="rounded-md border border-border bg-background px-3 py-2">
+            <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+              {t("sec.when")}
+            </p>
+            <p className="text-sm font-semibold tracking-tight">
+              14 jun
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+                · 10:00 — 16:00
+              </span>
+            </p>
+          </div>
         </div>
         <div className="mt-3 rounded-xl border border-border bg-card p-3">
           <div className="grid grid-cols-7 gap-1">
@@ -932,6 +890,30 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
           </div>
         </div>
       </PreviewSection>
+
+      <button
+        type="button"
+        className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm"
+        style={{
+          background: accent,
+          color: PREVIEW_ON_ACCENT,
+          boxShadow: `0 4px 14px -4px ${accent}80`,
+        }}
+      >
+        {t("nav.next")}
+        <ArrowRight className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function PreviewDetails({ accent, t }: { accent: string; t: Translator }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <ArrowRight className="size-3 rotate-180" />
+        {t("nav.back")}
+      </div>
 
       <PreviewSection icon={User} title={t("sec.you")} accent={accent}>
         <div className="flex flex-col gap-3">
@@ -998,6 +980,74 @@ function PreviewForm({ accent, t }: { accent: string; t: Translator }) {
       </button>
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         {t("submit.nextStep")}
+      </p>
+    </div>
+  );
+}
+
+function PreviewConfirm({
+  accent,
+  t,
+  orgName,
+}: {
+  accent: string;
+  t: Translator;
+  orgName: string;
+}) {
+  const rows: { label: string; value: string; highlight?: boolean }[] = [
+    { label: t("review.item"), value: PREVIEW_ITEMS[0].name },
+    { label: t("review.when"), value: "14 jun · 10:00 — 16:00" },
+    { label: t("review.name"), value: orgName ? "Jan de Vries" : "—" },
+    { label: t("review.email"), value: "jan@voorbeeld.nl" },
+    { label: t("review.estPrice"), value: "€ 240,00", highlight: true },
+    { label: t("review.payMethod"), value: t("pay.location") },
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <ArrowRight className="size-3 rotate-180" />
+          {t("review.edit")}
+        </div>
+        <h2 className="mt-2 text-lg font-semibold tracking-tight">
+          {t("review.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("review.subtitle")}</p>
+      </div>
+
+      <dl className="overflow-hidden rounded-xl border border-border bg-card">
+        {rows.map((r, i) => (
+          <div
+            key={`${r.label}-${i}`}
+            className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 last:border-b-0"
+          >
+            <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+              {r.label}
+            </span>
+            <span
+              className="text-right text-sm font-medium tabular-nums"
+              style={r.highlight ? { color: accent, fontWeight: 700 } : undefined}
+            >
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </dl>
+
+      <button
+        type="button"
+        className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold shadow-sm"
+        style={{
+          background: accent,
+          color: PREVIEW_ON_ACCENT,
+          boxShadow: `0 4px 14px -4px ${accent}80`,
+        }}
+      >
+        {t("review.confirm")}
+        <ArrowRight className="size-4" />
+      </button>
+      <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        {t("review.locationNote", { org: orgName })}
       </p>
     </div>
   );
