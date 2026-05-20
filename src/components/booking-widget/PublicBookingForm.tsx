@@ -594,8 +594,14 @@ export function PublicBookingForm({
           <div className="flex justify-center">
             <DayPicker
               mode="single"
+              required={date !== undefined}
               selected={date}
-              onSelect={setDate}
+              onSelect={(d: Date | undefined) => {
+                // Geen deselect — als d undefined is laten we de huidige
+                // dag staan. Anders blijven de gekozen tijden hangen zonder
+                // datum en faalt de submit op "Ongeldige datum".
+                if (d) setDate(d);
+              }}
               numberOfMonths={1}
               weekStartsOn={1}
               locale={df}

@@ -178,7 +178,12 @@ export function DateTimePicker({
     d >= today && d <= lookaheadEnd && !unavailableDates.has(formatDateKey(d));
 
   const setDate = (d: Date | undefined) => {
-    onChange({ ...value, date: d ?? null });
+    // Geen deselect — anders blijft de gekozen tijd hangen zonder datum
+    // en geeft de submit "Ongeldige datum". Eén keer klikken op een
+    // andere dag overschrijft 'm netjes; nog eens klikken op de huidige
+    // dag is een no-op.
+    if (!d) return;
+    onChange({ ...value, date: d });
   };
 
   return (
@@ -210,6 +215,7 @@ export function DateTimePicker({
         <div className="flex justify-center">
           <DayPicker
             mode="single"
+            required={value.date !== null}
             selected={value.date ?? undefined}
             onSelect={setDate}
             numberOfMonths={1}
