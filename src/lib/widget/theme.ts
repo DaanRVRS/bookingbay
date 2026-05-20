@@ -11,13 +11,13 @@ export const WIDGET_THEME_TOKENS = [
     key: "bg",
     label: "Widget-achtergrond",
     cssVar: "--background",
-    hint: "Vlak achter de hele widget",
+    hint: "Het paneel waarop de widget staat",
   },
   {
     key: "card",
     label: "Kaarten",
     cssVar: "--card",
-    hint: "Categorie-, item- en infovlakken",
+    hint: "Binnen-kaartjes (categorie, item, info)",
   },
   {
     key: "border",

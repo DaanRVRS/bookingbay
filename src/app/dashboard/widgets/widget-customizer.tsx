@@ -498,7 +498,7 @@ export function WidgetCustomizer({
               </span>
             </div>
             <div
-              className="bg-background p-4 sm:p-6"
+              className="p-4 sm:p-6"
               style={themeStyle(theme) as CSSProperties}
             >
               <WidgetPreview
@@ -580,7 +580,7 @@ function WidgetPreview({
   return (
     <div className="mx-auto max-w-md">
       <div
-        className="border border-border bg-card p-6 sm:p-8"
+        className="border border-border bg-background p-6 sm:p-8"
         style={{
           borderRadius: `${radius}px`,
           boxShadow: shadow

@@ -80,7 +80,7 @@ export default async function BookPage({ params, searchParams }: PageProps) {
 
   return (
     <main
-      className="relative min-h-dvh bg-background"
+      className="relative min-h-dvh"
       style={themeStyle(design.theme) as CSSProperties}
     >
       {/* Accent achtergrond — gradient bovenin */}
@@ -93,8 +93,10 @@ export default async function BookPage({ params, searchParams }: PageProps) {
       />
 
       <div className="relative mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+        {/* bg-background = Widget-achtergrond token (kleur van het paneel
+            zelf); inner kaarten gebruiken bg-card = Kaarten token. */}
         <div
-          className="border border-border bg-card p-6 sm:p-8"
+          className="border border-border bg-background p-6 sm:p-8"
           style={{
             borderRadius: `${radius}px`,
             boxShadow: shadow
