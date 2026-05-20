@@ -43,13 +43,10 @@ const SORT_OPTIONS = [
  * tijd (Gereserveerd → Bezig → Voltooid) of handmatig Geannuleerd, plus een
  * betaal-sublabel (Online betaald / Betalen op locatie).
  */
-function deriveStatus(b: Booking): {
-  main: string;
-  sub: string | null;
-  cls: string;
-} {
+function deriveStatus(b: Booking) {
   const d = deriveBookingStatus(b.status, b.startAt, b.endAt);
   return {
+    key: d.key,
     main: d.main,
     cls: d.cls,
     sub:
@@ -192,11 +189,20 @@ export function BookingList({
                   <span className="hidden text-sm font-semibold tabular-nums sm:block">
                     € {Number(b.totalPrice).toFixed(2)}
                   </span>
-                  {(() => {
-                    const d = deriveStatus(b);
-                    const showDamage =
-                      b.status === "COMPLETED" && b.completionDamage;
-                    return (
+                </Link>
+                {/* Acties + status-pill staan buiten de Link. Volgorde:
+                    eerst acties, dan pill helemaal rechts — dan eindigt
+                    elke rij op dezelfde rand. */}
+                {(() => {
+                  const d = deriveStatus(b);
+                  const showDamage =
+                    b.status === "COMPLETED" && b.completionDamage;
+                  return (
+                    <>
+                      <BookingRowActions
+                        bookingId={b.id}
+                        derivedKey={d.key}
+                      />
                       <div className="flex w-32 shrink-0 items-center justify-end gap-1.5">
                         {showDamage && (
                           <AlertTriangle
@@ -217,20 +223,7 @@ export function BookingList({
                           )}
                         </span>
                       </div>
-                    );
-                  })()}
-                </Link>
-                {(() => {
-                  const d = deriveBookingStatus(
-                    b.status,
-                    b.startAt,
-                    b.endAt,
-                  );
-                  return (
-                    <BookingRowActions
-                      bookingId={b.id}
-                      derivedKey={d.key}
-                    />
+                    </>
                   );
                 })()}
                 </div>
