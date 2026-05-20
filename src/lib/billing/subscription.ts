@@ -53,9 +53,11 @@ export async function computeMonthlyTotalCents(
     }),
   ]);
   if (!org) throw new Error("Organization missing");
-  const planCents = planLimits(org.plan).monthlyPriceEuro * 100;
+  // Math.round zodat .99-prijzen (€24,99 → 2499 cent) zonder
+  // floating-point drift in centen worden uitgedrukt.
+  const planCents = Math.round(planLimits(org.plan).monthlyPriceEuro * 100);
   const integrationsCents = integrations.reduce(
-    (sum, r) => sum + r.monthlyPriceEuro * 100,
+    (sum, r) => sum + Math.round(r.monthlyPriceEuro * 100),
     0,
   );
   return {

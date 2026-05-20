@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { PLAN_LIMITS, formatEuroNL } from "@/lib/plans";
 import { describeAction } from "@/lib/audit/log";
 import { OrgPlanForm } from "./plan-form";
 import { ExtendTrialForm } from "./extend-trial-form";
@@ -80,7 +80,8 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
               <p className="mt-1 text-2xl font-semibold tabular-nums">
                 {PLAN_LIMITS[org.plan].label}
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  €{PLAN_LIMITS[org.plan].monthlyPriceEuro}/mnd
+                  {formatEuroNL(PLAN_LIMITS[org.plan].monthlyPriceEuro)}/mnd
+                  incl. btw
                 </span>
               </p>
               {org.trialEndsAt && (

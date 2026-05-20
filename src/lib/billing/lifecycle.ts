@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
-import { planLimits } from "@/lib/plans";
+import { planLimits, formatEuroNL } from "@/lib/plans";
 import { notifyPaymentIssue } from "@/lib/discord/notifications";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -84,7 +84,7 @@ function renderRenewalEmail(
         je betaalmethode op orde is voor die datum.
       </p>
       <p>
-        Bedrag: <strong>€${limits.monthlyPriceEuro}</strong> per maand.
+        Bedrag: <strong>${formatEuroNL(limits.monthlyPriceEuro)}</strong> per maand incl. btw.
       </p>
     `,
     tomorrow: `
@@ -501,7 +501,7 @@ function renderTrialEmail(
       <p>
         Je 14-daagse trial van <strong>${org.name}</strong> loopt af op
         <strong>${dateLabel}</strong>. Bevalt het? Kies een plan
-        (vanaf €${limits.monthlyPriceEuro} / mnd) en je werkruimte gaat
+        (vanaf ${formatEuroNL(limits.monthlyPriceEuro)} / mnd incl. btw) en je werkruimte gaat
         zonder onderbreking door.
       </p>
     `,

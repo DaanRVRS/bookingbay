@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 const plans = [
   {
     name: "Starter",
-    price: "€19",
-    period: "per maand",
+    price: "€24,99",
+    period: "per maand incl. btw",
     description: "Voor wie net begint of klein blijft.",
     cta: "Start trial",
     href: "/register?plan=starter",
@@ -25,8 +25,8 @@ const plans = [
   },
   {
     name: "Professional",
-    price: "€49",
-    period: "per maand",
+    price: "€59,99",
+    period: "per maand incl. btw",
     description: "Voor groeiende verhuurbedrijven.",
     cta: "Start trial",
     href: "/register?plan=professional",
@@ -42,8 +42,8 @@ const plans = [
   },
   {
     name: "Business",
-    price: "€99",
-    period: "per maand",
+    price: "€109,99",
+    period: "per maand incl. btw",
     description: "Voor wie volume draait.",
     cta: "Start trial",
     href: "/register?plan=business",

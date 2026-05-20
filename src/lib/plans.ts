@@ -45,7 +45,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     dedicatedSupport: false,
     sso: false,
     whiteLabel: false,
-    monthlyPriceEuro: 19,
+    monthlyPriceEuro: 24.99,
     customPricing: false,
     label: "Starter",
   },
@@ -63,7 +63,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     dedicatedSupport: false,
     sso: false,
     whiteLabel: false,
-    monthlyPriceEuro: 49,
+    monthlyPriceEuro: 59.99,
     customPricing: false,
     label: "Professional",
   },
@@ -81,7 +81,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     dedicatedSupport: false,
     sso: false,
     whiteLabel: false,
-    monthlyPriceEuro: 99,
+    monthlyPriceEuro: 109.99,
     customPricing: false,
     label: "Business",
   },
@@ -117,6 +117,17 @@ export type PlanFeature = keyof Omit<
 
 export function planLimits(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];
+}
+
+/** Dutch-formatted euro, bv. 24.99 → "€ 24,99". Voor "Op aanvraag" zelf afhandelen. */
+const EURO_NL = new Intl.NumberFormat("nl-NL", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+export function formatEuroNL(n: number): string {
+  return EURO_NL.format(n);
 }
 
 /** Does the org's plan include this boolean feature? */

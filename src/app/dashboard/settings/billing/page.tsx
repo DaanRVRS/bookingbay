@@ -13,7 +13,12 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { PLAN_LIMITS, planLimits, describeLimit } from "@/lib/plans";
+import {
+  PLAN_LIMITS,
+  planLimits,
+  describeLimit,
+  formatEuroNL,
+} from "@/lib/plans";
 import type { Plan } from "@prisma/client";
 import { isMollieConfigured } from "@/lib/billing/mollie";
 import { getIntegration } from "@/lib/integrations/catalog";
@@ -153,7 +158,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
           <Stat label="Leden" current={memberCount} max={describeLimit(org.plan, "members")} />
           <Stat label="Pagina's" current={pageCount} max={describeLimit(org.plan, "pages")} />
           <FeatureBadge label="Site-builder" enabled={current.pageBuilder} />
-          <FeatureBadge label="Custom domain" enabled={current.customDomain} />
+          <FeatureBadge label="Eigen domein" enabled={current.customDomain} />
         </div>
       </section>
 
@@ -185,7 +190,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
               </p>
             </div>
             <span className="text-sm font-semibold tabular-nums">
-              €{current.monthlyPriceEuro}
+              {formatEuroNL(current.monthlyPriceEuro)}
             </span>
           </li>
           {activeIntegrations.map((row) => {
@@ -215,16 +220,21 @@ export default async function BillingPage({ searchParams }: PageProps) {
                   size="sm"
                 />
                 <span className="w-20 shrink-0 text-right text-sm font-semibold tabular-nums">
-                  €{row.monthlyPriceEuro}
+                  {formatEuroNL(row.monthlyPriceEuro)}
                 </span>
               </li>
             );
           })}
         </ul>
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-          <span className="text-sm font-semibold">Totaal per maand</span>
+          <span className="text-sm font-semibold">
+            Totaal per maand
+            <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+              incl. btw
+            </span>
+          </span>
           <span className="text-lg font-semibold tabular-nums">
-            €{monthlyTotal}
+            {formatEuroNL(monthlyTotal)}
           </span>
         </div>
       </section>
@@ -327,13 +337,15 @@ function SubscriptionStatusCard({
         </div>
         <p className="shrink-0 text-right">
           <span className="text-2xl font-semibold tabular-nums">
-            €{monthlyTotal}
+            {formatEuroNL(monthlyTotal)}
           </span>
           <span className="block text-[11px] text-muted-foreground">
-            per maand
+            per maand incl. btw
             {integrationsEuro > 0 && (
               <>
-                {" · "}€{planEuro} plan + €{integrationsEuro} koppelingen
+                {" · "}
+                {formatEuroNL(planEuro)} plan +{" "}
+                {formatEuroNL(integrationsEuro)} koppelingen
               </>
             )}
           </span>
@@ -620,10 +632,14 @@ function PlanCard({
       <h3 className="text-base font-semibold tracking-tight">{limits.label}</h3>
       <p className="mt-1 flex items-baseline gap-1">
         <span className="text-2xl font-semibold tabular-nums">
-          {limits.customPricing ? "Op aanvraag" : `€${limits.monthlyPriceEuro}`}
+          {limits.customPricing
+            ? "Op aanvraag"
+            : formatEuroNL(limits.monthlyPriceEuro)}
         </span>
         {!limits.customPricing && (
-          <span className="text-xs text-muted-foreground">/ maand</span>
+          <span className="text-xs text-muted-foreground">
+            / maand incl. btw
+          </span>
         )}
       </p>
       <ul className="mt-4 space-y-1.5 text-xs">
@@ -639,6 +655,11 @@ function PlanCard({
         <li className="flex items-center gap-2">
           <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
           Boek-widget voor je eigen site
+        </li>
+        {/* Subdomein op bookingbay.nl zit ook in élk plan. */}
+        <li className="flex items-center gap-2">
+          <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+          Klantsite op &lt;naam&gt;.bookingbay.nl
         </li>
         <li className="flex items-center gap-2">
           {limits.pageBuilder ? (
@@ -661,7 +682,7 @@ function PlanCard({
             <X className="size-3 text-muted-foreground" />
           )}
           <span className={limits.customDomain ? "" : "text-muted-foreground"}>
-            Custom domain
+            Eigen domein (jouwbedrijf.nl)
           </span>
         </li>
         <li className="flex items-center gap-2">
