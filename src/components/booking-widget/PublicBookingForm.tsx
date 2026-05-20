@@ -285,19 +285,6 @@ export function PublicBookingForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today.getTime(), lookaheadDays]);
 
-  // Klik op een starttijd na de huidige eindtijd (of andersom) wordt
-  // toegestaan: de tegenhanger wordt geleegd zodat de klant 'm opnieuw
-  // kiest. Liever dat dan slots blokkeren — anders zit je vast aan een
-  // eerdere keuze.
-  const onPickStart = (s: string) => {
-    setStartTime(s);
-    if (endTime && hhmmToMin(s) >= hhmmToMin(endTime)) setEndTime("");
-  };
-  const onPickEnd = (e: string) => {
-    setEndTime(e);
-    if (startTime && hhmmToMin(e) <= hhmmToMin(startTime)) setStartTime("");
-  };
-
   // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
   // zijn voordat we naar de gegevens/betaal-stap gaan.
   const goToDetails = () => {
@@ -643,32 +630,25 @@ export function PublicBookingForm({
           </div>
         </div>
 
-        {/* Time slots — verborgen voor per-dag items (interval = 1440) */}
+        {/* Tijdvak — één gecombineerde grid: 1e klik = start, 2e = eind. */}
         {slotConfig.intervalMinutes !== 1440 && (
-          <div className="mt-4 flex flex-col gap-4">
-            <SlotGrid
-              label={t("slot.start")}
-              value={startTime}
-              onChange={onPickStart}
-              rangeFromDate={date ?? null}
-              rangeToDate={date ?? null}
+          <div className="mt-4">
+            <TimeRangeGrid
+              startTime={startTime}
+              endTime={endTime}
+              day={date ?? null}
               cfg={slotConfig}
-              bookings={bookings}
-              isStart
-              otherTime={endTime}
+              intervals={bookings}
               accent={accent}
-            />
-            <SlotGrid
-              label={t("slot.end")}
-              value={endTime}
-              onChange={onPickEnd}
-              rangeFromDate={date ?? null}
-              rangeToDate={date ?? null}
-              cfg={slotConfig}
-              bookings={bookings}
-              isStart={false}
-              otherTime={startTime}
-              accent={accent}
+              onPick={(n) => {
+                setStartTime(n.startTime);
+                setEndTime(n.endTime);
+              }}
+              labels={{
+                title: t("sec.when"),
+                hint: t("when.pickTime"),
+                fullTitle: t("cal.full"),
+              }}
             />
           </div>
         )}
@@ -990,112 +970,131 @@ function DateChip({
   );
 }
 
-function SlotGrid({
-  label,
-  value,
-  onChange,
-  rangeFromDate,
-  rangeToDate,
+function TimeRangeGrid({
+  startTime,
+  endTime,
+  day,
   cfg,
-  bookings,
-  isStart,
-  otherTime,
+  intervals,
   accent,
+  onPick,
+  labels,
 }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  rangeFromDate: Date | null;
-  rangeToDate: Date | null;
+  startTime: string;
+  endTime: string;
+  day: Date | null;
   cfg: SlotConfig;
-  bookings: BookingInterval[];
-  isStart: boolean;
-  otherTime: string;
+  intervals: BookingInterval[];
   accent: string;
+  onPick: (next: { startTime: string; endTime: string }) => void;
+  labels: { title: string; hint: string; fullTitle: string };
 }) {
   const slots = useMemo(() => generateSlots(cfg), [cfg]);
+  const startMin = startTime ? hhmmToMin(startTime) : -1;
+  const endMin = endTime ? hhmmToMin(endTime) : -1;
+
+  const handleClick = (slot: string) => {
+    const slotMin = hhmmToMin(slot);
+    // 1e klik (of beide al gezet) → herstart vanaf hier.
+    if (!startTime || (startTime && endTime)) {
+      onPick({ startTime: slot, endTime: "" });
+      return;
+    }
+    // Start gezet, eind nog niet:
+    if (slotMin <= startMin) {
+      onPick({ startTime: slot, endTime: "" });
+    } else {
+      onPick({ startTime, endTime: slot });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-          {label}
+          {labels.title}
         </span>
-        <span className="text-[10px] font-semibold tracking-wide tabular-nums" style={{ color: accent }}>
-          {value}
+        <span
+          className="text-[10px] font-semibold tracking-wide tabular-nums"
+          style={{ color: accent }}
+        >
+          {startTime && endTime
+            ? `${startTime} — ${endTime}`
+            : startTime || "—"}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+      <p className="text-[10px] text-muted-foreground">{labels.hint}</p>
+      <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
         {slots.map((slot) => {
-          const otherSet = otherTime !== "";
-          const fromD = rangeFromDate;
-          const toD = rangeToDate ?? rangeFromDate;
+          const slotMin = hhmmToMin(slot);
 
-          // Tijd-volgorde wordt NIET op slot-niveau afgedwongen: anders zit
-          // je vast aan een eerdere keuze (kun je starttijd niet meer naar
-          // achter zetten zonder eerst de eindtijd te wissen). De parent
-          // ledigt zelf de tegenhanger zodra de keuze "omdraait".
-
-          // Eén symmetrische regel: een uur-slot staat voor het tijdvak
-          // [slot, slot+interval). Als dat tijdvak een bestaande boeking
-          // raakt → uitgegrijsd, in zowel start- als eind-grid. Zo zie je
-          // direct welke uren al bezet zijn, zonder eerst iets te klikken.
-          // Daarbovenop blokkeren we, zodra ook de tegenhanger gekozen is,
-          // élk gekozen totaal-bereik dat over een boeking heen valt.
+          // 1) Slot-zelf zit in een boeking → uit.
           let overlap = false;
-          if (fromD && toD) {
-            const slotDay = isStart ? fromD : toD;
-            const slotStartAbs = atTimeMs(slotDay, slot);
-            const slotEndAbs = slotStartAbs + cfg.intervalMinutes * 60_000;
-            overlap = rangeOverlapsBooking(slotStartAbs, slotEndAbs, bookings);
-            if (!overlap && otherSet) {
-              const startAbs = isStart
-                ? slotStartAbs
-                : atTimeMs(fromD, otherTime);
-              const endAbs = isStart
-                ? atTimeMs(toD, otherTime)
-                : slotStartAbs;
-              if (endAbs > startAbs) {
-                overlap = rangeOverlapsBooking(startAbs, endAbs, bookings);
-              }
-            }
+          if (day) {
+            const a = atTimeMs(day, slot);
+            overlap = rangeOverlapsBooking(
+              a,
+              a + cfg.intervalMinutes * 60_000,
+              intervals,
+            );
           }
+          // 2) Start al gezet en deze slot komt erna: bereik mag geen
+          //    boeking raken — anders kun je 'm niet als eind kiezen.
+          let crossDisabled = false;
+          if (!overlap && day && startTime && !endTime && slotMin > startMin) {
+            crossDisabled = rangeOverlapsBooking(
+              atTimeMs(day, startTime),
+              atTimeMs(day, slot),
+              intervals,
+            );
+          }
+          const disabled = overlap || crossDisabled;
 
-          const disabled = overlap;
-          const selected = value === slot;
+          const isStart = startTime === slot;
+          const isEnd = endTime === slot;
+          const inBetween =
+            startMin >= 0 &&
+            endMin > 0 &&
+            slotMin > startMin &&
+            slotMin < endMin;
+
           return (
             <button
               key={slot}
               type="button"
               disabled={disabled}
-              onClick={() => onChange(slot)}
-              title={overlap ? "Vol" : undefined}
+              onClick={() => handleClick(slot)}
+              title={overlap ? labels.fullTitle : undefined}
               className={`h-9 rounded-md border text-xs font-semibold tabular-nums transition-all ${
-                selected
+                isStart || isEnd
                   ? "border-transparent shadow-sm"
                   : disabled
                     ? "cursor-not-allowed border-dashed border-border/60 bg-muted/20 text-muted-foreground/40 line-through"
                     : "border-border bg-background hover:-translate-y-0.5 hover:shadow-sm"
               }`}
               style={
-                selected
+                isStart || isEnd
                   ? {
                       background: accent,
                       color: ON_ACCENT,
                       boxShadow: `0 2px 8px -2px ${accent}80`,
                     }
-                  : !disabled
-                    ? { borderColor: undefined }
+                  : inBetween
+                    ? {
+                        background: `color-mix(in oklch, ${accent} 14%, transparent)`,
+                        borderColor: `color-mix(in oklch, ${accent} 30%, transparent)`,
+                        color: accent,
+                      }
                     : undefined
               }
               onMouseEnter={(e) => {
-                if (!selected && !disabled) {
+                if (!isStart && !isEnd && !inBetween && !disabled) {
                   e.currentTarget.style.borderColor = `${accent}66`;
                   e.currentTarget.style.color = accent;
                 }
               }}
               onMouseLeave={(e) => {
-                if (!selected && !disabled) {
+                if (!isStart && !isEnd && !inBetween && !disabled) {
                   e.currentTarget.style.borderColor = "";
                   e.currentTarget.style.color = "";
                 }
