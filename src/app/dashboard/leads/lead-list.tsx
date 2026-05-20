@@ -11,9 +11,11 @@ import {
   MoreHorizontal,
   Phone,
   RotateCcw,
+  Search,
   Shield,
   Trash2,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -58,11 +60,13 @@ const FILTERS = [
 export function LeadList({
   leads,
   currentFilter,
+  currentSearch,
   openCount,
   totalCount,
 }: {
   leads: Lead[];
   currentFilter: string;
+  currentSearch?: string;
   openCount: number;
   totalCount: number;
 }) {
@@ -77,8 +81,28 @@ export function LeadList({
     startTransition(() => router.replace(`/dashboard/leads?${sp.toString()}`));
   };
 
+  const onSearch = (value: string) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    const v = value.trim();
+    if (!v) sp.delete("q");
+    else sp.set("q", v);
+    startTransition(() =>
+      router.replace(`/dashboard/leads?${sp.toString()}`),
+    );
+  };
+
   return (
     <>
+      <div className="relative mb-3 max-w-md">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Zoek op naam, e-mail, telefoon of bericht"
+          defaultValue={currentSearch ?? ""}
+          onChange={(e) => onSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
       <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1 sm:w-max">
         {FILTERS.map((f) => {
           const active = currentFilter === f.value;

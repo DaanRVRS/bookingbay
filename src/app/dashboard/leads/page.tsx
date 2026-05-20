@@ -9,19 +9,28 @@ import { LeadList } from "./lead-list";
 export const metadata = { title: "Leads" };
 
 interface PageProps {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; q?: string }>;
 }
 
 export default async function LeadsPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const params = await searchParams;
   const filter = params.filter ?? "open";
+  const search = (params.q ?? "").trim();
 
   const leads = await db.lead.findMany({
     where: {
       organizationId: ctx.organization.id,
       ...(filter === "open" && { handledAt: null }),
       ...(filter === "handled" && { handledAt: { not: null } }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
+          { message: { contains: search, mode: "insensitive" } },
+        ],
+      }),
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -84,6 +93,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                 createdAt: l.createdAt.toISOString(),
               }))}
               currentFilter={filter}
+              currentSearch={search}
               openCount={openCount}
               totalCount={totalCount}
             />

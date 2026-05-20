@@ -10,7 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   DERIVED_FILTERS,
   deriveBookingStatus,
@@ -60,10 +61,12 @@ export function BookingList({
   bookings,
   currentStatus,
   currentSort,
+  currentSearch,
 }: {
   bookings: Booking[];
   currentStatus?: string;
   currentSort?: string;
+  currentSearch?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,8 +86,28 @@ export function BookingList({
     startTransition(() => router.replace(`/dashboard/bookings?${sp.toString()}`));
   };
 
+  const onSearch = (value: string) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    const v = value.trim();
+    if (!v) sp.delete("q");
+    else sp.set("q", v);
+    startTransition(() =>
+      router.replace(`/dashboard/bookings?${sp.toString()}`),
+    );
+  };
+
   return (
     <>
+      <div className="relative mb-3 max-w-md">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Zoek op klant, e-mail of item"
+          defaultValue={currentSearch ?? ""}
+          onChange={(e) => onSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Select
           items={[

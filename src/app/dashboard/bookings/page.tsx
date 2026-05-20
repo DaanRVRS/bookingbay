@@ -11,7 +11,7 @@ import { BookingList } from "./booking-list";
 export const metadata = { title: "Boekingen" };
 
 interface PageProps {
-  searchParams: Promise<{ status?: string; sort?: string }>;
+  searchParams: Promise<{ status?: string; sort?: string; q?: string }>;
 }
 
 /**
@@ -46,11 +46,19 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const status = params.status;
   const sort = params.sort === "date" ? "date" : "created";
+  const search = (params.q ?? "").trim();
 
   const bookings = await db.booking.findMany({
     where: {
       organizationId: ctx.organization.id,
       ...derivedWhere(status),
+      ...(search && {
+        OR: [
+          { customer: { name: { contains: search, mode: "insensitive" } } },
+          { customer: { email: { contains: search, mode: "insensitive" } } },
+          { item: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      }),
     },
     include: {
       item: { select: { name: true } },
@@ -121,6 +129,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               }))}
               currentStatus={status}
               currentSort={sort}
+              currentSearch={search}
             />
           )}
         </div>
