@@ -89,12 +89,12 @@ export function BookingRowActions({
             type="button"
             onClick={onStart}
             disabled={pending}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60"
+            className="group inline-flex h-8 items-center gap-1.5 rounded-md border border-[oklch(0.62_0.16_250)]/30 bg-[oklch(0.62_0.16_250)]/10 px-2.5 text-[11px] font-semibold text-[oklch(0.5_0.16_255)] shadow-sm transition-all hover:-translate-y-px hover:border-[oklch(0.62_0.16_250)]/50 hover:bg-[oklch(0.62_0.16_250)]/18 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {pending ? (
               <Loader2 className="size-3 animate-spin" />
             ) : (
-              <Play className="size-3" />
+              <Play className="size-3 fill-current transition-transform group-hover:scale-110" />
             )}
             Op bezig
           </button>
