@@ -497,7 +497,10 @@ export function WidgetCustomizer({
                 🔒 {shareUrl.replace(/^https?:\/\//, "")}
               </span>
             </div>
-            <div className="p-4 sm:p-6">
+            <div
+              className="bg-background p-4 sm:p-6"
+              style={themeStyle(theme) as CSSProperties}
+            >
               <WidgetPreview
                 orgName={orgName}
                 logoUrl={logoUrl}
@@ -507,7 +510,6 @@ export function WidgetCustomizer({
                 tagline={tagline.trim()}
                 usps={cleanUsps}
                 locale={defaultLocale}
-                theme={theme}
               />
             </div>
           </div>
@@ -547,7 +549,6 @@ function WidgetPreview({
   tagline,
   usps,
   locale,
-  theme,
 }: {
   orgName: string;
   logoUrl: string | null;
@@ -557,7 +558,6 @@ function WidgetPreview({
   tagline: string;
   usps: WidgetUsp[];
   locale: string;
-  theme: WidgetTheme;
 }) {
   const t = useMemo<Translator>(
     () => makeT(normalizeLocale(locale)),
@@ -578,7 +578,7 @@ function WidgetPreview({
   ];
 
   return (
-    <div className="mx-auto max-w-md" style={themeStyle(theme) as CSSProperties}>
+    <div className="mx-auto max-w-md">
       <div
         className="border border-border bg-card p-6 sm:p-8"
         style={{

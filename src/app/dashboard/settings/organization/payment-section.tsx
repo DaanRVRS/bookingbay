@@ -88,7 +88,7 @@ export function PaymentSection({ initial, disabled }: Props) {
           accent="oklch(0.55 0.18 270)"
           logos={
             <span className="flex items-center gap-1.5">
-              <Icon icon="logos:mollie" className="h-3.5 w-auto" />
+              <MollieMark className="text-sm" />
               <span className="text-muted-foreground/40">·</span>
               <Icon icon="logos:stripe" className="h-3.5 w-auto" />
             </span>
@@ -105,7 +105,7 @@ export function PaymentSection({ initial, disabled }: Props) {
           <div className="mt-2 inline-flex rounded-lg border border-border bg-background p-0.5">
             <ProviderTab
               label="Mollie"
-              icon="logos:mollie"
+              icon="mollie"
               active={onlineProvider === "MOLLIE"}
               onClick={() => setOnlineProvider("MOLLIE")}
               disabled={disabled}
@@ -310,6 +310,24 @@ function ToggleCard({
   );
 }
 
+/**
+ * Wordmark voor Mollie. iconify's "logos:" collectie heeft géén Mollie-
+ * icoon (alleen Stripe e.d.) — vandaar dat alleen Stripe rendeerde. We
+ * tekenen 'm zelf: lowercase wordmark in Mollie's donkerblauwe huiskleur,
+ * dezelfde stijl als de iconify-Stripe-wordmark.
+ */
+function MollieMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-baseline font-bold leading-none tracking-tight ${className ?? ""}`}
+      style={{ color: "#000957", letterSpacing: "-0.02em" }}
+      aria-label="Mollie"
+    >
+      mollie
+    </span>
+  );
+}
+
 function ProviderTab({
   label,
   icon,
@@ -334,7 +352,11 @@ function ProviderTab({
           : "text-muted-foreground hover:text-foreground"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
-      <Icon icon={icon} className="h-4 w-auto" />
+      {icon === "mollie" ? (
+        <MollieMark className="text-sm" />
+      ) : (
+        <Icon icon={icon} className="h-4 w-auto" />
+      )}
       {label}
     </button>
   );

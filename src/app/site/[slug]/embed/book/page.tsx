@@ -72,7 +72,7 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
 
   return (
     <div
-      className="px-4 py-6 sm:px-6"
+      className="bg-background px-4 py-6 sm:px-6"
       style={themeStyle(design.theme) as CSSProperties}
     >
       <SmartBookingWidget
