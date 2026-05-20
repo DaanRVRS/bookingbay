@@ -8,7 +8,11 @@ export const publicBookingSchema = z
     endAt: z.string().min(1, "Vul een einddatum in"),
     customerName: z.string().min(2, "Naam te kort").max(120),
     customerEmail: z.email("Ongeldig e-mailadres"),
-    customerPhone: z.string().max(40).optional().or(z.literal("")),
+    customerPhone: z
+      .string()
+      .trim()
+      .min(5, "Telefoonnummer is verplicht")
+      .max(40, "Telefoonnummer te lang"),
     notes: z.string().max(2000).optional().or(z.literal("")),
     // Hoe de klant wil betalen. "online" = direct via tenant's Mollie/Stripe;
     // alles anders (incl. afwezig) = "location" → bij ophalen, booking PENDING.
