@@ -117,6 +117,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
                 totalPrice: b.totalPrice.toString(),
                 paymentStatus: b.paymentStatus,
                 paymentProvider: b.paymentProvider,
+                completionDamage: b.completionDamage,
               }))}
               currentStatus={status}
               currentSort={sort}

@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AlertTriangle } from "lucide-react";
 import {
   DERIVED_FILTERS,
   deriveBookingStatus,
@@ -29,6 +30,7 @@ interface Booking {
   totalPrice: string;
   paymentStatus: string | null;
   paymentProvider: string | null;
+  completionDamage: boolean;
 }
 
 const SORT_OPTIONS = [
@@ -192,19 +194,29 @@ export function BookingList({
                   </span>
                   {(() => {
                     const d = deriveStatus(b);
+                    const showDamage =
+                      b.status === "COMPLETED" && b.completionDamage;
                     return (
-                      <span
-                        className={`flex shrink-0 flex-col items-end gap-0.5 rounded-lg px-2.5 py-1 text-right ${d.cls}`}
-                      >
-                        <span className="text-[11px] font-semibold leading-none">
-                          {d.main}
-                        </span>
-                        {d.sub && (
-                          <span className="text-[10px] font-medium leading-none opacity-80">
-                            {d.sub}
-                          </span>
+                      <div className="flex w-32 shrink-0 items-center justify-end gap-1.5">
+                        {showDamage && (
+                          <AlertTriangle
+                            className="size-3.5 shrink-0 text-[oklch(0.7_0.16_60)]"
+                            aria-label="Schade gemeld bij afronding"
+                          />
                         )}
-                      </span>
+                        <span
+                          className={`flex flex-col items-end gap-0.5 rounded-lg px-2.5 py-1 text-right ${d.cls}`}
+                        >
+                          <span className="text-[11px] font-semibold leading-none">
+                            {d.main}
+                          </span>
+                          {d.sub && (
+                            <span className="text-[10px] font-medium leading-none opacity-80">
+                              {d.sub}
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     );
                   })()}
                 </Link>

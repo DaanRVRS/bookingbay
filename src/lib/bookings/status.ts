@@ -64,7 +64,7 @@ export function deriveBookingStatus(
     return {
       key: "COMPLETED",
       main: "Voltooid",
-      cls: "bg-muted text-muted-foreground",
+      cls: "bg-[oklch(0.95_0.015_240)] text-[oklch(0.42_0.03_255)] ring-1 ring-inset ring-[oklch(0.88_0.02_240)]/50",
     };
   }
   if (status === "IN_PROGRESS") {

@@ -73,63 +73,69 @@ export function BookingRowActions({
     });
   };
 
+  // Vaste actie-kolom-breedte zodat alle rijen rechts uitlijnen, óók
+  // als er geen knoppen zijn (Voltooid/Geannuleerd).
+  const wrap = (content: React.ReactNode) => (
+    <div className="flex w-[200px] shrink-0 items-center justify-end gap-1.5">
+      {content}
+    </div>
+  );
+
   if (derivedKey === "RESERVED") {
-    return (
-      <div className="flex shrink-0 items-center gap-1.5">
-        {!confirmingCancel ? (
-          <>
-            <button
-              type="button"
-              onClick={onStart}
-              disabled={pending}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60"
-            >
-              {pending ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <Play className="size-3" />
-              )}
-              Op bezig
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingCancel(true)}
-              disabled={pending}
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
-            >
-              <X className="size-3" />
-              Annuleren
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={pending}
-              className="inline-flex h-8 items-center gap-1 rounded-md bg-destructive px-2.5 text-[11px] font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              {pending && <Loader2 className="size-3 animate-spin" />}
-              Bevestig annuleren
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingCancel(false)}
-              disabled={pending}
-              className="inline-flex h-8 items-center rounded-md border border-border bg-background px-2.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60"
-            >
-              Terug
-            </button>
-          </>
-        )}
-      </div>
+    return wrap(
+      !confirmingCancel ? (
+        <>
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={pending}
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60"
+          >
+            {pending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Play className="size-3" />
+            )}
+            Op bezig
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmingCancel(true)}
+            disabled={pending}
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+          >
+            <X className="size-3" />
+            Annuleren
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="inline-flex h-8 items-center gap-1 rounded-md bg-destructive px-2.5 text-[11px] font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {pending && <Loader2 className="size-3 animate-spin" />}
+            Bevestig annuleren
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmingCancel(false)}
+            disabled={pending}
+            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-2.5 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60"
+          >
+            Terug
+          </button>
+        </>
+      ),
     );
   }
 
   if (derivedKey === "ACTIVE") {
     return (
       <>
-        <div className="flex shrink-0 items-center">
+        {wrap(
           <button
             type="button"
             onClick={() => setCompleteOpen(true)}
@@ -138,8 +144,8 @@ export function BookingRowActions({
           >
             <CheckCircle2 className="size-3 text-[oklch(0.5_0.14_150)]" />
             Op voltooid
-          </button>
-        </div>
+          </button>,
+        )}
         <CompleteDialog
           open={completeOpen}
           onOpenChange={setCompleteOpen}
@@ -152,7 +158,9 @@ export function BookingRowActions({
     );
   }
 
-  return null;
+  // Voltooid / Geannuleerd: geen acties, maar wel ruimte reserveren zodat
+  // de rest van de rij op één lijn blijft met de andere rijen.
+  return wrap(null);
 }
 
 function CompleteDialog({
