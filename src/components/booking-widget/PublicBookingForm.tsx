@@ -42,6 +42,9 @@ interface Props {
   accent: string;
   fixedItem?: ItemOption;
   itemOptions?: ItemOption[];
+  /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
+   *  voortgangsbalk de juiste stap kan oplichten. */
+  onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
 }
 
 interface SlotConfig {
@@ -97,8 +100,17 @@ export function PublicBookingForm({
   accent,
   fixedItem,
   itemOptions,
+  onPhaseChange,
 }: Props) {
   const { t, df } = useWidgetI18n();
+
+  // Beginstand: meld dat we in fase "wanneer" zijn zodat de outer
+  // voortgangsbalk meteen correct uitlicht.
+  useEffect(() => {
+    onPhaseChange?.("when");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   // Twee sub-stappen binnen het boekformulier: eerst datum/tijd, dan pas
@@ -297,6 +309,7 @@ export function PublicBookingForm({
       return;
     }
     setFormStep("details");
+    onPhaseChange?.("details");
   };
 
   // Sub-stap "Gegevens": "Boeken" geklikt → valideer + ga naar review.
@@ -308,6 +321,7 @@ export function PublicBookingForm({
     }
     void values;
     setReviewing(true);
+    onPhaseChange?.("confirm");
   });
 
   // Stap 2: op de review-stap "Bevestigen" geklikt → boeking echt aanmaken.
@@ -315,6 +329,7 @@ export function PublicBookingForm({
     if (!paymentChoice) {
       toast.error(t("pay.chooseFirst"));
       setReviewing(false);
+      onPhaseChange?.("details");
       return;
     }
     startTransition(async () => {
@@ -347,6 +362,7 @@ export function PublicBookingForm({
         }
         toast.error(res.error ?? t("err.generic"));
         setReviewing(false);
+        onPhaseChange?.("details");
         return;
       }
       // Online gekozen → door naar Mollie/Stripe checkout.
@@ -420,7 +436,10 @@ export function PublicBookingForm({
         <div>
           <button
             type="button"
-            onClick={() => setReviewing(false)}
+            onClick={() => {
+              setReviewing(false);
+              onPhaseChange?.("details");
+            }}
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowRight className="size-3 rotate-180" />
@@ -699,7 +718,10 @@ export function PublicBookingForm({
         <>
           <button
             type="button"
-            onClick={() => setFormStep("when")}
+            onClick={() => {
+              setFormStep("when");
+              onPhaseChange?.("when");
+            }}
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowRight className="size-3 rotate-180" />

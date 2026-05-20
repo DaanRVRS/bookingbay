@@ -177,6 +177,9 @@ function WidgetInner({
     onlyCategory?.id ?? null,
   );
   const [itemId, setItemId] = useState<string | null>(null);
+  const [formPhase, setFormPhase] = useState<
+    "when" | "details" | "confirm"
+  >("when");
 
   useEffect(() => {
     if (categories.length === 1 && !categoryId) {
@@ -210,17 +213,26 @@ function WidgetInner({
     );
   }
 
+  // Voortgang: bij meerdere categorieën 5 stappen, anders 4.
+  // [Categorie?] → Item → Wanneer → Gegevens → Bevestiging
   const showCategoryStep = categories.length > 1;
+  const prefixLabels = showCategoryStep
+    ? [t("progress.category"), t("progress.item")]
+    : [t("progress.item")];
+  const labels = [
+    ...prefixLabels,
+    t("progress.when"),
+    t("progress.details"),
+    t("progress.confirm"),
+  ];
+  const prefixLen = prefixLabels.length;
   const stepIndex =
     step === "category"
       ? 0
       : step === "item"
-        ? showCategoryStep
-          ? 1
-          : 0
-        : showCategoryStep
-          ? 2
-          : 1;
+        ? prefixLen - 1
+        : prefixLen +
+          (formPhase === "when" ? 0 : formPhase === "details" ? 1 : 2);
 
   return (
     <div>
@@ -229,11 +241,7 @@ function WidgetInner({
       <ProgressIndicator
         accent={accent}
         currentIndex={stepIndex}
-        labels={
-          showCategoryStep
-            ? [t("progress.category"), t("progress.item"), t("progress.book")]
-            : [t("progress.item"), t("progress.book")]
-        }
+        labels={labels}
       />
 
       {step === "category" && (
@@ -272,7 +280,9 @@ function WidgetInner({
           onBack={() => {
             setItemId(null);
             setStep("item");
+            setFormPhase("when");
           }}
+          onPhaseChange={setFormPhase}
         />
       )}
 
@@ -507,12 +517,14 @@ function FormStep({
   accent,
   item,
   onBack,
+  onPhaseChange,
 }: {
   slug: string;
   orgName: string;
   accent: string;
   item: ItemRow;
   onBack: () => void;
+  onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
 }) {
   const { t } = useWidgetI18n();
   return (
@@ -564,6 +576,7 @@ function FormStep({
           pricePerHour: item.pricePerHour,
           pricePerDay: item.pricePerDay,
         }}
+        onPhaseChange={onPhaseChange}
       />
     </div>
   );
