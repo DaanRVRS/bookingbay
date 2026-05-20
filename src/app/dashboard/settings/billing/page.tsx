@@ -635,6 +635,11 @@ function PlanCard({
           <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
           {Number.isFinite(limits.maxMembers) ? `${limits.maxMembers} leden` : "Onbeperkte leden"}
         </li>
+        {/* Boek-widget zit in élk plan — altijd groene check. */}
+        <li className="flex items-center gap-2">
+          <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
+          Boek-widget voor je eigen site
+        </li>
         <li className="flex items-center gap-2">
           {limits.pageBuilder ? (
             <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
