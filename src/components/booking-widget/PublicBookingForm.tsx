@@ -154,6 +154,7 @@ export function PublicBookingForm({
     setValue,
     watch,
     getValues,
+    clearErrors,
   } = useForm<PublicBookingInput>({
     resolver: zodResolver(publicBookingSchema),
     defaultValues: {
@@ -171,23 +172,22 @@ export function PublicBookingForm({
   // Sync calendar range + times into the form state (startAt/endAt are
   // hidden — only the calendar/time UI mutates them).
   useEffect(() => {
-    // Pas een datum/tijd doorzetten als de klant ze écht heeft gekozen.
     // Eén-dag boeking: start- en eindtijd liggen op dezelfde dag.
-    if (date && startTime) {
-      setValue("startAt", `${format(date, "yyyy-MM-dd")}T${startTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      setValue("startAt", "", { shouldValidate: false });
+    const sIso =
+      date && startTime ? `${format(date, "yyyy-MM-dd")}T${startTime}` : "";
+    const eIso =
+      date && endTime ? `${format(date, "yyyy-MM-dd")}T${endTime}` : "";
+    // Géén shouldValidate tijdens het kiezen — anders zet zod's
+    // cross-field refine een "Ongeldige datum" terwijl de gebruiker
+    // de tegenhanger nog niet gekozen heeft, en die foutmelding blijft
+    // soms hangen. We valideren expliciet pas bij submit; bij een
+    // volledige range maken we eventuele oude fouten leeg.
+    setValue("startAt", sIso, { shouldValidate: false });
+    setValue("endAt", eIso, { shouldValidate: false });
+    if (sIso && eIso) {
+      clearErrors(["startAt", "endAt"]);
     }
-    if (date && endTime) {
-      setValue("endAt", `${format(date, "yyyy-MM-dd")}T${endTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      setValue("endAt", "", { shouldValidate: false });
-    }
-  }, [date, startTime, endTime, setValue]);
+  }, [date, startTime, endTime, setValue, clearErrors]);
 
   const watchedItemId = watch("itemId");
   const watchedStart = watch("startAt");

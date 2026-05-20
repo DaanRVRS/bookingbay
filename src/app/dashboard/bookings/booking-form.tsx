@@ -131,6 +131,7 @@ export function BookingForm({
     setError,
     setValue,
     watch,
+    clearErrors,
   } = useForm<BookingFormValues, unknown, BookingCreateInput>({
     resolver: zodResolver(bookingCreateSchema),
     defaultValues: {
@@ -180,21 +181,20 @@ export function BookingForm({
   useEffect(() => {
     const fmtDay = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    if (dt.date && dt.startTime) {
-      setValue("startAt", `${fmtDay(dt.date)}T${dt.startTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      setValue("startAt", "", { shouldValidate: false });
+    const sIso =
+      dt.date && dt.startTime ? `${fmtDay(dt.date)}T${dt.startTime}` : "";
+    const eIso =
+      dt.date && dt.endTime ? `${fmtDay(dt.date)}T${dt.endTime}` : "";
+    // Stille setValue tijdens het kiezen — anders zet zod's cross-field
+    // refine een "Ongeldige datum" terwijl de tegenhanger nog leeg is,
+    // en die foutmelding blijft soms hangen. Pas bij submit valideren;
+    // bij complete range maken we eventuele oude fouten leeg.
+    setValue("startAt", sIso, { shouldValidate: false });
+    setValue("endAt", eIso, { shouldValidate: false });
+    if (sIso && eIso) {
+      clearErrors(["startAt", "endAt"]);
     }
-    if (dt.date && dt.endTime) {
-      setValue("endAt", `${fmtDay(dt.date)}T${dt.endTime}`, {
-        shouldValidate: true,
-      });
-    } else {
-      setValue("endAt", "", { shouldValidate: false });
-    }
-  }, [dt, setValue]);
+  }, [dt, setValue, clearErrors]);
 
   const selectedItem = useMemo(
     () => items.find((i) => i.id === itemId) ?? null,
