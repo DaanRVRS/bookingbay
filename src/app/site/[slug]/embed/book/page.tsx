@@ -10,6 +10,11 @@ interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;
 }
 
+// Server-side route-cache van 60s — zelfde reden als /book/[slug].
+// revalidatePath wordt aangeroepen door widget-/site-actions bij
+// wijzigingen, dus klanten zien updates vrijwel direct.
+export const revalidate = 60;
+
 function buildBuckets(
   categories: Awaited<ReturnType<typeof getTenantCatalog>>,
 ) {

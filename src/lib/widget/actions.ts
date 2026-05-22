@@ -115,5 +115,10 @@ export async function saveWidgetDesignAction(
   });
 
   revalidatePath("/dashboard/widgets");
+  // /book en de embed-page draaien op een ISR-cache van 60s — direct
+  // invalideren zodat klanten wijzigingen meteen zien i.p.v. binnen
+  // een minuut.
+  revalidatePath(`/book/${ctx.organization.slug}`);
+  revalidatePath(`/site/${ctx.organization.slug}/embed/book`);
   return { ok: true };
 }

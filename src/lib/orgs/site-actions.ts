@@ -43,5 +43,9 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
 
   revalidatePath("/dashboard/site");
   revalidatePath(`/site/${ctx.organization.slug}`);
+  // /book + embed renderen logo/naam/primary-color → ook invalideren
+  // zodat wijzigingen direct doorkomen i.p.v. binnen 60s ISR-window.
+  revalidatePath(`/book/${ctx.organization.slug}`);
+  revalidatePath(`/site/${ctx.organization.slug}/embed/book`);
   return { ok: true };
 }

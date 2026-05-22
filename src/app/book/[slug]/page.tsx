@@ -10,6 +10,13 @@ interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;
 }
 
+// Server-side route-cache van 60s. Browser blijft no-store krijgen
+// (next.config.ts) voor deploy-versheid, maar Next zelf hoeft niet
+// elke request de hele org + catalogus + theme opnieuw te bouwen.
+// revalidatePath("/book/<slug>") in widget/site-actions reset 'm
+// meteen bij een wijziging.
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const org = await getOrgBySlug(slug);
