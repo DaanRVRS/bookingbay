@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
 import { readPaymentConfig } from "@/lib/payments/config";
 import { fetchMolliePayment, mapMollieStatus } from "@/lib/payments/tenant-mollie";
+import { notifyPaymentStatusChange } from "@/lib/notifications/payment-notif";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,12 @@ export async function POST(req: Request) {
       resourceId: booking.id,
       metadata: { provider: "mollie", paymentId, status: next },
     });
+    // Alleen wanneer paymentStatus daadwerkelijk transitioneerde (zit in
+    // updates) een notif sturen — anders zou elke webhook-retry een ping
+    // genereren.
+    if (updates.paymentStatus) {
+      await notifyPaymentStatusChange(booking.id, updates.paymentStatus, "mollie");
+    }
   }
 
   return NextResponse.json({ ok: true });

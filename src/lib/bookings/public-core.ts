@@ -9,6 +9,9 @@ import { env } from "@/lib/env";
 import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
+import { notifyOrgMembers } from "@/lib/notifications/send";
+import { format } from "date-fns";
+import { nl } from "date-fns/locale";
 
 /**
  * Plain server-only booking logic — GEEN "use server". Wordt aangeroepen
@@ -56,7 +59,7 @@ export async function createPublicBooking(
 
   const item = await db.item.findFirst({
     where: { id: data.itemId, organizationId: org.id, isActive: true },
-    select: { id: true, quantity: true, pricePerDay: true, pricePerHour: true },
+    select: { id: true, name: true, quantity: true, pricePerDay: true, pricePerHour: true },
   });
   if (!item) {
     return { ok: false, error: "Item niet gevonden", fieldErrors: { itemId: "Onbekend item" } };
@@ -137,6 +140,21 @@ export async function createPublicBooking(
     await syncBookingExternal(booking.id, "upsert");
   } catch (err) {
     console.error("[public-booking] external sync mislukt:", err);
+  }
+
+  // Notif aan org-members: nieuwe boeking via publieke widget. Best-effort —
+  // niet de booking-create afkappen als de fan-out mislukt.
+  try {
+    const datumLabel = format(startAt, "d MMM, HH:mm", { locale: nl });
+    await notifyOrgMembers(org.id, {
+      type: "booking.new",
+      title: "Nieuwe boeking",
+      body: `${data.customerName.trim()} reserveerde ${item.name} op ${datumLabel}.`,
+      ctaUrl: `/dashboard/bookings/${booking.id}`,
+      ctaLabel: "Bekijk",
+    });
+  } catch (err) {
+    console.error("[public-booking] notif fan-out mislukt:", err);
   }
 
   let redirectUrl: string | undefined;

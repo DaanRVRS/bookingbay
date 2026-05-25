@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
 import { readPaymentConfig } from "@/lib/payments/config";
 import { mapStripeStatus } from "@/lib/payments/tenant-stripe";
+import { notifyPaymentStatusChange } from "@/lib/notifications/payment-notif";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,9 @@ export async function POST(req: Request) {
       resourceId: booking.id,
       metadata: { provider: "stripe", sessionId, status: next, eventType: event.type },
     });
+    if (updates.paymentStatus) {
+      await notifyPaymentStatusChange(booking.id, updates.paymentStatus, "stripe");
+    }
   }
 
   return NextResponse.json({ ok: true });

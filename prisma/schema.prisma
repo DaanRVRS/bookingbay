@@ -445,6 +445,12 @@ model Booking {
   completionNotes  String?
   completedAt      DateTime?
 
+  // Anti-dupe voor de booking-pulse cron: gezet zodra de klant de 24u-
+  // voor-startAt reminder per mail heeft gekregen. Booking-pulse skipt
+  // bookings waar dit al gevuld is, ook bij cron-retries / herhaalde
+  // runs binnen dezelfde dag.
+  customerReminderSentAt DateTime?
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
   customer     Customer     @relation(fields: [customerId], references: [id])
