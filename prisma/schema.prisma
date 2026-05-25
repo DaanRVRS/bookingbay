@@ -456,6 +456,11 @@ model Booking {
   @@index([organizationId, startAt])
   @@index([itemId, startAt, endAt])
   @@index([customerId])
+  // Dashboard-overview trekt revenue van het afgelopen jaar binnen
+  // (`createdAt >= now-365d`); zonder deze index = sequential scan over
+  // alle bookings van de hele instance. Met (orgId, createdAt) is het
+  // een range-scan binnen één tenant.
+  @@index([organizationId, createdAt])
 }
 
 enum BookingStatus {

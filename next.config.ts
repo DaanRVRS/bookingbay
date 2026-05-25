@@ -37,14 +37,21 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Booking-widget pagina's + publieke API mogen niet door browser of
-        // proxy gecachet worden — altijd verse code/data zodat een deploy
-        // nooit een stale bundle met dode action-refs achterlaat.
-        source: "/book/:path*",
+        // Betalingspagina mag NOOIT gecached worden: paymentStatus wisselt
+        // realtime (Mollie/Stripe webhooks). Cachen zou een al-betaalde
+        // bezoeker een "wacht op betaling"-scherm laten zien.
+        source: "/book/:slug/betaling/:path*",
         headers: [
           { key: "Cache-Control", value: "no-store, must-revalidate" },
         ],
       },
+      // /book/:slug zelf krijgt GEEN no-store meer — die route gebruikt
+      // `export const revalidate = 60` (ISR). Met de oude no-store-header
+      // moest élke widget-iframe-load opnieuw door getOrgBySlug +
+      // getTenantCatalog + theme-parsing. Nu laat Next zijn eigen
+      // s-maxage-header zetten zodat Caddy/proxy 'm 60s mag bewaren.
+      // De widget-loader (/embed.js) blijft must-revalidate, dus
+      // klant-sites pikken nieuwe widget-versies meteen op.
       {
         source: "/site/:slug/embed/:path*",
         headers: [
