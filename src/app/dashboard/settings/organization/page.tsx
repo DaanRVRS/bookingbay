@@ -4,6 +4,7 @@ import { OrgSettingsForm } from "./org-settings-form";
 import { DangerZone } from "./danger-zone";
 import { BusinessHoursSection } from "./business-hours-section";
 import { PaymentSection } from "./payment-section";
+import { ReviewRequestSection } from "./review-request-section";
 import { can } from "@/lib/auth/permissions";
 import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { readPaymentConfig, maskKey } from "@/lib/payments/config";
@@ -23,6 +24,9 @@ export default async function OrgSettingsPage() {
       slug: true,
       industry: true,
       businessHours: true,
+      reviewRequestEnabled: true,
+      reviewRequestUrl: true,
+      reviewRequestDelayDays: true,
     },
   });
   if (!org) throw new Error("Organization missing");
@@ -97,6 +101,30 @@ export default async function OrgSettingsPage() {
           {!isBilling && (
             <p className="mt-3 text-xs text-muted-foreground">
               Alleen rollen met facturatie-rechten kunnen betaalmethodes wijzigen.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">Review-uitvraag</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Stuur klanten automatisch een mail met je review-link nadat hun
+          boeking is voltooid. Google, Trustpilot, of je eigen pagina —
+          alles kan.
+        </p>
+        <div className="mt-5">
+          <ReviewRequestSection
+            initial={{
+              enabled: org.reviewRequestEnabled,
+              url: org.reviewRequestUrl ?? "",
+              delayDays: org.reviewRequestDelayDays,
+            }}
+            disabled={!isOwner}
+          />
+          {!isOwner && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Alleen Eigenaren mogen de review-uitvraag wijzigen.
             </p>
           )}
         </div>

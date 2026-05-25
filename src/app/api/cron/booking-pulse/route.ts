@@ -37,12 +37,19 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [digest, completion, customerMails] = await Promise.all([
+    const [digest, completion, customerMails, reviewRequests] = await Promise.all([
       runOchtendDigest(),
       runAfrondingReminder(),
       runKlantEmailReminder(),
+      runReviewRequests(),
     ]);
-    return NextResponse.json({ ok: true, digest, completion, customerMails });
+    return NextResponse.json({
+      ok: true,
+      digest,
+      completion,
+      customerMails,
+      reviewRequests,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/booking-pulse] failed:", err);
@@ -230,4 +237,93 @@ async function runKlantEmailReminder() {
   }
 
   return { eligible: upcoming.length, sent, failed };
+}
+
+// ── 4. Auto review-uitvraag (X dagen na voltooid) ────────────────────────
+
+async function runReviewRequests() {
+  const now = new Date();
+  // Window van 14 dagen terug zodat een gefaalde cron-run zich kan
+  // herstellen — completedAt-based, dus we missen nooit een booking
+  // die intussen voltooid raakte.
+  const windowStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+  const eligible = await db.booking.findMany({
+    where: {
+      completedAt: { gte: windowStart, lte: now },
+      reviewRequestedAt: null,
+      customer: { email: { not: null } },
+      organization: {
+        reviewRequestEnabled: true,
+        reviewRequestUrl: { not: null },
+      },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      completedAt: true,
+      customer: { select: { name: true, email: true } },
+      item: { select: { name: true } },
+      organization: {
+        select: {
+          name: true,
+          reviewRequestUrl: true,
+          reviewRequestDelayDays: true,
+        },
+      },
+    },
+  });
+
+  let sent = 0;
+  let failed = 0;
+  let skippedTooSoon = 0;
+
+  for (const b of eligible) {
+    if (!b.completedAt || !b.customer.email || !b.organization.reviewRequestUrl) continue;
+    const delayMs = b.organization.reviewRequestDelayDays * 24 * 60 * 60 * 1000;
+    const eligibleAt = new Date(b.completedAt.getTime() + delayMs);
+    if (now < eligibleAt) {
+      skippedTooSoon++;
+      continue;
+    }
+
+    const result = await sendEmail({
+      to: b.customer.email,
+      subject: `Hoe was het bij ${b.organization.name}?`,
+      html: emailLayout(`
+        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Hoi ${b.customer.name},</h1>
+        <p style="margin:0 0 12px 0">
+          Bedankt dat je <strong>${b.item.name}</strong> bij
+          <strong>${b.organization.name}</strong> hebt gehuurd. We zijn benieuwd
+          hoe het was.
+        </p>
+        <p style="margin:0 0 24px 0">Heb je 30 seconden? Laat een review achter:</p>
+        <p style="margin:24px 0">
+          <a href="${b.organization.reviewRequestUrl}" style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
+            Laat een review achter
+          </a>
+        </p>
+      `),
+      text: `Hoi ${b.customer.name}, bedankt voor je boeking van ${b.item.name} bij ${b.organization.name}. Laat een review achter: ${b.organization.reviewRequestUrl}`,
+    });
+
+    if (result.ok) {
+      await db.booking.update({
+        where: { id: b.id },
+        data: { reviewRequestedAt: new Date() },
+      });
+      await audit({
+        organizationId: b.organizationId,
+        action: "booking.review-request.sent",
+        resource: "booking",
+        resourceId: b.id,
+        metadata: { to: b.customer.email, url: b.organization.reviewRequestUrl },
+      });
+      sent++;
+    } else {
+      failed++;
+    }
+  }
+
+  return { candidates: eligible.length, sent, failed, skippedTooSoon };
 }

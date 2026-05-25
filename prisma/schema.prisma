@@ -198,6 +198,21 @@ model Organization {
   // boek-widget loaden. Veiliger dan de slug exposen + later revokebaar.
   publicEmbedKey String? @unique
 
+  // Automatische review-uitvraag. Na X dagen voltooid (default 3) gaat er
+  // een e-mail uit naar de klant met een link naar reviewRequestUrl
+  // (Google review, Trustpilot, of de tenant's eigen review-pagina). De
+  // booking-pulse cron pakt 'm op en zet reviewRequestedAt om dubbele
+  // mails te voorkomen.
+  reviewRequestEnabled   Boolean @default(false)
+  reviewRequestUrl       String?
+  reviewRequestDelayDays Int     @default(3)
+
+  // Klant-portaal: aan/uit-toggle. Wanneer aan, kunnen klanten via een
+  // magic-link in hun reminder-mail inloggen op /portal/[slug] om hun
+  // eigen boekingen te zien en (binnen X uur vóór startAt) te annuleren.
+  customerPortalEnabled        Boolean @default(false)
+  customerPortalCancelHoursMin Int     @default(24)
+
   // Widget-design — alle stijl-keuzes leven server-side achter de embed-key
   // zodat externe sites alleen `<div data-bookingbay-book="pk_xxx"></div>`
   // hoeven te plakken. Wijzigingen in dashboard zijn meteen overal live.
@@ -450,6 +465,11 @@ model Booking {
   // bookings waar dit al gevuld is, ook bij cron-retries / herhaalde
   // runs binnen dezelfde dag.
   customerReminderSentAt DateTime?
+
+  // Anti-dupe voor de review-uitvraag-mail. Gezet zodra de mail uit is
+  // gegaan; cron skipt bookings waar dit al gevuld is. Null = nog niet
+  // gestuurd OF feature stond uit toen booking voltooide.
+  reviewRequestedAt DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
