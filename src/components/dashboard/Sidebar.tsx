@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar,
@@ -9,6 +9,7 @@ import {
   Inbox,
   Layers,
   LifeBuoy,
+  Loader2,
   MessageSquareQuote,
   Package,
   Plug,
@@ -29,6 +30,9 @@ interface NavItem {
   icon: LucideIcon;
   match?: (path: string) => boolean;
   badge?: number;
+  /** Eager-prefetch — alleen op de heet-gebruikte tabs zetten anders
+   * mounten we 13 RSC-renders bij elke dashboard-mount. */
+  hot?: boolean;
 }
 
 export interface SidebarCounts {
@@ -42,15 +46,21 @@ export function Sidebar({ counts }: { counts?: SidebarCounts }) {
   const pathname = usePathname();
 
   const primary: NavItem[] = [
-    { href: "/dashboard", label: "Overzicht", icon: HomeIcon, match: (p) => p === "/dashboard" },
-    { href: "/dashboard/calendar", label: "Planning", icon: Calendar },
-    { href: "/dashboard/bookings", label: "Boekingen", icon: CheckCircle2 },
-    { href: "/dashboard/leads", label: "Leads", icon: Inbox, badge: counts?.openLeads },
-    { href: "/dashboard/customers", label: "Klanten", icon: Users },
+    {
+      href: "/dashboard",
+      label: "Overzicht",
+      icon: HomeIcon,
+      match: (p) => p === "/dashboard",
+      hot: true,
+    },
+    { href: "/dashboard/calendar", label: "Planning", icon: Calendar, hot: true },
+    { href: "/dashboard/bookings", label: "Boekingen", icon: CheckCircle2, hot: true },
+    { href: "/dashboard/leads", label: "Leads", icon: Inbox, badge: counts?.openLeads, hot: true },
+    { href: "/dashboard/customers", label: "Klanten", icon: Users, hot: true },
   ];
 
   const catalog: NavItem[] = [
-    { href: "/dashboard/items", label: "Items", icon: Package },
+    { href: "/dashboard/items", label: "Items", icon: Package, hot: true },
     { href: "/dashboard/categories", label: "Categorieën", icon: Layers },
   ];
 
@@ -109,6 +119,7 @@ function NavGroup({
           <Link
             key={item.href}
             href={item.href}
+            prefetch={item.hot ? true : undefined}
             className={cn(
               "flex items-center gap-2.5 rounded-md px-3 py-2 transition-colors",
               active
@@ -116,22 +127,54 @@ function NavGroup({
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            <item.icon className="size-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
-            {item.badge !== undefined && item.badge > 0 && (
-              <span
-                className={`ml-auto grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary/15 text-primary"
-                }`}
-              >
-                {item.badge > 99 ? "99+" : item.badge}
-              </span>
-            )}
+            <NavItemContent item={item} active={active} />
           </Link>
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Moet IN de <Link> staan: useLinkStatus leest de link-context. Tijdens
+ * een aankomende navigatie (pending) tonen we meteen de active-styling
+ * + een mini-spinner, zodat de klik *voelt* instant, ook als de
+ * server-render nog 100-300ms duurt.
+ */
+function NavItemContent({ item, active }: { item: NavItem; active: boolean }) {
+  const { pending } = useLinkStatus();
+  const showActive = active || pending;
+
+  return (
+    <>
+      <item.icon
+        className={cn(
+          "size-4 shrink-0 transition-colors",
+          showActive && !active ? "text-primary" : undefined,
+        )}
+      />
+      <span
+        className={cn(
+          "truncate transition-colors",
+          showActive && !active ? "text-primary" : undefined,
+        )}
+      >
+        {item.label}
+      </span>
+      {pending && (
+        <Loader2 className="ml-auto size-3 animate-spin text-primary" />
+      )}
+      {!pending && item.badge !== undefined && item.badge > 0 && (
+        <span
+          className={`ml-auto grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${
+            active
+              ? "bg-primary text-primary-foreground"
+              : "bg-primary/15 text-primary"
+          }`}
+        >
+          {item.badge > 99 ? "99+" : item.badge}
+        </span>
+      )}
+    </>
   );
 }
