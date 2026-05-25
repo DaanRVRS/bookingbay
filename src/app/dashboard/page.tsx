@@ -63,6 +63,10 @@ export default async function DashboardOverviewPage() {
         createdAt: { gte: oneYearAgo },
       },
       select: { createdAt: true, totalPrice: true },
+      // Safety-cap: een org met 10k+ boekingen per jaar zou anders elke
+      // dashboard-load alle rijen binnentrekken. 2000 dekt zelfs een
+      // drukke verhuur (~5/dag), en de chart aggregeert toch per dag.
+      take: 2000,
     }),
   ]);
 

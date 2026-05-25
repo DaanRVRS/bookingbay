@@ -18,25 +18,34 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const filter = params.filter ?? "open";
   const search = (params.q ?? "").trim();
 
-  const leads = await db.lead.findMany({
-    where: {
-      organizationId: ctx.organization.id,
-      ...(filter === "open" && { handledAt: null }),
-      ...(filter === "handled" && { handledAt: { not: null } }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-          { phone: { contains: search, mode: "insensitive" } },
-          { message: { contains: search, mode: "insensitive" } },
-        ],
-      }),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  // Counts staan los van filter/search — gewoon parallel met de leads zelf.
+  const [leads, totalCount, openCount] = await Promise.all([
+    db.lead.findMany({
+      where: {
+        organizationId: ctx.organization.id,
+        ...(filter === "open" && { handledAt: null }),
+        ...(filter === "handled" && { handledAt: { not: null } }),
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search, mode: "insensitive" } },
+            { message: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    db.lead.count({
+      where: { organizationId: ctx.organization.id },
+    }),
+    db.lead.count({
+      where: { organizationId: ctx.organization.id, handledAt: null },
+    }),
+  ]);
 
-  // Resolve item names
+  // Resolve item names — moet ná de leads-query (we hebben de itemIds eruit nodig).
   const itemIds = Array.from(new Set(leads.map((l) => l.itemId).filter((id): id is string => Boolean(id))));
   const items = itemIds.length
     ? await db.item.findMany({
@@ -45,13 +54,6 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       })
     : [];
   const itemNameMap = new Map(items.map((i) => [i.id, i.name]));
-
-  const totalCount = await db.lead.count({
-    where: { organizationId: ctx.organization.id },
-  });
-  const openCount = await db.lead.count({
-    where: { organizationId: ctx.organization.id, handledAt: null },
-  });
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">

@@ -17,24 +17,29 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const search = (params.q ?? "").trim();
 
-  const customers = await db.customer.findMany({
-    where: {
-      organizationId: ctx.organization.id,
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-          { phone: { contains: search, mode: "insensitive" } },
-        ],
-      }),
-    },
-    include: { _count: { select: { bookings: true } } },
-    orderBy: { name: "asc" },
-  });
-
-  const totalCount = await db.customer.count({
-    where: { organizationId: ctx.organization.id },
-  });
+  // Safety-cap: orgs met 5000+ klanten zouden anders alles in één keer
+  // binnenladen. 500 is ruim voor de huidige UI (geen pagination), maar
+  // begrensd zodat een uitschieter geen OOM op de pm2-worker triggert.
+  const [customers, totalCount] = await Promise.all([
+    db.customer.findMany({
+      where: {
+        organizationId: ctx.organization.id,
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { phone: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      },
+      include: { _count: { select: { bookings: true } } },
+      orderBy: { name: "asc" },
+      take: 500,
+    }),
+    db.customer.count({
+      where: { organizationId: ctx.organization.id },
+    }),
+  ]);
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
