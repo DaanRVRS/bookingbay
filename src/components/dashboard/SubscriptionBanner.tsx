@@ -129,27 +129,34 @@ export function SubscriptionBanner({
 
 type Tone = "danger" | "warning" | "primary";
 
+// Banner-achtergrond is LICHT zodat de body-tekst (foreground) leesbaar
+// blijft. Het icoon + de "strong" label-tekst krijgen wel de volle tone-
+// kleur als visuele accent. CTA-knop moet zwaar contrasteren met de
+// achtergrond — anders verdwijnt 'ie (zoals voorheen rood-op-roze).
+//
+// `strongClass` bevat de hele arbitrary-variant `[&_strong]:text-…` —
+// die moet letterlijk in source staan, anders mist Tailwind's JIT 'm.
 const TONE: Record<
   Tone,
-  { border: string; bg: string; text: string; icon: string }
+  { border: string; bg: string; icon: string; strongClass: string }
 > = {
   danger: {
-    border: "border-destructive/40",
-    bg: "bg-destructive/10",
-    text: "text-destructive",
+    border: "border-destructive/30",
+    bg: "bg-destructive/5",
     icon: "text-destructive",
+    strongClass: "[&_strong]:text-destructive",
   },
   warning: {
-    border: "border-[oklch(0.85_0.13_85)]/50",
-    bg: "bg-[oklch(0.97_0.05_80)]",
-    text: "text-[oklch(0.4_0.13_70)]",
+    border: "border-[oklch(0.85_0.13_85)]/40",
+    bg: "bg-[oklch(0.985_0.025_80)]",
     icon: "text-[oklch(0.5_0.16_70)]",
+    strongClass: "[&_strong]:text-[oklch(0.45_0.14_70)]",
   },
   primary: {
     border: "border-primary/30",
-    bg: "bg-primary/8",
-    text: "text-foreground",
+    bg: "bg-primary/5",
     icon: "text-primary",
+    strongClass: "[&_strong]:text-primary",
   },
 };
 
@@ -167,7 +174,7 @@ function Bar({
     <div className={`border-b ${t.border} ${t.bg} px-4 py-2.5 text-sm`}>
       <div className="mx-auto flex max-w-6xl items-center gap-3">
         <Icon className={`size-4 shrink-0 ${t.icon}`} />
-        <p className={`flex flex-1 flex-wrap items-center gap-x-2 ${t.text}`}>
+        <p className={`flex flex-1 flex-wrap items-center gap-x-2 text-foreground ${t.strongClass}`}>
           {children}
         </p>
       </div>
@@ -184,11 +191,13 @@ function CTA({
   tone: Tone;
   children: React.ReactNode;
 }) {
+  // Solid donker-getinte knop — contrasteert met de lichte banner-bg.
+  // text-white want de tone-kleuren zijn allemaal donker genoeg voor
+  // wit-op-kleur (WCAG AA gehaald op destructive + oklch warning).
   const styles: Record<Tone, string> = {
-    danger: "bg-destructive text-destructive-foreground hover:opacity-90",
-    warning: "bg-[oklch(0.6_0.16_70)] text-white hover:opacity-90",
-    primary:
-      "border border-primary/40 bg-background text-primary hover:bg-primary/10",
+    danger: "bg-destructive text-white hover:opacity-90",
+    warning: "bg-[oklch(0.55_0.16_70)] text-white hover:opacity-90",
+    primary: "bg-primary text-primary-foreground hover:opacity-90",
   };
   return (
     <Link
