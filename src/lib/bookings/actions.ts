@@ -197,6 +197,17 @@ export async function cancelBookingAction(id: string): Promise<ActionResult> {
 
   await syncBookingExternal(id, "delete");
 
+  // Wachtlijst: check of er iemand op deze item+window wacht en mail
+  // 'm dat er plek vrij is.
+  try {
+    const { notifyWaitlistOnCancel } = await import(
+      "@/lib/waitlist/notify-on-cancel"
+    );
+    await notifyWaitlistOnCancel(id);
+  } catch (err) {
+    console.error("[booking.cancel] waitlist notify mislukt:", err);
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/bookings");
   revalidatePath(`/dashboard/bookings/${id}`);

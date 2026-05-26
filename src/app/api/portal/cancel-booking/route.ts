@@ -104,5 +104,16 @@ export async function POST(req: Request) {
     console.error("[portal/cancel-booking] notif mislukt:", err);
   }
 
+  // Wachtlijst-hook: misschien staat er iemand op de wachtlijst voor
+  // dit item + dit tijdvenster.
+  try {
+    const { notifyWaitlistOnCancel } = await import(
+      "@/lib/waitlist/notify-on-cancel"
+    );
+    await notifyWaitlistOnCancel(booking.id);
+  } catch (err) {
+    console.error("[portal/cancel-booking] waitlist notify mislukt:", err);
+  }
+
   return NextResponse.json({ ok: true });
 }

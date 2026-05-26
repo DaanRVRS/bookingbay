@@ -253,6 +253,8 @@ model Organization {
   calendarSyncStates     CalendarSyncState[]
   paymentEvents          PaymentEvent[]
   customerPortalTokens   CustomerPortalToken[]
+  recurringBookings      RecurringBooking[]
+  waitlistEntries        WaitlistEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -369,10 +371,12 @@ model Item {
   // Null = volg de org-default (bv. organization's default Google Calendar).
   integrationConfig Json?
 
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category       Category        @relation(fields: [categoryId], references: [id])
-  bookings       Booking[]
-  calendarBlocks CalendarBlock[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category          Category           @relation(fields: [categoryId], references: [id])
+  bookings          Booking[]
+  calendarBlocks    CalendarBlock[]
+  recurringBookings RecurringBooking[]
+  waitlistEntries   WaitlistEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -417,8 +421,10 @@ model Customer {
   phone          String?
   notes          String?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  bookings     Booking[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+  recurringBookings RecurringBooking[]
+  waitlistEntries   WaitlistEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,6 +502,104 @@ enum BookingStatus {
   IN_PROGRESS
   COMPLETED
   CANCELED
+}
+
+// ----------------------------------------------------------------------------
+// Recurring bookings — "abonnement"-achtige reeksen. Eén template ⇒ N echte
+// Booking-rows die de booking-pulse cron materialiseert. We materialiseren
+// alleen vooruit, in batches van max ~30 dagen, zodat een toekomstige
+// patroon-wijziging niet eerst tig al-gegenereerde rows hoeft op te ruimen.
+// ----------------------------------------------------------------------------
+
+model RecurringBooking {
+  id             String   @id @default(cuid())
+  organizationId String
+  itemId         String
+  customerId     String
+
+  // Patroon: WEEKLY/BIWEEKLY draaien op dayOfWeek (0=zondag .. 6=zaterdag).
+  // MONTHLY draait op dayOfMonth (1..31; bij 31 op maanden met <31 dagen
+  // gebruiken we de laatste dag).
+  frequency   RecurringFrequency
+  dayOfWeek   Int? // 0..6 voor WEEKLY/BIWEEKLY
+  dayOfMonth  Int? // 1..31 voor MONTHLY
+
+  // Tijdsvenster binnen die dag (minuten vanaf middernacht in lokale tijd).
+  startTimeMin Int
+  endTimeMin   Int
+
+  // Wanneer de pulse-cron de volgende slot moet materialiseren.
+  // Wordt na elke succesvolle materialisatie doorgeschoven.
+  nextRunAt DateTime
+
+  // Optionele einddatum. Null = open-ended (loopt door tot tenant 'm uit zet).
+  endsAt   DateTime?
+  isActive Boolean   @default(true)
+  notes    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, isActive])
+  @@index([nextRunAt, isActive])
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+// ----------------------------------------------------------------------------
+// Waitlist — klanten die op de wachtlijst staan voor een datum/item dat
+// vol is. Bij annulering van een conflicterende boeking checkt de cancel-
+// hook deze tabel en stuurt een notif/mail aan eerstvolgende kandidaten.
+// ----------------------------------------------------------------------------
+
+model WaitlistEntry {
+  id             String   @id @default(cuid())
+  organizationId String
+  itemId         String
+  // Genest customer is optioneel — publieke widget kan straks ook iemand
+  // zonder Customer-row aanmelden. customerName/email zijn dan de bron.
+  customerId     String?
+  customerName   String
+  customerEmail  String
+  customerPhone  String?
+  desiredStartAt DateTime
+  desiredEndAt   DateTime
+  notes          String?
+
+  status WaitlistStatus @default(WAITING)
+
+  // Gezet wanneer onze cancel-hook deze entry mailde dat er ruimte vrijkwam.
+  // Zo skipt de hook 'm de volgende keer + zien tenants 't terug in de UI.
+  notifiedAt DateTime?
+
+  // Hoe lang de "er is plek vrij"-melding geldig is — past de eerste niet
+  // op tijd om, dan kan de tenant 'm handmatig op EXPIRED zetten.
+  expiresAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([itemId, desiredStartAt])
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  CONVERTED
+  EXPIRED
 }
 
 // ----------------------------------------------------------------------------
