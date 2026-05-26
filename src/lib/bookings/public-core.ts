@@ -10,8 +10,10 @@ import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
+import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
+import { randomBytes } from "node:crypto";
 
 /**
  * Plain server-only booking logic — GEEN "use server". Wordt aangeroepen
@@ -108,6 +110,10 @@ export async function createPublicBooking(
     estimate = Number(item.pricePerHour) * hours;
   }
 
+  // Pre-authenticated portal-token. Mailen we mee in de bevestiging
+  // zodat de klant z'n boeking-pagina direct kan openen — geen login.
+  const portalToken = randomBytes(32).toString("hex");
+
   const booking = await db.booking.create({
     data: {
       organizationId: org.id,
@@ -118,6 +124,7 @@ export async function createPublicBooking(
       status: "PENDING",
       totalPrice: estimate,
       notes: data.notes?.trim() || null,
+      portalToken,
     },
     select: { id: true },
   });
@@ -155,6 +162,14 @@ export async function createPublicBooking(
     });
   } catch (err) {
     console.error("[public-booking] notif fan-out mislukt:", err);
+  }
+
+  // Confirmation mail naar de klant met de pre-authenticated portal-link.
+  // No-op als customerPortalEnabled uit staat — tenant kiest of dit gebeurt.
+  try {
+    await sendBookingConfirmationMail(booking.id);
+  } catch (err) {
+    console.error("[public-booking] confirmation mail mislukt:", err);
   }
 
   let redirectUrl: string | undefined;

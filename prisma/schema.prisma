@@ -252,7 +252,6 @@ model Organization {
   calendarBlocks         CalendarBlock[]
   calendarSyncStates     CalendarSyncState[]
   paymentEvents          PaymentEvent[]
-  customerPortalTokens   CustomerPortalToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -471,6 +470,13 @@ model Booking {
   // gegaan; cron skipt bookings waar dit al gevuld is. Null = nog niet
   // gestuurd OF feature stond uit toen booking voltooide.
   reviewRequestedAt DateTime?
+
+  // Pre-authenticated portal-token. Wordt mee in de bevestigingsmail
+  // gestuurd als /portal/[slug]/booking/[id]?token=… link. Geen
+  // expiry — de boeking zelf is de bron van het bestaan van de link.
+  // 64 hex chars (= 32 bytes random). Unique zodat we 'm in een where
+  // clause kunnen gebruiken voor lookups vanuit de portal-page.
+  portalToken String? @unique
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
@@ -981,27 +987,6 @@ model CalendarSyncState {
 // we slaan hier op wat we verwerkt hebben zodat we niet dubbel processen
 // bij retries en de UI een charge-historie kan laten zien.
 // ----------------------------------------------------------------------------
-
-// ----------------------------------------------------------------------------
-// Klant-portaal magic-link tokens. Klanten zonder BookingBay-account
-// kunnen op /portal/[slug]/login een mail aanvragen met een eenmalige
-// link; verificatie zet een session-cookie waarmee ze hun eigen
-// boekingen kunnen zien/annuleren binnen het tenant-window.
-// ----------------------------------------------------------------------------
-
-model CustomerPortalToken {
-  id             String       @id @default(cuid())
-  organizationId String
-  email          String
-  token          String       @unique
-  expiresAt      DateTime
-  usedAt         DateTime?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@index([organizationId, email])
-}
 
 model PaymentEvent {
   id              String   @id @default(cuid())

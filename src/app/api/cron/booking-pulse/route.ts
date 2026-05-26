@@ -182,9 +182,18 @@ async function runKlantEmailReminder() {
       organizationId: true,
       startAt: true,
       endAt: true,
+      portalToken: true,
       customer: { select: { name: true, email: true } },
       item: { select: { name: true } },
-      organization: { select: { name: true, slug: true, contactPhone: true, contactEmail: true } },
+      organization: {
+        select: {
+          name: true,
+          slug: true,
+          contactPhone: true,
+          contactEmail: true,
+          customerPortalEnabled: true,
+        },
+      },
     },
   });
 
@@ -203,6 +212,19 @@ async function runKlantEmailReminder() {
           }.`
         : "";
 
+    // Pre-auth portal-link toevoegen als de tenant 't portaal aan heeft
+    // staan én er nog een token is op de boeking (oude bookings van vóór
+    // de portal-feature hebben dat niet).
+    const portalBlock =
+      b.organization.customerPortalEnabled && b.portalToken
+        ? `<p style="margin:24px 0">
+            <a href="${env.APP_URL.replace(/\/$/, "")}/portal/${b.organization.slug}/booking/${b.id}?token=${encodeURIComponent(b.portalToken)}"
+               style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
+              Bekijk mijn boeking
+            </a>
+          </p>`
+        : "";
+
     const result = await sendEmail({
       to: b.customer.email,
       subject: `Herinnering: ${b.item.name} morgen om ${format(b.startAt, "HH:mm")}`,
@@ -213,6 +235,7 @@ async function runKlantEmailReminder() {
           geboekt bij <strong>${b.organization.name}</strong>.
         </p>
         <p style="margin:0 0 8px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
+        ${portalBlock}
         ${contact ? `<p style="margin:16px 0 0 0">${contact}</p>` : ""}
       `),
       text: `Tot morgen ${b.customer.name}! Je hebt ${b.item.name} geboekt bij ${b.organization.name} op ${start} tot ${end}.`,

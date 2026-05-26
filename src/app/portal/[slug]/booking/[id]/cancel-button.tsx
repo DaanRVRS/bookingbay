@@ -8,9 +8,10 @@ import { toast } from "sonner";
 interface Props {
   slug: string;
   bookingId: string;
+  token: string;
 }
 
-export function CancelButton({ slug, bookingId }: Props) {
+export function CancelButton({ slug, bookingId, token }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
@@ -21,7 +22,7 @@ export function CancelButton({ slug, bookingId }: Props) {
         const res = await fetch("/api/portal/cancel-booking", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug, bookingId }),
+          body: JSON.stringify({ slug, bookingId, token }),
         });
         const data = await res.json();
         if (data.ok) {
@@ -40,24 +41,29 @@ export function CancelButton({ slug, bookingId }: Props) {
 
   if (confirming) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setConfirming(false)}
-          disabled={pending}
-          className="text-[11px] text-muted-foreground hover:underline"
-        >
-          Toch niet
-        </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={pending}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md bg-destructive px-3 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {pending && <Loader2 className="size-3 animate-spin" />}
-          Ja, annuleer
-        </button>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          Weet je het zeker? Dit kan niet ongedaan gemaakt worden.
+        </p>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            disabled={pending}
+            className="text-xs text-muted-foreground hover:underline"
+          >
+            Toch niet
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-destructive px-3 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {pending && <Loader2 className="size-3 animate-spin" />}
+            Ja, annuleer
+          </button>
+        </div>
       </div>
     );
   }
@@ -66,9 +72,9 @@ export function CancelButton({ slug, bookingId }: Props) {
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="text-[11px] font-medium text-destructive hover:underline"
+      className="text-xs font-medium text-destructive hover:underline"
     >
-      Annuleer boeking
+      Annuleer mijn boeking
     </button>
   );
 }

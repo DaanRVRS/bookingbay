@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, UserCircle, ExternalLink } from "lucide-react";
+import { Loader2, UserCircle, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,6 @@ import { updateCustomerPortalConfigAction } from "@/lib/settings/customer-portal
 interface Initial {
   enabled: boolean;
   cancelHoursMin: number;
-  portalUrl: string;
 }
 
 interface Props {
@@ -53,20 +52,23 @@ export function CustomerPortalSection({ initial, disabled }: Props) {
           disabled={disabled}
         />
         <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">Klant-portaal inschakelen</span>
+          <span className="text-sm font-medium">
+            Stuur klanten een directe link naar hun boeking
+          </span>
           <span className="text-xs text-muted-foreground">
-            Klanten loggen in met een eenmalige link in hun e-mail, zien hun
-            boekingen, en kunnen zelf annuleren binnen het ingestelde
-            tijdsvenster.
+            Zodra een klant boekt via je widget krijgt 'ie automatisch een
+            bevestigingsmail met een persoonlijke link. Geen login of
+            wachtwoord — de link werkt direct en laat de boeking-details +
+            een annuleer-knop zien.
           </span>
         </span>
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
+      <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="portal-hours" className="flex items-center gap-1.5 text-xs">
             <UserCircle className="size-3.5" />
-            Annulering tot
+            Klant mag annuleren tot
           </Label>
           <div className="flex items-center gap-2">
             <Input
@@ -87,21 +89,15 @@ export function CustomerPortalSection({ initial, disabled }: Props) {
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-border bg-background/50 p-3">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Portaal-link
+          <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Mail className="size-3.5" />
+            Wat krijgt de klant te zien?
           </span>
-          <a
-            href={initial.portalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 break-all text-xs text-primary hover:underline"
-          >
-            {initial.portalUrl}
-            <ExternalLink className="size-3 shrink-0" />
-          </a>
-          <p className="text-xs text-muted-foreground">
-            Deel dit met je klanten of voeg 'm toe aan e-mails. Werkt alleen
-            wanneer het portaal aan staat.
+          <p className="mt-1 text-xs text-muted-foreground">
+            Direct na het boeken een mail met datum, tijd, prijs, je
+            contactgegevens en een knop "Bekijk mijn boeking". Diezelfde link
+            zit ook in de herinnering 24u vóór de starttijd, zodat 'ie 'm
+            niet kwijtraakt.
           </p>
         </div>
       </div>

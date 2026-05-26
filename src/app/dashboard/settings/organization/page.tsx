@@ -9,7 +9,6 @@ import { CustomerPortalSection } from "./customer-portal-section";
 import { can } from "@/lib/auth/permissions";
 import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { readPaymentConfig, maskKey } from "@/lib/payments/config";
-import { env } from "@/lib/env";
 
 export const metadata = { title: "Organisatie" };
 
@@ -113,16 +112,15 @@ export default async function OrgSettingsPage() {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold">Klant-portaal</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Geef je klanten een eigen pagina waar ze hun boekingen zien en
-          (binnen een tijdsvenster) zelf kunnen annuleren. Inloggen gaat via
-          een magic-link in hun e-mail — geen wachtwoord nodig.
+          Stuur klanten automatisch een bevestigingsmail met een
+          persoonlijke link naar hun boeking-details + annuleer-knop.
+          Geen account of inloggen nodig.
         </p>
         <div className="mt-5">
           <CustomerPortalSection
             initial={{
               enabled: org.customerPortalEnabled,
               cancelHoursMin: org.customerPortalCancelHoursMin,
-              portalUrl: `${env.APP_URL.replace(/\/$/, "")}/portal/${org.slug}/login`,
             }}
             disabled={!isOwner}
           />

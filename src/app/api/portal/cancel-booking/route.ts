@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
-import { getPortalSession } from "@/lib/portal/session";
 import { audit } from "@/lib/audit/log";
 import { notifyOrgMembers } from "@/lib/notifications/send";
 
@@ -8,13 +8,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Klant annuleert z'n eigen boeking via het portaal. Mag alleen als:
- *  - portal session aanwezig + booking-email == session.email
+ * Klant annuleert z'n eigen boeking via de portal-link. Geen session —
+ * auth gebeurt via de portalToken in de mail (= bezit van die token =
+ * bewijs van eigendom van de booking-link). Mag alleen als:
+ *  - portalToken matcht via constant-time compare
  *  - booking.status in (CONFIRMED, PENDING)
  *  - startAt - now >= organization.customerPortalCancelHoursMin
  */
 export async function POST(req: Request) {
-  let body: { slug?: string; bookingId?: string };
+  let body: { slug?: string; bookingId?: string; token?: string };
   try {
     body = await req.json();
   } catch {
@@ -22,44 +24,50 @@ export async function POST(req: Request) {
   }
   const slug = (body.slug ?? "").trim().toLowerCase();
   const bookingId = (body.bookingId ?? "").trim();
-  if (!slug || !bookingId) {
-    return NextResponse.json({ ok: false, error: "Slug + bookingId vereist" }, { status: 400 });
+  const token = (body.token ?? "").trim();
+  if (!slug || !bookingId || !token) {
+    return NextResponse.json(
+      { ok: false, error: "Slug + bookingId + token vereist" },
+      { status: 400 },
+    );
   }
 
-  const org = await db.organization.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      customerPortalEnabled: true,
-      customerPortalCancelHoursMin: true,
-    },
-  });
-  if (!org || !org.customerPortalEnabled) {
-    return NextResponse.json({ ok: false, error: "Portaal is niet beschikbaar" }, { status: 404 });
-  }
-
-  const session = await getPortalSession(org.id);
-  if (!session) {
-    return NextResponse.json({ ok: false, error: "Niet ingelogd" }, { status: 401 });
-  }
-
-  const booking = await db.booking.findFirst({
-    where: {
-      id: bookingId,
-      organizationId: org.id,
-      customer: { email: session.email },
-    },
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
     select: {
       id: true,
       startAt: true,
       status: true,
+      portalToken: true,
+      organizationId: true,
       customer: { select: { name: true } },
       item: { select: { name: true } },
+      organization: {
+        select: {
+          id: true,
+          slug: true,
+          customerPortalEnabled: true,
+          customerPortalCancelHoursMin: true,
+        },
+      },
     },
   });
-  if (!booking) {
-    return NextResponse.json({ ok: false, error: "Boeking niet gevonden" }, { status: 404 });
+
+  // Constant-time token-check — geen kans op timing-leaks. We weigeren
+  // expliciet met 404 als organization niet matcht of token niet matcht,
+  // zodat een attacker niet kan deduceren of een booking-id bestaat.
+  if (
+    !booking ||
+    !booking.portalToken ||
+    booking.organization.slug !== slug ||
+    !safeEqual(booking.portalToken, token)
+  ) {
+    return NextResponse.json({ ok: false, error: "Niet gevonden" }, { status: 404 });
   }
+  if (!booking.organization.customerPortalEnabled) {
+    return NextResponse.json({ ok: false, error: "Portaal staat uit" }, { status: 404 });
+  }
+
   if (booking.status !== "CONFIRMED" && booking.status !== "PENDING") {
     return NextResponse.json(
       { ok: false, error: "Boeking kan niet meer geannuleerd worden" },
@@ -68,11 +76,11 @@ export async function POST(req: Request) {
   }
 
   const hoursUntil = (booking.startAt.getTime() - Date.now()) / (60 * 60 * 1000);
-  if (hoursUntil < org.customerPortalCancelHoursMin) {
+  if (hoursUntil < booking.organization.customerPortalCancelHoursMin) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Boeking kan tot ${org.customerPortalCancelHoursMin} uur vóór de starttijd worden geannuleerd.`,
+        error: `Boeking kan tot ${booking.organization.customerPortalCancelHoursMin} uur vóór de starttijd worden geannuleerd.`,
       },
       { status: 400 },
     );
@@ -83,20 +91,18 @@ export async function POST(req: Request) {
     data: { status: "CANCELED" },
   });
   await audit({
-    organizationId: org.id,
+    organizationId: booking.organizationId,
     action: "booking.cancel",
     resource: "booking",
     resourceId: booking.id,
-    metadata: { source: "customer-portal", email: session.email },
+    metadata: { source: "customer-portal-token" },
   });
 
-  // Org-members op de hoogte brengen — een klant-annulering raakt de
-  // planning, daar moet de eigenaar van weten.
   try {
-    await notifyOrgMembers(org.id, {
+    await notifyOrgMembers(booking.organizationId, {
       type: "booking.canceled-by-customer",
       title: "Boeking geannuleerd door klant",
-      body: `${booking.customer.name} heeft zijn/haar boeking van ${booking.item.name} geannuleerd via het portaal.`,
+      body: `${booking.customer.name} heeft zijn/haar boeking van ${booking.item.name} geannuleerd via de portal-link.`,
       ctaUrl: `/dashboard/bookings/${booking.id}`,
       ctaLabel: "Bekijk",
     });
@@ -105,4 +111,15 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+function safeEqual(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
 }
