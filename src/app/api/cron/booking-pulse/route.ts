@@ -6,7 +6,6 @@ import { sendEmail, emailLayout } from "@/lib/email";
 import { audit } from "@/lib/audit/log";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { nl } from "date-fns/locale";
-import { runRecurringMaterialize } from "@/lib/recurring/materialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,12 +37,11 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [digest, completion, customerMails, reviewRequests, recurring] = await Promise.all([
+    const [digest, completion, customerMails, reviewRequests] = await Promise.all([
       runOchtendDigest(),
       runAfrondingReminder(),
       runKlantEmailReminder(),
       runReviewRequests(),
-      runRecurringMaterialize(),
     ]);
     return NextResponse.json({
       ok: true,
@@ -51,7 +49,6 @@ export async function GET(req: Request) {
       completion,
       customerMails,
       reviewRequests,
-      recurring,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
