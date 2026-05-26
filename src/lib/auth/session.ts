@@ -25,6 +25,7 @@ export const getCurrentUser = cache(async () => {
       image: true,
       emailVerified: true,
       isAdmin: true,
+      isDemo: true,
     },
   });
   return user;

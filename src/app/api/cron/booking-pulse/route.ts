@@ -37,11 +37,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [digest, completion, customerMails, reviewRequests] = await Promise.all([
+    const [digest, completion, customerMails, reviewRequests, demoCleanup] = await Promise.all([
       runOchtendDigest(),
       runAfrondingReminder(),
       runKlantEmailReminder(),
       runReviewRequests(),
+      runDemoCleanup(),
     ]);
     return NextResponse.json({
       ok: true,
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
       completion,
       customerMails,
       reviewRequests,
+      demoCleanup,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -349,4 +351,37 @@ async function runReviewRequests() {
   }
 
   return { candidates: eligible.length, sent, failed, skippedTooSoon };
+}
+
+// ── 5. Demo-tenant cleanup ───────────────────────────────────────────────
+
+/**
+ * Wist demo-organisaties + bijbehorende demo-users die ouder zijn dan
+ * 7 dagen. Cascade van de FK's ruimt items / bookings / memberships
+ * / customers etc. automatisch op. We droppen daarna ook de losse
+ * User-rij (geen cascade vanuit Org → User).
+ */
+async function runDemoCleanup() {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const staleOrgs = await db.organization.findMany({
+    where: { isDemo: true, createdAt: { lt: cutoff } },
+    select: { id: true, memberships: { select: { userId: true } } },
+  });
+
+  const userIds = new Set<string>();
+  for (const o of staleOrgs) {
+    for (const m of o.memberships) userIds.add(m.userId);
+  }
+
+  const orgResult = await db.organization.deleteMany({
+    where: { id: { in: staleOrgs.map((o) => o.id) } },
+  });
+  // Alleen demo-users wissen die niet plots een echte org hebben (paranoia
+  // — eigenlijk hangt een demo-user altijd aan precies 1 demo-org).
+  const userResult = await db.user.deleteMany({
+    where: { id: { in: [...userIds] }, isDemo: true },
+  });
+
+  return { orgsDeleted: orgResult.count, usersDeleted: userResult.count };
 }

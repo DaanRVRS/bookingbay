@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { verifyHandoffToken } from "@/lib/twofa/core";
+import { verifyDemoToken } from "@/lib/demo/token";
 
 declare module "next-auth" {
   interface Session {
@@ -87,6 +88,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { id: payload.userId },
         });
         if (!user) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          emailVerified: user.emailVerified,
+        };
+      },
+    }),
+    Credentials({
+      // Demo handoff: /demo page genereert een korte-TTL HMAC-token die
+      // hier ingewisseld wordt voor een echte NextAuth-sessie. Geen
+      // wachtwoord; userId zit in de token (signed). Alleen users met
+      // isDemo=true mogen — anders kan iemand met een gelekte token
+      // theoretisch andere accounts overnemen. De token-TTL is 5 min
+      // dus replay-windows zijn klein, maar de extra check kost niks.
+      id: "demo-handoff",
+      name: "Demo handoff",
+      credentials: {
+        token: { label: "Demo token", type: "text" },
+      },
+      async authorize(creds) {
+        const token = typeof creds?.token === "string" ? creds.token : null;
+        const payload = verifyDemoToken(token ?? undefined);
+        if (!payload) return null;
+        const user = await db.user.findUnique({
+          where: { id: payload.userId },
+        });
+        if (!user || !user.isDemo) return null;
         return {
           id: user.id,
           email: user.email,

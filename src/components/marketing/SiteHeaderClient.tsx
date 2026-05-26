@@ -63,6 +63,12 @@ export function SiteHeaderClient({ isLoggedIn }: { isLoggedIn: boolean }) {
           ) : (
             <>
               <Link
+                href="/demo"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                Bekijk demo
+              </Link>
+              <Link
                 href="/login"
                 className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
@@ -120,6 +126,13 @@ export function SiteHeaderClient({ isLoggedIn }: { isLoggedIn: boolean }) {
                   </Link>
                 ) : (
                   <>
+                    <Link
+                      href="/demo"
+                      onClick={() => setOpen(false)}
+                      className="rounded-md border border-border bg-card px-3 py-2 text-center text-sm font-medium text-foreground"
+                    >
+                      Bekijk demo
+                    </Link>
                     <Link
                       href="/login"
                       onClick={() => setOpen(false)}

@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/dashboard/UserMenu";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
+import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { TrialPill } from "@/components/dashboard/TrialPill";
 import {
@@ -56,6 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-svh flex-col">
       <ImpersonationBanner />
+      {ctx.user.isDemo && <DemoBanner />}
       <SubscriptionBanner
         suspendedAt={billing?.suspendedAt ?? null}
         trialEndsAt={billing?.trialEndsAt ?? null}
