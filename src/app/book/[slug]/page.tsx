@@ -120,6 +120,9 @@ export default async function BookPage({ params, searchParams }: PageProps) {
             usps={design.usps}
             tagline={design.tagline}
             defaultLocale={design.defaultLocale}
+            cleaningFeeCents={
+              org.cleaningFeeEnabled ? org.cleaningFeeCents : 0
+            }
           />
         </div>
 

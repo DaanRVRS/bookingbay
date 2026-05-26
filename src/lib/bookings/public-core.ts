@@ -49,7 +49,12 @@ export async function createPublicBooking(
 
   const org = await db.organization.findUnique({
     where: { slug: data.slug },
-    select: { id: true, suspendedAt: true },
+    select: {
+      id: true,
+      suspendedAt: true,
+      cleaningFeeEnabled: true,
+      cleaningFeeCents: true,
+    },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
   if (org.suspendedAt) {
@@ -108,6 +113,12 @@ export async function createPublicBooking(
     estimate = Number(item.pricePerDay) * days;
   } else if (item.pricePerHour) {
     estimate = Number(item.pricePerHour) * hours;
+  }
+
+  // Schoonmaakkosten — flat fee bovenop de item-prijs als enabled.
+  // Cents → euro voor de Decimal-kolom (totalPrice).
+  if (org.cleaningFeeEnabled && org.cleaningFeeCents > 0) {
+    estimate = estimate + org.cleaningFeeCents / 100;
   }
 
   // Pre-authenticated portal-token. Mailen we mee in de bevestiging

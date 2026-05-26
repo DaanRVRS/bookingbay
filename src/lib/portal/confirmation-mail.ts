@@ -40,6 +40,8 @@ export async function sendBookingConfirmationMail(
           contactEmail: true,
           contactPhone: true,
           customerPortalEnabled: true,
+          cleaningFeeEnabled: true,
+          cleaningFeeCents: true,
         },
       },
     },
@@ -58,7 +60,20 @@ export async function sendBookingConfirmationMail(
 
   const start = format(booking.startAt, "EEEE d MMMM 'om' HH:mm", { locale: nl });
   const end = format(booking.endAt, "HH:mm", { locale: nl });
-  const amount = `€${Number(booking.totalPrice).toFixed(2).replace(".", ",")}`;
+  const totalEur = Number(booking.totalPrice);
+  const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
+
+  // Splitsing tonen als er een cleaning fee in de prijs zit — anders wekt
+  // het verwarring ("waarom is het meer dan de item-prijs?").
+  const showCleaningSplit =
+    booking.organization.cleaningFeeEnabled &&
+    booking.organization.cleaningFeeCents > 0;
+  const cleaningEur = booking.organization.cleaningFeeCents / 100;
+  const subtotalEur = Math.max(0, totalEur - cleaningEur);
+  const cleaningLine = showCleaningSplit
+    ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur.toFixed(2).replace(".", ",")} + schoonmaakkosten €${cleaningEur.toFixed(2).replace(".", ",")}</p>`
+    : "";
+
   const contactLine =
     booking.organization.contactPhone || booking.organization.contactEmail
       ? `Heb je een vraag? ${
@@ -78,7 +93,9 @@ export async function sendBookingConfirmationMail(
       </p>
       <p style="margin:0 0 4px 0"><strong>Wat:</strong> ${booking.item.name}</p>
       <p style="margin:0 0 4px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
-      <p style="margin:0 0 16px 0"><strong>Totaal:</strong> ${amount}</p>
+      <p style="margin:0 0 4px 0"><strong>Totaal:</strong> ${amount}</p>
+      ${cleaningLine}
+      <div style="height:12px"></div>
       <p style="margin:0 0 24px 0">
         Bekijk of annuleer je boeking via de knop hieronder. Geen account
         of wachtwoord nodig — je link werkt direct.

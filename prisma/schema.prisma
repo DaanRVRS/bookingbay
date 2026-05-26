@@ -194,6 +194,13 @@ model Organization {
   // Optioneel webhook-secret voor Stripe (whsec_...) — Mollie heeft dit niet.
   paymentStripeWebhookSecretEnc String?
 
+  // Schoonmaakkosten: vaste flat fee per boeking. Cents (Int) i.p.v.
+  // Decimal — geen fractie nodig en geen floating-point precisie-risico.
+  // Wordt bovenop de prijs-per-uur/dag/week opgeteld in createPublicBooking
+  // en in de booking-widget als losse regel getoond.
+  cleaningFeeEnabled Boolean @default(false)
+  cleaningFeeCents   Int     @default(0)
+
   // Publieke embed-sleutel (Stripe-stijl `pk_xxx`) waarmee externe sites de
   // boek-widget loaden. Veiliger dan de slug exposen + later revokebaar.
   publicEmbedKey String? @unique

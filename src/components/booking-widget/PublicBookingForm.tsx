@@ -42,6 +42,8 @@ interface Props {
   accent: string;
   fixedItem?: ItemOption;
   itemOptions?: ItemOption[];
+  /** Flat fee in cents, opgeteld bij item-prijs. 0 = uit. */
+  cleaningFeeCents?: number;
   /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
    *  voortgangsbalk de juiste stap kan oplichten. */
   onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
@@ -100,6 +102,7 @@ export function PublicBookingForm({
   accent,
   fixedItem,
   itemOptions,
+  cleaningFeeCents = 0,
   onPhaseChange,
 }: Props) {
   const { t, df } = useWidgetI18n();
@@ -260,7 +263,10 @@ export function PublicBookingForm({
   }, [slug, watchedItemId]);
 
   const selectedItem = watchedItemId ? itemsById.get(watchedItemId) : undefined;
-  const estimate = useMemo(() => {
+  // Splitsen in subtotal (item) + cleaningFee zodat de review de fee als
+  // losse regel kan tonen. `estimate` is wat de klant uiteindelijk betaalt
+  // — server-side wordt dezelfde optelsom gedaan, dit is alleen UI.
+  const pricing = useMemo(() => {
     if (!selectedItem || !watchedStart || !watchedEnd) return null;
     const start = new Date(watchedStart);
     const end = new Date(watchedEnd);
@@ -268,10 +274,14 @@ export function PublicBookingForm({
     const ms = end.getTime() - start.getTime();
     const days = Math.ceil(ms / (1000 * 60 * 60 * 24));
     const hours = Math.ceil(ms / (1000 * 60 * 60));
-    if (selectedItem.pricePerDay) return selectedItem.pricePerDay * days;
-    if (selectedItem.pricePerHour) return selectedItem.pricePerHour * hours;
-    return null;
-  }, [selectedItem, watchedStart, watchedEnd]);
+    let subtotal: number | null = null;
+    if (selectedItem.pricePerDay) subtotal = selectedItem.pricePerDay * days;
+    else if (selectedItem.pricePerHour) subtotal = selectedItem.pricePerHour * hours;
+    if (subtotal == null) return null;
+    const cleaningFee = cleaningFeeCents > 0 ? cleaningFeeCents / 100 : 0;
+    return { subtotal, cleaningFee, total: subtotal + cleaningFee };
+  }, [selectedItem, watchedStart, watchedEnd, cleaningFeeCents]);
+  const estimate = pricing?.total ?? null;
 
   // ALLE hooks moeten vóór elke conditionele return staan (Rules of Hooks).
   // De `if (done)` / `if (reviewing)` returns hieronder zouden anders deze
@@ -468,6 +478,20 @@ export function PublicBookingForm({
             value={getValues("customerEmail") || "—"}
             accent={accent}
           />
+          {pricing && pricing.cleaningFee > 0 && (
+            <>
+              <ReviewRow
+                label="Subtotaal"
+                value={`€ ${pricing.subtotal.toFixed(2)}`}
+                accent={accent}
+              />
+              <ReviewRow
+                label="Schoonmaakkosten"
+                value={`€ ${pricing.cleaningFee.toFixed(2)}`}
+                accent={accent}
+              />
+            </>
+          )}
           {estimate !== null && (
             <ReviewRow
               label={t("review.estPrice")}

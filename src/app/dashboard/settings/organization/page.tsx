@@ -4,6 +4,7 @@ import { OrgSettingsForm } from "./org-settings-form";
 import { DangerZone } from "./danger-zone";
 import { BusinessHoursSection } from "./business-hours-section";
 import { PaymentSection } from "./payment-section";
+import { CleaningFeeSection } from "./cleaning-fee-section";
 import { ReviewRequestSection } from "./review-request-section";
 import { CustomerPortalSection } from "./customer-portal-section";
 import { can } from "@/lib/auth/permissions";
@@ -30,6 +31,8 @@ export default async function OrgSettingsPage() {
       reviewRequestDelayDays: true,
       customerPortalEnabled: true,
       customerPortalCancelHoursMin: true,
+      cleaningFeeEnabled: true,
+      cleaningFeeCents: true,
     },
   });
   if (!org) throw new Error("Organization missing");
@@ -104,6 +107,28 @@ export default async function OrgSettingsPage() {
           {!isBilling && (
             <p className="mt-3 text-xs text-muted-foreground">
               Alleen rollen met facturatie-rechten kunnen betaalmethodes wijzigen.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">Extra kosten</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Vaste fees die bovenop de item-prijs komen. Handig voor
+          schoonmaakkosten, borg-toeslag of soortgelijke vaste extra's.
+        </p>
+        <div className="mt-5">
+          <CleaningFeeSection
+            initial={{
+              enabled: org.cleaningFeeEnabled,
+              cents: org.cleaningFeeCents,
+            }}
+            disabled={!isBilling}
+          />
+          {!isBilling && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Alleen rollen met facturatie-rechten kunnen extra kosten wijzigen.
             </p>
           )}
         </div>

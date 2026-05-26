@@ -89,6 +89,9 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
         usps={design.usps}
         tagline={design.tagline}
         defaultLocale={design.defaultLocale}
+        cleaningFeeCents={
+          org.cleaningFeeEnabled ? org.cleaningFeeCents : 0
+        }
       />
     </div>
   );

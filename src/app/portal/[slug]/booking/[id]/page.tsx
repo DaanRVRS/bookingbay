@@ -54,6 +54,8 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
           contactPhone: true,
           customerPortalEnabled: true,
           customerPortalCancelHoursMin: true,
+          cleaningFeeEnabled: true,
+          cleaningFeeCents: true,
         },
       },
     },
@@ -80,7 +82,13 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
   const hoursUntil = (booking.startAt.getTime() - now.getTime()) / (60 * 60 * 1000);
   const canCancel =
     isUpcoming && hoursUntil >= booking.organization.customerPortalCancelHoursMin;
-  const amount = `€${Number(booking.totalPrice).toFixed(2).replace(".", ",")}`;
+  const totalEur = Number(booking.totalPrice);
+  const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
+  const showCleaningSplit =
+    booking.organization.cleaningFeeEnabled &&
+    booking.organization.cleaningFeeCents > 0;
+  const cleaningEur = booking.organization.cleaningFeeCents / 100;
+  const subtotalEur = Math.max(0, totalEur - cleaningEur);
 
   return (
     <main className="relative min-h-dvh">
@@ -138,6 +146,13 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
               )}
             </Row>
           </dl>
+
+          {showCleaningSplit && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Subtotaal: €{subtotalEur.toFixed(2).replace(".", ",")} +
+              schoonmaakkosten €{cleaningEur.toFixed(2).replace(".", ",")}
+            </p>
+          )}
 
           {booking.notes && (
             <div className="mt-5 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">

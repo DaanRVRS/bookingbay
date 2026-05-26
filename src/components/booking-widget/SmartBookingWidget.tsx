@@ -42,6 +42,8 @@ interface Props {
   usps?: WidgetUsp[];
   tagline?: string | null;
   defaultLocale?: string;
+  /** Flat fee bovenop de item-prijs. 0 = feature uit op org-niveau. */
+  cleaningFeeCents?: number;
 }
 
 type Step = "category" | "item" | "form";
@@ -55,6 +57,7 @@ export function SmartBookingWidget({
   usps = [],
   tagline = null,
   defaultLocale = "nl",
+  cleaningFeeCents = 0,
 }: Props) {
   return (
     <WidgetI18nProvider defaultLocale={defaultLocale}>
@@ -66,6 +69,7 @@ export function SmartBookingWidget({
         categories={categories}
         usps={usps}
         tagline={tagline}
+        cleaningFeeCents={cleaningFeeCents}
       />
     </WidgetI18nProvider>
   );
@@ -161,6 +165,7 @@ function WidgetInner({
   categories,
   usps,
   tagline,
+  cleaningFeeCents,
 }: {
   slug: string;
   orgName: string;
@@ -169,6 +174,7 @@ function WidgetInner({
   categories: CategoryBucket[];
   usps: WidgetUsp[];
   tagline: string | null;
+  cleaningFeeCents: number;
 }) {
   const { t } = useWidgetI18n();
   const onlyCategory = categories.length === 1 ? categories[0] : null;
@@ -277,6 +283,7 @@ function WidgetInner({
           orgName={orgName}
           accent={accent}
           item={selectedItem}
+          cleaningFeeCents={cleaningFeeCents}
           onBack={() => {
             setItemId(null);
             setStep("item");
@@ -516,6 +523,7 @@ function FormStep({
   orgName,
   accent,
   item,
+  cleaningFeeCents,
   onBack,
   onPhaseChange,
 }: {
@@ -523,6 +531,7 @@ function FormStep({
   orgName: string;
   accent: string;
   item: ItemRow;
+  cleaningFeeCents: number;
   onBack: () => void;
   onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
 }) {
@@ -576,6 +585,7 @@ function FormStep({
           pricePerHour: item.pricePerHour,
           pricePerDay: item.pricePerDay,
         }}
+        cleaningFeeCents={cleaningFeeCents}
         onPhaseChange={onPhaseChange}
       />
     </div>
