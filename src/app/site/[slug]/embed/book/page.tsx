@@ -28,6 +28,7 @@ function buildBuckets(
       imageUrl: string | null;
       pricePerHour: number | null;
       pricePerDay: number | null;
+      cleaningFee: number | null;
     }[];
   }[] = [];
   for (const cat of categories) {
@@ -42,6 +43,7 @@ function buildBuckets(
           imageUrl: i.imageUrl,
           pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
           pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+          cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
         })),
       });
     }
@@ -57,6 +59,7 @@ function buildBuckets(
             imageUrl: i.imageUrl,
             pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
             pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+            cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
           })),
         });
       }
@@ -89,9 +92,6 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
         usps={design.usps}
         tagline={design.tagline}
         defaultLocale={design.defaultLocale}
-        cleaningFeeCents={
-          org.cleaningFeeEnabled ? org.cleaningFeeCents : 0
-        }
       />
     </div>
   );

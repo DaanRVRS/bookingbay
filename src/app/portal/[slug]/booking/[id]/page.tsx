@@ -42,7 +42,7 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
       totalPrice: true,
       notes: true,
       portalToken: true,
-      item: { select: { name: true, description: true } },
+      item: { select: { name: true, description: true, cleaningFee: true } },
       customer: { select: { name: true, email: true, phone: true } },
       organization: {
         select: {
@@ -54,8 +54,6 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
           contactPhone: true,
           customerPortalEnabled: true,
           customerPortalCancelHoursMin: true,
-          cleaningFeeEnabled: true,
-          cleaningFeeCents: true,
         },
       },
     },
@@ -84,10 +82,8 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
     isUpcoming && hoursUntil >= booking.organization.customerPortalCancelHoursMin;
   const totalEur = Number(booking.totalPrice);
   const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
-  const showCleaningSplit =
-    booking.organization.cleaningFeeEnabled &&
-    booking.organization.cleaningFeeCents > 0;
-  const cleaningEur = booking.organization.cleaningFeeCents / 100;
+  const cleaningEur = booking.item.cleaningFee ? Number(booking.item.cleaningFee) : 0;
+  const showCleaningSplit = cleaningEur > 0;
   const subtotalEur = Math.max(0, totalEur - cleaningEur);
 
   return (

@@ -34,6 +34,8 @@ interface ItemOption {
   name: string;
   pricePerHour: number | null;
   pricePerDay: number | null;
+  /** Vaste schoonmaak-fee per boeking. Null/0 = uit voor dit item. */
+  cleaningFee?: number | null;
 }
 
 interface Props {
@@ -42,8 +44,6 @@ interface Props {
   accent: string;
   fixedItem?: ItemOption;
   itemOptions?: ItemOption[];
-  /** Flat fee in cents, opgeteld bij item-prijs. 0 = uit. */
-  cleaningFeeCents?: number;
   /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
    *  voortgangsbalk de juiste stap kan oplichten. */
   onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
@@ -102,7 +102,6 @@ export function PublicBookingForm({
   accent,
   fixedItem,
   itemOptions,
-  cleaningFeeCents = 0,
   onPhaseChange,
 }: Props) {
   const { t, df } = useWidgetI18n();
@@ -278,9 +277,9 @@ export function PublicBookingForm({
     if (selectedItem.pricePerDay) subtotal = selectedItem.pricePerDay * days;
     else if (selectedItem.pricePerHour) subtotal = selectedItem.pricePerHour * hours;
     if (subtotal == null) return null;
-    const cleaningFee = cleaningFeeCents > 0 ? cleaningFeeCents / 100 : 0;
+    const cleaningFee = selectedItem.cleaningFee ? Number(selectedItem.cleaningFee) : 0;
     return { subtotal, cleaningFee, total: subtotal + cleaningFee };
-  }, [selectedItem, watchedStart, watchedEnd, cleaningFeeCents]);
+  }, [selectedItem, watchedStart, watchedEnd]);
   const estimate = pricing?.total ?? null;
 
   // ALLE hooks moeten vóór elke conditionele return staan (Rules of Hooks).

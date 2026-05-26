@@ -27,8 +27,6 @@ export const getOrgBySlug = cache(async (slug: string) => {
       widgetTagline: true,
       widgetDefaultLocale: true,
       widgetTheme: true,
-      cleaningFeeEnabled: true,
-      cleaningFeeCents: true,
     },
   });
   return org;
@@ -50,6 +48,7 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
           pricePerHour: true,
           pricePerDay: true,
           pricePerWeek: true,
+          cleaningFee: true,
           bookingIntervalMinutes: true,
           bookingWindowStartMin: true,
           bookingWindowEndMin: true,
@@ -69,6 +68,7 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
               pricePerHour: true,
               pricePerDay: true,
               pricePerWeek: true,
+              cleaningFee: true,
             },
           },
         },

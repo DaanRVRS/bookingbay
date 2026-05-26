@@ -52,8 +52,6 @@ export async function createPublicBooking(
     select: {
       id: true,
       suspendedAt: true,
-      cleaningFeeEnabled: true,
-      cleaningFeeCents: true,
     },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
@@ -66,7 +64,14 @@ export async function createPublicBooking(
 
   const item = await db.item.findFirst({
     where: { id: data.itemId, organizationId: org.id, isActive: true },
-    select: { id: true, name: true, quantity: true, pricePerDay: true, pricePerHour: true },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      pricePerDay: true,
+      pricePerHour: true,
+      cleaningFee: true,
+    },
   });
   if (!item) {
     return { ok: false, error: "Item niet gevonden", fieldErrors: { itemId: "Onbekend item" } };
@@ -115,10 +120,11 @@ export async function createPublicBooking(
     estimate = Number(item.pricePerHour) * hours;
   }
 
-  // Schoonmaakkosten — flat fee bovenop de item-prijs als enabled.
-  // Cents → euro voor de Decimal-kolom (totalPrice).
-  if (org.cleaningFeeEnabled && org.cleaningFeeCents > 0) {
-    estimate = estimate + org.cleaningFeeCents / 100;
+  // Schoonmaakkosten — flat fee per item bovenop de tijd-tariefs.
+  // Null/0 = uit. Decimal-kolom dus Number() conversie.
+  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
+  if (cleaningFee > 0) {
+    estimate = estimate + cleaningFee;
   }
 
   // Pre-authenticated portal-token. Mailen we mee in de bevestiging

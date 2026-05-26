@@ -32,7 +32,7 @@ export async function sendBookingConfirmationMail(
       totalPrice: true,
       portalToken: true,
       customer: { select: { name: true, email: true } },
-      item: { select: { name: true } },
+      item: { select: { name: true, cleaningFee: true } },
       organization: {
         select: {
           name: true,
@@ -40,8 +40,6 @@ export async function sendBookingConfirmationMail(
           contactEmail: true,
           contactPhone: true,
           customerPortalEnabled: true,
-          cleaningFeeEnabled: true,
-          cleaningFeeCents: true,
         },
       },
     },
@@ -63,12 +61,10 @@ export async function sendBookingConfirmationMail(
   const totalEur = Number(booking.totalPrice);
   const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
 
-  // Splitsing tonen als er een cleaning fee in de prijs zit — anders wekt
-  // het verwarring ("waarom is het meer dan de item-prijs?").
-  const showCleaningSplit =
-    booking.organization.cleaningFeeEnabled &&
-    booking.organization.cleaningFeeCents > 0;
-  const cleaningEur = booking.organization.cleaningFeeCents / 100;
+  // Splitsing tonen als het item een cleaning fee heeft — anders wekt het
+  // verwarring ("waarom is het meer dan de item-prijs?").
+  const cleaningEur = booking.item.cleaningFee ? Number(booking.item.cleaningFee) : 0;
+  const showCleaningSplit = cleaningEur > 0;
   const subtotalEur = Math.max(0, totalEur - cleaningEur);
   const cleaningLine = showCleaningSplit
     ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur.toFixed(2).replace(".", ",")} + schoonmaakkosten €${cleaningEur.toFixed(2).replace(".", ",")}</p>`

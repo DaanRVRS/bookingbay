@@ -49,6 +49,7 @@ export default async function EditItemPage({ params }: PageProps) {
               pricePerDay: item.pricePerDay ? Number(item.pricePerDay) : null,
               pricePerWeek: item.pricePerWeek ? Number(item.pricePerWeek) : null,
               deposit: item.deposit ? Number(item.deposit) : null,
+              cleaningFee: item.cleaningFee ? Number(item.cleaningFee) : null,
               quantity: item.quantity,
               isActive: item.isActive,
               bookingIntervalMinutes: item.bookingIntervalMinutes,

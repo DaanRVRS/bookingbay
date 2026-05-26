@@ -198,13 +198,6 @@ model Organization {
   // Optioneel webhook-secret voor Stripe (whsec_...) — Mollie heeft dit niet.
   paymentStripeWebhookSecretEnc String?
 
-  // Schoonmaakkosten: vaste flat fee per boeking. Cents (Int) i.p.v.
-  // Decimal — geen fractie nodig en geen floating-point precisie-risico.
-  // Wordt bovenop de prijs-per-uur/dag/week opgeteld in createPublicBooking
-  // en in de booking-widget als losse regel getoond.
-  cleaningFeeEnabled Boolean @default(false)
-  cleaningFeeCents   Int     @default(0)
-
   // Demo-organisatie: aangemaakt door /demo voor een prospect. Wordt
   // automatisch gewist door booking-pulse cron na 7 dagen.
   isDemo Boolean @default(false)
@@ -366,6 +359,10 @@ model Item {
   pricePerDay  Decimal? @db.Decimal(10, 2)
   pricePerWeek Decimal? @db.Decimal(10, 2)
   deposit      Decimal? @db.Decimal(10, 2)
+  // Vaste schoonmaak-fee per boeking. Null/0 = uit; >0 = bedrag wordt
+  // bovenop de tijd-tariefs opgeteld in createPublicBooking en als
+  // losse regel in de widget en bevestigingsmail getoond.
+  cleaningFee  Decimal? @db.Decimal(10, 2)
 
   quantity Int     @default(1)
   isActive Boolean @default(true)

@@ -80,6 +80,7 @@ interface Existing {
   pricePerDay: number | null;
   pricePerWeek: number | null;
   deposit: number | null;
+  cleaningFee: number | null;
   quantity: number;
   isActive: boolean;
   bookingIntervalMinutes: number;
@@ -116,6 +117,7 @@ export function ItemForm({ categories, existing }: Props) {
       pricePerDay: existing?.pricePerDay ?? null,
       pricePerWeek: existing?.pricePerWeek ?? null,
       deposit: existing?.deposit ?? null,
+      cleaningFee: existing?.cleaningFee ?? null,
       quantity: existing?.quantity ?? 1,
       isActive: existing?.isActive ?? true,
       bookingIntervalMinutes: existing?.bookingIntervalMinutes ?? 60,
@@ -278,6 +280,14 @@ export function ItemForm({ categories, existing }: Props) {
           <PriceField
             label="Borg"
             name="deposit"
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            toggleable
+          />
+          <PriceField
+            label="Schoonmaak"
+            name="cleaningFee"
             register={register}
             watch={watch}
             setValue={setValue}
@@ -496,7 +506,7 @@ function PriceField({
   toggleable = false,
 }: {
   label: string;
-  name: "pricePerHour" | "pricePerDay" | "pricePerWeek" | "deposit";
+  name: "pricePerHour" | "pricePerDay" | "pricePerWeek" | "deposit" | "cleaningFee";
   register: ReturnType<typeof useForm<ItemFormValues>>["register"];
   watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
   setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];

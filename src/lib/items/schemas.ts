@@ -23,6 +23,7 @@ const itemBaseShape = {
   pricePerDay: decimal,
   pricePerWeek: decimal,
   deposit: decimal,
+  cleaningFee: decimal,
   quantity: z.coerce.number().int().min(1).max(9999).default(1),
   isActive: z.coerce.boolean().default(true),
   // Boek-slot configuratie. 1440 = per-dag (verbergt tijdkeuze in widget).
