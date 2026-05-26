@@ -14,7 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        # Major-tag i.p.v. v1.2.0 — GitHub's codeload had de specifieke
+        # v1.2.0-SHA tijdelijk niet beschikbaar (run #143 faalde op
+        # "Failed to download archive"). @v1 volgt de laatste minor/patch
+        # binnen v1 en wordt door de maintainer onderhouden.
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
