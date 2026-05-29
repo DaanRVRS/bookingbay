@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { timingSafeEqual } from "node:crypto";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import {
@@ -59,13 +60,14 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
     },
   });
 
-  // Token-check via constant-length compare. We willen niet via een 404
-  // verklappen of de boeking-id bestaat — alleen dat de link niet werkt.
+  // Token-check via timing-safe vergelijking (zelfde als de cancel-route).
+  // We verklappen niet via een 404 of de boeking-id bestaat — alleen dat
+  // de link niet werkt.
   if (
     !booking ||
     booking.organization.slug !== slug ||
     !booking.portalToken ||
-    booking.portalToken !== token
+    !safeEqual(booking.portalToken, token)
   ) {
     notFound();
   }
@@ -249,7 +251,7 @@ function StatusPill({
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
         <CheckCircle2 className="size-3" />
-        Bevestigd
+        Betaald
       </span>
     );
   }
@@ -258,4 +260,16 @@ function StatusPill({
       {status === "PENDING" ? "Wacht op bevestiging" : "Bevestigd"}
     </span>
   );
+}
+
+/** Timing-safe string-vergelijking voor de portal-token. */
+function safeEqual(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
 }

@@ -25,6 +25,7 @@ interface ItemRow {
   imageUrl: string | null;
   pricePerHour: number | null;
   pricePerDay: number | null;
+  pricePerWeek: number | null;
   cleaningFee: number | null;
 }
 
@@ -579,6 +580,7 @@ function FormStep({
           name: item.name,
           pricePerHour: item.pricePerHour,
           pricePerDay: item.pricePerDay,
+          pricePerWeek: item.pricePerWeek,
           cleaningFee: item.cleaningFee,
         }}
         onPhaseChange={onPhaseChange}

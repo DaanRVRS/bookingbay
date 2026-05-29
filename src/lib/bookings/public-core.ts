@@ -10,6 +10,7 @@ import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
+import { estimateRentalSubtotal } from "./price";
 import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -68,8 +69,9 @@ export async function createPublicBooking(
       id: true,
       name: true,
       quantity: true,
-      pricePerDay: true,
       pricePerHour: true,
+      pricePerDay: true,
+      pricePerWeek: true,
       cleaningFee: true,
     },
   });
@@ -110,15 +112,17 @@ export async function createPublicBooking(
     });
   }
 
-  const durationMs = endAt.getTime() - startAt.getTime();
-  const days = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
-  const hours = Math.ceil(durationMs / (1000 * 60 * 60));
-  let estimate = 0;
-  if (item.pricePerDay) {
-    estimate = Number(item.pricePerDay) * days;
-  } else if (item.pricePerHour) {
-    estimate = Number(item.pricePerHour) * hours;
-  }
+  // Zelfde gedeelde functie als de widget (PublicBookingForm) zodat het
+  // gecharchde bedrag exact matcht met wat de klant zag — incl. weektarief.
+  const subtotal =
+    estimateRentalSubtotal({
+      startMs: startAt.getTime(),
+      endMs: endAt.getTime(),
+      pricePerHour: item.pricePerHour ? Number(item.pricePerHour) : null,
+      pricePerDay: item.pricePerDay ? Number(item.pricePerDay) : null,
+      pricePerWeek: item.pricePerWeek ? Number(item.pricePerWeek) : null,
+    }) ?? 0;
+  let estimate = subtotal;
 
   // Schoonmaakkosten — flat fee per item bovenop de tijd-tariefs.
   // Null/0 = uit. Decimal-kolom dus Number() conversie.

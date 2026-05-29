@@ -36,27 +36,35 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const [digest, completion, customerMails, reviewRequests, demoCleanup] = await Promise.all([
-      runOchtendDigest(),
-      runAfrondingReminder(),
-      runKlantEmailReminder(),
-      runReviewRequests(),
-      runDemoCleanup(),
-    ]);
-    return NextResponse.json({
-      ok: true,
-      digest,
-      completion,
-      customerMails,
-      reviewRequests,
-      demoCleanup,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[cron/booking-pulse] failed:", err);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
-  }
+  // allSettled i.p.v. all: de 5 taken zijn onafhankelijk, dus één
+  // falende taak (bv. een mail-provider die hapert) mag de andere vier
+  // niet meeslepen in een 500. Per taak rapporteren we ok|error.
+  const tasks = {
+    digest: runOchtendDigest,
+    completion: runAfrondingReminder,
+    customerMails: runKlantEmailReminder,
+    reviewRequests: runReviewRequests,
+    demoCleanup: runDemoCleanup,
+  } as const;
+
+  const entries = Object.entries(tasks);
+  const settled = await Promise.allSettled(entries.map(([, fn]) => fn()));
+
+  const result: Record<string, unknown> = {};
+  let anyFailed = false;
+  settled.forEach((s, i) => {
+    const key = entries[i][0];
+    if (s.status === "fulfilled") {
+      result[key] = s.value;
+    } else {
+      anyFailed = true;
+      const message = s.reason instanceof Error ? s.reason.message : String(s.reason);
+      console.error(`[cron/booking-pulse] taak "${key}" faalde:`, s.reason);
+      result[key] = { error: message };
+    }
+  });
+
+  return NextResponse.json({ ok: !anyFailed, ...result });
 }
 
 // ── 1. Ochtend-digest ────────────────────────────────────────────────────
@@ -377,10 +385,17 @@ async function runDemoCleanup() {
   const orgResult = await db.organization.deleteMany({
     where: { id: { in: staleOrgs.map((o) => o.id) } },
   });
-  // Alleen demo-users wissen die niet plots een echte org hebben (paranoia
-  // — eigenlijk hangt een demo-user altijd aan precies 1 demo-org).
+  // Alleen demo-users wissen die NA de org-delete nergens meer member
+  // zijn. `isDemo: true` sluit echte users al uit, maar `memberships:
+  // { none: {} }` is de harde garantie: een demo-user die toevallig nog
+  // ergens (een niet-stale of echte org) lid is, blijft staan i.p.v. dat
+  // z'n membership daar cascade-weg zou vallen.
   const userResult = await db.user.deleteMany({
-    where: { id: { in: [...userIds] }, isDemo: true },
+    where: {
+      id: { in: [...userIds] },
+      isDemo: true,
+      memberships: { none: {} },
+    },
   });
 
   return { orgsDeleted: orgResult.count, usersDeleted: userResult.count };

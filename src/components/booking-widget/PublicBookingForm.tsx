@@ -25,6 +25,7 @@ import {
   publicBookingSchema,
   type PublicBookingInput,
 } from "@/lib/bookings/public-schemas";
+import { estimateRentalSubtotal } from "@/lib/bookings/price";
 
 // CSS-vars gezet door themeStyle() op een ouder; nette fallbacks.
 const ON_ACCENT = "var(--bb-on-accent, #fff)";
@@ -34,6 +35,7 @@ interface ItemOption {
   name: string;
   pricePerHour: number | null;
   pricePerDay: number | null;
+  pricePerWeek?: number | null;
   /** Vaste schoonmaak-fee per boeking. Null/0 = uit voor dit item. */
   cleaningFee?: number | null;
 }
@@ -270,12 +272,15 @@ export function PublicBookingForm({
     const start = new Date(watchedStart);
     const end = new Date(watchedEnd);
     if (!(end > start)) return null;
-    const ms = end.getTime() - start.getTime();
-    const days = Math.ceil(ms / (1000 * 60 * 60 * 24));
-    const hours = Math.ceil(ms / (1000 * 60 * 60));
-    let subtotal: number | null = null;
-    if (selectedItem.pricePerDay) subtotal = selectedItem.pricePerDay * days;
-    else if (selectedItem.pricePerHour) subtotal = selectedItem.pricePerHour * hours;
+    // Gedeelde functie met de server (createPublicBooking) zodat de
+    // getoonde prijs exact matcht met wat er gecharged wordt — incl. week.
+    const subtotal = estimateRentalSubtotal({
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+      pricePerHour: selectedItem.pricePerHour,
+      pricePerDay: selectedItem.pricePerDay,
+      pricePerWeek: selectedItem.pricePerWeek ?? null,
+    });
     if (subtotal == null) return null;
     const cleaningFee = selectedItem.cleaningFee ? Number(selectedItem.cleaningFee) : 0;
     return { subtotal, cleaningFee, total: subtotal + cleaningFee };

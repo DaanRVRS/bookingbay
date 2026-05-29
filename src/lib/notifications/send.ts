@@ -34,8 +34,13 @@ export async function notifyOrgMembers(
   dedupeCtaSuffix?: string,
 ): Promise<{ recipients: number; skipped: boolean }> {
   if (dedupeCtaSuffix) {
+    // organizationId MOET in de dedup-query: anders matcht een dedup-suffix
+    // die niet org-uniek is (bv. de dag-digest `?digest=YYYY-MM-DD`, gelijk
+    // voor alle orgs) na de eerste org elke volgende org → kreeg maar één
+    // org per dag de digest.
     const existing = await db.notification.findFirst({
       where: {
+        organizationId,
         type: notif.type,
         ctaUrl: { endsWith: dedupeCtaSuffix },
       },

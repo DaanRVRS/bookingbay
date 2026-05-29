@@ -37,6 +37,7 @@ function buildBuckets(
       imageUrl: string | null;
       pricePerHour: number | null;
       pricePerDay: number | null;
+      pricePerWeek: number | null;
       cleaningFee: number | null;
     }[];
   }[] = [];
@@ -52,6 +53,7 @@ function buildBuckets(
           imageUrl: i.imageUrl,
           pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
           pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+          pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
           cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
         })),
       });
@@ -68,6 +70,7 @@ function buildBuckets(
             imageUrl: i.imageUrl,
             pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
             pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
+            pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
             cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
           })),
         });
