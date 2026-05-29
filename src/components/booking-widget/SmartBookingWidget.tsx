@@ -326,11 +326,10 @@ function ProgressIndicator({
               <span
                 className="hidden text-xs font-medium tracking-wide sm:inline"
                 style={{
-                  color: active
-                    ? accent
-                    : done
-                      ? "var(--foreground)"
-                      : "var(--muted-foreground)",
+                  // done + future allebei --muted-foreground (de "Tekst"-
+                  // thema-token): --foreground (Koppen) kan door een tenant
+                  // licht/wit gezet zijn → voltooide labels werden onleesbaar.
+                  color: active ? accent : "var(--muted-foreground)",
                 }}
               >
                 {label}

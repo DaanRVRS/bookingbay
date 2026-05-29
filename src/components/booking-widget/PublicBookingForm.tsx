@@ -749,13 +749,18 @@ export function PublicBookingForm({
             {t("nav.back")}
           </button>
 
-      {/* Wie ben je */}
+      {/* Wie ben je. De [&_label]/[&_input]/[&_textarea]-utilities forceren
+          de form-tekst naar de "Tekst"-thema-token (--muted-foreground) i.p.v.
+          de geërfde "Koppen"-token (--foreground). Zonder dit wordt label- en
+          getypte tekst onleesbaar (wit-op-wit) zodra een tenant z'n koppen-
+          kleur licht zet — body-tekst moet altijd leesbaar blijven. */}
       <Section icon={User} accent={accent} title={t("sec.you")}>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 [&_input]:text-muted-foreground [&_label]:text-muted-foreground [&_textarea]:text-muted-foreground">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               label={t("field.name")}
               autoComplete="name"
+              placeholder="Jan Jansen"
               error={errors.customerName?.message}
               {...register("customerName")}
             />
@@ -763,6 +768,7 @@ export function PublicBookingForm({
               label={t("field.email")}
               type="email"
               autoComplete="email"
+              placeholder="naam@voorbeeld.com"
               error={errors.customerEmail?.message}
               {...register("customerEmail")}
             />
@@ -772,6 +778,7 @@ export function PublicBookingForm({
             label={t("field.phone")}
             type="tel"
             autoComplete="tel"
+            placeholder="06 12345678"
             error={errors.customerPhone?.message}
             {...register("customerPhone")}
           />
