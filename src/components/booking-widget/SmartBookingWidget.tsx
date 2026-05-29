@@ -302,12 +302,15 @@ function ProgressIndicator({
   labels: string[];
 }) {
   return (
-    <div className="mb-6 flex items-center gap-2">
+    // Op mobile alleen cijfers + lijnen; labels passen niet bij 4-5 stappen
+    // in de smalle widget-container (zou over de rand uitsteken). Vanaf sm:
+    // labels weer ernaast.
+    <div className="mb-6 flex items-center gap-1.5 sm:gap-2">
       {labels.map((label, i) => {
         const done = i < currentIndex;
         const active = i === currentIndex;
         return (
-          <div key={label} className="flex flex-1 items-center gap-2">
+          <div key={label} className="flex flex-1 items-center gap-1.5 sm:gap-2">
             <div className="flex items-center gap-2">
               <span
                 className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all"
@@ -320,7 +323,7 @@ function ProgressIndicator({
                 {done ? <Check className="size-3" /> : i + 1}
               </span>
               <span
-                className="text-xs font-medium tracking-wide"
+                className="hidden text-xs font-medium tracking-wide sm:inline"
                 style={{
                   color: active
                     ? accent
