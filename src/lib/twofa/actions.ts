@@ -7,6 +7,7 @@ import { signIn } from "@/lib/auth";
 import { requireUser } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import {
   buildOtpauthUrl,
   buildQrDataUrl,
@@ -241,6 +242,8 @@ export async function disableTwoFactorAction(
   password: string,
 ): Promise<ActionResult> {
   const u = await requireUser();
+  const blocked = blockDemoWrite(u);
+  if (blocked) return blocked;
   // Admins cannot disable 2FA themselves.
   if (u.isAdmin) {
     return { ok: false, error: "Admins kunnen 2FA niet uitzetten" };
@@ -279,6 +282,8 @@ export async function regenerateBackupCodesAction(): Promise<
   ActionResult<{ backupCodes: string[] }>
 > {
   const u = await requireUser();
+  const blocked = blockDemoWrite(u);
+  if (blocked) return blocked;
   const dbUser = await db.user.findUnique({
     where: { id: u.id },
     select: { twoFactorEnabledAt: true },

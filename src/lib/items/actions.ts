@@ -16,6 +16,7 @@ import type { ActionResult } from "@/lib/auth/schemas";
 import { planLimits } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -39,6 +40,8 @@ export async function createItemAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -117,6 +120,8 @@ export async function createItemAction(
 export async function updateItemAction(input: ItemUpdateInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = itemUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -177,6 +182,8 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
 export async function deleteItemAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.item.findFirst({
     where: { id, organizationId: ctx.organization.id },

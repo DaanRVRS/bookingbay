@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
 import { getCurrentUser } from "@/lib/auth/session";
+import { blockDemoWriteResponse } from "@/lib/demo/guard";
 import {
   exchangeCodeForTokens,
   type GoogleCalendarConfig,
@@ -63,6 +64,8 @@ export async function GET(req: Request) {
   if (membership.role === "VIEWER") {
     return redirectWithError("VIEWER-rol mag geen koppelingen activeren");
   }
+  const blocked = blockDemoWriteResponse(user);
+  if (blocked) return blocked;
 
   const redirectUri = `${env.APP_URL}/api/integrations/google-calendar/callback`;
 

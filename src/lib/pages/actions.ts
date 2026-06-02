@@ -10,6 +10,7 @@ import type { Plan } from "@prisma/client";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import {
   pageCreateSchema,
   pageMetaUpdateSchema,
@@ -42,6 +43,8 @@ export async function createPageAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -108,6 +111,8 @@ export async function updatePageMetaAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = pageMetaUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -169,6 +174,8 @@ export async function updatePageBlocksAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = pageBlocksUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -202,6 +209,8 @@ export async function updatePageBlocksAction(
 export async function deletePageAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.page.findFirst({
     where: { id, organizationId: ctx.organization.id },
@@ -234,6 +243,8 @@ export async function reorderPagesAction(input: {
 }): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   if (!Array.isArray(input.orderedIds) || input.orderedIds.length === 0) {
     return { ok: false, error: "Lege volgorde" };

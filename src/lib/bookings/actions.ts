@@ -16,6 +16,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { syncBookingExternal } from "@/lib/integrations/sync-booking";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
@@ -32,6 +33,8 @@ export async function createBookingAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -112,6 +115,8 @@ export async function createBookingAction(
 export async function updateBookingAction(input: BookingUpdateInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = bookingUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -176,6 +181,8 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
 export async function cancelBookingAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.booking.findFirst({
     where: { id, organizationId: ctx.organization.id },
@@ -214,6 +221,8 @@ export async function completeBookingAction(input: {
 }): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.booking.findFirst({
     where: { id: input.id, organizationId: ctx.organization.id },
@@ -257,6 +266,8 @@ export async function setBookingStatusAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.booking.findFirst({
     where: { id, organizationId: ctx.organization.id },
@@ -317,6 +328,8 @@ export async function moveBookingAction(input: {
 }): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "bookings:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.booking.findFirst({
     where: { id: input.id, organizationId: ctx.organization.id },

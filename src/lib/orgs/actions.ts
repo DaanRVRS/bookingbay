@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireUser, ACTIVE_ORG_COOKIE } from "@/lib/auth/session";
 import { onboardingSchema, type OnboardingInput } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { autoLinkProspectByEmail } from "@/lib/admin/prospects/actions";
 import { notifyNewSignup } from "@/lib/discord/notifications";
 
@@ -22,6 +23,8 @@ export async function createOrganizationAction(
   input: OnboardingInput,
 ): Promise<ActionResult<{ organizationId: string; slug: string }>> {
   const user = await requireUser();
+  const blocked = blockDemoWrite(user);
+  if (blocked) return blocked;
   if (!user.emailVerified) {
     return { ok: false, error: "Bevestig eerst je e-mail" };
   }

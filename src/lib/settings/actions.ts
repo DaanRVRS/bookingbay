@@ -19,6 +19,7 @@ import {
 } from "./schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
+import { blockDemoWrite } from "@/lib/demo/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -37,6 +38,8 @@ const RESERVED_SLUGS = new Set([
 
 export async function updateProfileAction(input: UpdateProfileInput): Promise<ActionResult> {
   const user = await requireUser();
+  const blocked = blockDemoWrite(user);
+  if (blocked) return blocked;
   const parsed = updateProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
@@ -52,6 +55,8 @@ export async function updateProfileAction(input: UpdateProfileInput): Promise<Ac
 
 export async function changePasswordAction(input: ChangePasswordInput): Promise<ActionResult> {
   const user = await requireUser();
+  const blocked = blockDemoWrite(user);
+  if (blocked) return blocked;
   const parsed = changePasswordSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
@@ -85,6 +90,8 @@ export async function changePasswordAction(input: ChangePasswordInput): Promise<
 export async function updateOrgAction(input: UpdateOrgInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "org:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = updateOrgSchema.safeParse(input);
   if (!parsed.success) {
@@ -139,6 +146,8 @@ export async function updateOrgAction(input: UpdateOrgInput): Promise<ActionResu
 export async function deleteOrgAction(input: DeleteOrgInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "org:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = deleteOrgSchema.safeParse(input);
   if (!parsed.success) {

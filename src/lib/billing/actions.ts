@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { isMollieConfigured } from "./mollie";
 import {
   markScheduledCancel,
@@ -22,6 +23,8 @@ export async function startCheckoutAction(): Promise<
 > {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "org:billing");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   if (!isMollieConfigured()) {
     return {
@@ -50,6 +53,8 @@ export async function startCheckoutAction(): Promise<
 export async function cancelSubscriptionAction(): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "org:billing");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   try {
     await markScheduledCancel(ctx.organization.id);
@@ -69,6 +74,8 @@ export async function cancelSubscriptionAction(): Promise<ActionResult> {
 export async function resumeSubscriptionAction(): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "org:billing");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   try {
     await resumeSubscription(ctx.organization.id);

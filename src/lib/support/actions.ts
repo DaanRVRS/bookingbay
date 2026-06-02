@@ -12,6 +12,7 @@ import {
   notifyTicketReply,
 } from "@/lib/discord/notifications";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import {
   adminUpdateTicketSchema,
   CATEGORY_PRIORITY,
@@ -37,6 +38,8 @@ export async function createTicketAction(
   input: CreateTicketInput,
 ): Promise<ActionResult<{ ticketId: string }>> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const parsed = createTicketSchema.safeParse(input);
   if (!parsed.success) {
     return {

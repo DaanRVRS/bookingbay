@@ -7,6 +7,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import type { ActionResult } from "@/lib/auth/schemas";
 import {
   reviewCreateSchema,
@@ -30,6 +31,8 @@ export async function createReviewAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -75,6 +78,8 @@ export async function updateReviewAction(
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = reviewUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -114,6 +119,8 @@ export async function updateReviewAction(
 export async function deleteReviewAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.review.findFirst({
     where: { id, organizationId: ctx.organization.id },
@@ -141,6 +148,8 @@ export async function reorderReviewsAction(input: {
 }): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "site:customize");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = reviewReorderSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Lege volgorde" };

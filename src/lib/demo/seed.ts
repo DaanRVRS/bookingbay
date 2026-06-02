@@ -1,40 +1,51 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 
 /**
- * Maakt een verse demo-tenant aan voor een prospect: User (isDemo) +
- * Organization (isDemo, trialEndsAt ver in de toekomst zodat de
- * subscription-banner niets verwijt) + memberships + seed-content
- * (2 categorieën, 4 items, 3 klanten, 5 bookings).
+ * Eén vaste, gedeelde demo-tenant. Idempotent: bestaat 'ie al (op de vaste
+ * slug), dan geven we de bestaande demo-user terug; anders maken we 'm één
+ * keer aan met realistische voorbeelddata.
  *
- * Slug is gerandomiseerd zodat parallelle demo's elkaar niet bijten;
- * email idem zodat we de unique-constraint niet schenden.
- *
- * Belangrijke afwegingen voor de seed:
- *  - Geen Mollie/Stripe keys → online-payment-paden zijn uit voor demo's
- *  - Niet de echte e-mail van de prospect: dummy klanten + bookings,
- *    anders krijgt 'ie reminder-mails over verzonnen boekingen
- *  - Een paar bookings in het verleden (voltooid), één vandaag, paar
- *    in de toekomst — dashboard ziet er meteen bewoond uit
+ * De demo is read-only voor bezoekers (zie lib/demo/guard.ts) — er is dus
+ * maar ÉÉN demo-account in het systeem, geen wegwerp-tenants per bezoeker.
+ * De demo-user is OWNER zodat de volledige UI getoond wordt; schrijfacties
+ * worden door de demo-guard geblokkeerd.
  */
-export async function createDemoTenant(): Promise<{
-  userId: string;
-  organizationId: string;
-  slug: string;
-}> {
-  const stamp = randomBytes(6).toString("hex");
-  const email = `demo-${stamp}@bookingbay.demo`;
-  const slug = `demo-${stamp}`;
 
-  // 1 jaar trial → SubscriptionBanner valt niet over verlopen trial
+const DEMO_SLUG = "demo";
+const DEMO_EMAIL = "demo@bookingbay.demo";
+
+export async function ensureDemoUserId(): Promise<string> {
+  // Bestaat de demo-tenant al? Pak de OWNER-membership-user.
+  const existing = await db.organization.findUnique({
+    where: { slug: DEMO_SLUG },
+    select: {
+      id: true,
+      memberships: {
+        where: { role: "OWNER" },
+        select: { userId: true },
+        take: 1,
+      },
+    },
+  });
+  if (existing && existing.memberships[0]) {
+    return existing.memberships[0].userId;
+  }
+
+  // Nog niet aangemaakt → één keer seeden.
+  const { userId } = await createDemoTenant();
+  return userId;
+}
+
+async function createDemoTenant(): Promise<{ userId: string; organizationId: string }> {
+  // 1 jaar trial → SubscriptionBanner valt niet over een verlopen trial.
   const trialEndsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
   const user = await db.user.create({
     data: {
-      email,
+      email: DEMO_EMAIL,
       name: "Demo Eigenaar",
-      emailVerified: new Date(), // skip verify-flow
+      emailVerified: new Date(),
       isDemo: true,
     },
     select: { id: true },
@@ -43,7 +54,7 @@ export async function createDemoTenant(): Promise<{
   const org = await db.organization.create({
     data: {
       name: "Verhuur de Hoeve (demo)",
-      slug,
+      slug: DEMO_SLUG,
       industry: "Botenverhuur",
       heroTitle: "Vaar de meren op",
       heroSubtitle: "Sloepen en zeilboten — direct online te boeken",
@@ -60,7 +71,7 @@ export async function createDemoTenant(): Promise<{
       isDemo: true,
       memberships: { create: { userId: user.id, role: "OWNER" } },
     },
-    select: { id: true, slug: true },
+    select: { id: true },
   });
 
   // ── Catalogus ────────────────────────────────────────────────────────
@@ -90,7 +101,9 @@ export async function createDemoTenant(): Promise<{
       categoryId: boten.id,
       pricePerHour: 35,
       pricePerDay: 145,
+      pricePerWeek: 750,
       deposit: 100,
+      cleaningFee: 25,
     },
     {
       name: "Sloep 'De Zwaan'",
@@ -98,7 +111,9 @@ export async function createDemoTenant(): Promise<{
       categoryId: boten.id,
       pricePerHour: 28,
       pricePerDay: 110,
+      pricePerWeek: 560,
       deposit: 75,
+      cleaningFee: 20,
     },
     {
       name: "Polyvalk 16",
@@ -106,7 +121,9 @@ export async function createDemoTenant(): Promise<{
       categoryId: zeilboten.id,
       pricePerHour: null,
       pricePerDay: 95,
+      pricePerWeek: 480,
       deposit: 50,
+      cleaningFee: null,
     },
     {
       name: "Valk 20",
@@ -114,7 +131,9 @@ export async function createDemoTenant(): Promise<{
       categoryId: zeilboten.id,
       pricePerHour: null,
       pricePerDay: 160,
+      pricePerWeek: 850,
       deposit: 100,
+      cleaningFee: null,
     },
   ];
 
@@ -128,7 +147,9 @@ export async function createDemoTenant(): Promise<{
         description: data.description,
         pricePerHour: data.pricePerHour ?? undefined,
         pricePerDay: data.pricePerDay,
+        pricePerWeek: data.pricePerWeek ?? undefined,
         deposit: data.deposit,
+        cleaningFee: data.cleaningFee ?? undefined,
         quantity: 1,
         isActive: true,
       },
@@ -139,21 +160,9 @@ export async function createDemoTenant(): Promise<{
 
   // ── Klanten ──────────────────────────────────────────────────────────
   const customersToCreate = [
-    {
-      name: "Lisa de Jong",
-      email: "lisa.dejong@voorbeeld.demo",
-      phone: "06 11 22 33 44",
-    },
-    {
-      name: "Mark Visser",
-      email: "mark.visser@voorbeeld.demo",
-      phone: "06 22 33 44 55",
-    },
-    {
-      name: "Familie Bakker",
-      email: "p.bakker@voorbeeld.demo",
-      phone: "06 33 44 55 66",
-    },
+    { name: "Lisa de Jong", email: "lisa.dejong@voorbeeld.demo", phone: "06 11 22 33 44" },
+    { name: "Mark Visser", email: "mark.visser@voorbeeld.demo", phone: "06 22 33 44 55" },
+    { name: "Familie Bakker", email: "p.bakker@voorbeeld.demo", phone: "06 33 44 55 66" },
   ];
   const customers: { id: string }[] = [];
   for (const data of customersToCreate) {
@@ -166,64 +175,21 @@ export async function createDemoTenant(): Promise<{
 
   // ── Boekingen — mix van verleden + heden + toekomst ──────────────────
   const now = new Date();
-  const daysAgo = (n: number, hour: number, end: number) => {
+  const at = (dayOffset: number, startHour: number, endHour: number) => {
     const start = new Date(now);
-    start.setDate(start.getDate() - n);
-    start.setHours(hour, 0, 0, 0);
+    start.setDate(start.getDate() + dayOffset);
+    start.setHours(startHour, 0, 0, 0);
     const endAt = new Date(start);
-    endAt.setHours(end, 0, 0, 0);
-    return { start, endAt };
-  };
-  const daysFromNow = (n: number, hour: number, end: number) => {
-    const start = new Date(now);
-    start.setDate(start.getDate() + n);
-    start.setHours(hour, 0, 0, 0);
-    const endAt = new Date(start);
-    endAt.setHours(end, 0, 0, 0);
+    endAt.setHours(endHour, 0, 0, 0);
     return { start, endAt };
   };
 
   const bookings = [
-    // 2 voltooide boekingen vorige week
-    {
-      ...daysAgo(8, 10, 16),
-      itemId: items[0].id,
-      customerId: customers[0].id,
-      status: "COMPLETED" as const,
-      totalPrice: 145,
-      completedAt: daysAgo(8, 16, 16).start,
-    },
-    {
-      ...daysAgo(5, 11, 17),
-      itemId: items[2].id,
-      customerId: customers[1].id,
-      status: "COMPLETED" as const,
-      totalPrice: 95,
-      completedAt: daysAgo(5, 17, 17).start,
-    },
-    // 1 bevestigd voor vandaag
-    {
-      ...daysFromNow(0, 13, 18),
-      itemId: items[1].id,
-      customerId: customers[2].id,
-      status: "CONFIRMED" as const,
-      totalPrice: 110,
-    },
-    // 2 toekomstig
-    {
-      ...daysFromNow(3, 9, 17),
-      itemId: items[3].id,
-      customerId: customers[0].id,
-      status: "CONFIRMED" as const,
-      totalPrice: 160,
-    },
-    {
-      ...daysFromNow(7, 10, 14),
-      itemId: items[0].id,
-      customerId: customers[1].id,
-      status: "PENDING" as const,
-      totalPrice: 145,
-    },
+    { ...at(-8, 10, 16), itemId: items[0].id, customerId: customers[0].id, status: "COMPLETED" as const, totalPrice: 145, completed: true },
+    { ...at(-5, 11, 17), itemId: items[2].id, customerId: customers[1].id, status: "COMPLETED" as const, totalPrice: 95, completed: true },
+    { ...at(0, 13, 18), itemId: items[1].id, customerId: customers[2].id, status: "CONFIRMED" as const, totalPrice: 110, completed: false },
+    { ...at(3, 9, 17), itemId: items[3].id, customerId: customers[0].id, status: "CONFIRMED" as const, totalPrice: 160, completed: false },
+    { ...at(7, 10, 14), itemId: items[0].id, customerId: customers[1].id, status: "PENDING" as const, totalPrice: 145, completed: false },
   ];
 
   for (const b of bookings) {
@@ -236,10 +202,10 @@ export async function createDemoTenant(): Promise<{
         endAt: b.endAt,
         status: b.status,
         totalPrice: b.totalPrice,
-        completedAt: "completedAt" in b ? b.completedAt : null,
+        completedAt: b.completed ? b.endAt : null,
       },
     });
   }
 
-  return { userId: user.id, organizationId: org.id, slug: org.slug };
+  return { userId: user.id, organizationId: org.id };
 }

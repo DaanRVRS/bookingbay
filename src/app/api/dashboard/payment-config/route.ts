@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
+import { blockDemoWriteResponse } from "@/lib/demo/guard";
 import { encryptIfPresent } from "@/lib/payments/config";
 import { revalidatePath } from "next/cache";
 
@@ -63,6 +64,8 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
+  const blocked = blockDemoWriteResponse(ctx);
+  if (blocked) return blocked;
 
   const data = parsed.data;
   const onlineProvider = data.onlineProvider ?? null;

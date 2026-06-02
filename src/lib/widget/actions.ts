@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { WIDGET_THEME_KEYS, normUspIcon } from "@/lib/widget/theme";
 
 const WIDGET_LOCALE_CODES = [
@@ -57,6 +58,8 @@ export async function saveWidgetDesignAction(
   const ctx = await requireOrg();
   // Iedere rol met dashboard-toegang kan widget-design wijzigen. Eventueel
   // later achter een aparte permissie zetten.
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = widgetDesignSchema.safeParse(input);
   if (!parsed.success) {

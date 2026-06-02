@@ -44,7 +44,6 @@ export async function GET(req: Request) {
     completion: runAfrondingReminder,
     customerMails: runKlantEmailReminder,
     reviewRequests: runReviewRequests,
-    demoCleanup: runDemoCleanup,
   } as const;
 
   const entries = Object.entries(tasks);
@@ -359,45 +358,4 @@ async function runReviewRequests() {
   }
 
   return { candidates: eligible.length, sent, failed, skippedTooSoon };
-}
-
-// ── 5. Demo-tenant cleanup ───────────────────────────────────────────────
-
-/**
- * Wist demo-organisaties + bijbehorende demo-users die ouder zijn dan
- * 2 dagen. Demo-tenants zijn wegwerp (een prospect bekijkt 'm één keer),
- * dus een kort venster houdt de DB schoon. Cascade van de FK's ruimt
- * items / bookings / memberships / customers etc. automatisch op; daarna
- * droppen we de losse User-rij (geen cascade vanuit Org → User).
- */
-async function runDemoCleanup() {
-  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-
-  const staleOrgs = await db.organization.findMany({
-    where: { isDemo: true, createdAt: { lt: cutoff } },
-    select: { id: true, memberships: { select: { userId: true } } },
-  });
-
-  const userIds = new Set<string>();
-  for (const o of staleOrgs) {
-    for (const m of o.memberships) userIds.add(m.userId);
-  }
-
-  const orgResult = await db.organization.deleteMany({
-    where: { id: { in: staleOrgs.map((o) => o.id) } },
-  });
-  // Alleen demo-users wissen die NA de org-delete nergens meer member
-  // zijn. `isDemo: true` sluit echte users al uit, maar `memberships:
-  // { none: {} }` is de harde garantie: een demo-user die toevallig nog
-  // ergens (een niet-stale of echte org) lid is, blijft staan i.p.v. dat
-  // z'n membership daar cascade-weg zou vallen.
-  const userResult = await db.user.deleteMany({
-    where: {
-      id: { in: [...userIds] },
-      isDemo: true,
-      memberships: { none: {} },
-    },
-  });
-
-  return { orgsDeleted: orgResult.count, usersDeleted: userResult.count };
 }

@@ -14,6 +14,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -29,6 +30,8 @@ export async function createCategoryAction(
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -82,6 +85,8 @@ export async function createCategoryAction(
 export async function updateCategoryAction(input: CategoryUpdateInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = categoryUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -130,6 +135,8 @@ export async function reorderCategoriesAction(input: {
 }): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   if (!Array.isArray(input.orderedIds) || input.orderedIds.length === 0) {
     return { ok: false, error: "Lege volgorde" };
@@ -168,6 +175,8 @@ export async function reorderCategoriesAction(input: {
 export async function deleteCategoryAction(id: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "catalog:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const existing = await db.category.findFirst({
     where: { id, organizationId: ctx.organization.id },

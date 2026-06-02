@@ -23,6 +23,7 @@ import type { ActionResult } from "@/lib/auth/schemas";
 import { planLimits } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
 import { assertOrgActive } from "@/lib/billing/guard";
+import { blockDemoWrite } from "@/lib/demo/guard";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -40,6 +41,8 @@ function token(bytes = 32) {
 export async function inviteMemberAction(input: InviteInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "members:invite");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const blocked = await assertOrgActive(ctx.organization.id);
   if (blocked) return blocked;
 
@@ -174,6 +177,8 @@ export async function inviteMemberAction(input: InviteInput): Promise<ActionResu
 export async function cancelInviteAction(invitationId: string): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "members:invite");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const invite = await db.invitation.findFirst({
     where: { id: invitationId, organizationId: ctx.organization.id },
@@ -198,6 +203,8 @@ export async function cancelInviteAction(invitationId: string): Promise<ActionRe
 export async function updateRoleAction(input: UpdateRoleInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "members:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = updateRoleSchema.safeParse(input);
   if (!parsed.success) {
@@ -245,6 +252,8 @@ export async function updateRoleAction(input: UpdateRoleInput): Promise<ActionRe
 export async function removeMemberAction(input: RemoveMemberInput): Promise<ActionResult> {
   const ctx = await requireOrg();
   assertCan(ctx.membership.role, "members:manage");
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const parsed = removeMemberSchema.safeParse(input);
   if (!parsed.success) {

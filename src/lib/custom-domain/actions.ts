@@ -10,6 +10,7 @@ import { env } from "@/lib/env";
 import { planLimits } from "@/lib/plans";
 import type { Plan } from "@prisma/client";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 
 // RFC-ish — sub.domain.tld minimum. Geen wildcards, geen IP-literals,
 // geen schema-prefix. Lowercase forceren we in de action.
@@ -28,6 +29,8 @@ export async function setCustomDomainAction(
   input: { domain: string },
 ): Promise<ActionResult<{ cnameTarget: string }>> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const limits = planLimits(ctx.organization.plan as Plan);
   if (!limits.customDomain) {
     return {
@@ -86,6 +89,8 @@ export async function verifyCustomDomainAction(): Promise<
   ActionResult<{ verified: boolean; observed?: string[]; expected: string }>
 > {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
     select: { customDomain: true, customDomainVerifiedAt: true },
@@ -151,6 +156,8 @@ export async function verifyCustomDomainAction(): Promise<
 
 export async function removeCustomDomainAction(): Promise<ActionResult> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
     select: { customDomain: true },

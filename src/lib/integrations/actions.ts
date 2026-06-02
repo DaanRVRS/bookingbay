@@ -9,6 +9,7 @@ import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import { notifyNewSupportTicket } from "@/lib/discord/notifications";
 import type { ActionResult } from "@/lib/auth/schemas";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { getIntegration } from "./catalog";
 import { isGoogleConfigured, revokeToken } from "./google-calendar";
 import { unsealConfig } from "./crypto";
@@ -47,6 +48,8 @@ export async function registerInterestAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult<{ status: "INTERESTED" }>> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer" };
@@ -204,6 +207,8 @@ export async function requestActivationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult<{ status: "REQUESTED" } | { redirectTo: string }>> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer" };
@@ -356,6 +361,8 @@ export async function pauseIntegrationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer" };
@@ -414,6 +421,8 @@ export async function removeIntegrationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer" };

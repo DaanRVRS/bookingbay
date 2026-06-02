@@ -7,6 +7,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
+import { blockDemoWrite } from "@/lib/demo/guard";
 import { businessHoursSchema, type BusinessHours } from "./schemas";
 
 /** Org-level openingstijden bijwerken. `null` wist ze (24/7). */
@@ -17,6 +18,8 @@ export async function setOrgBusinessHoursAction(
   if (!can(ctx.membership.role, "org:manage")) {
     return { ok: false, error: "Je hebt geen rechten om dit te wijzigen." };
   }
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const data = hours === null ? null : businessHoursSchema.parse(hours);
 
@@ -51,6 +54,8 @@ export async function setItemBusinessHoursOverrideAction(
   if (!can(ctx.membership.role, "catalog:manage")) {
     return { ok: false, error: "Je hebt geen rechten om dit te wijzigen." };
   }
+  const demoBlocked = blockDemoWrite(ctx);
+  if (demoBlocked) return demoBlocked;
 
   const item = await db.item.findUnique({
     where: { id: itemId },
