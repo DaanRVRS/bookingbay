@@ -365,12 +365,13 @@ async function runReviewRequests() {
 
 /**
  * Wist demo-organisaties + bijbehorende demo-users die ouder zijn dan
- * 7 dagen. Cascade van de FK's ruimt items / bookings / memberships
- * / customers etc. automatisch op. We droppen daarna ook de losse
- * User-rij (geen cascade vanuit Org → User).
+ * 2 dagen. Demo-tenants zijn wegwerp (een prospect bekijkt 'm één keer),
+ * dus een kort venster houdt de DB schoon. Cascade van de FK's ruimt
+ * items / bookings / memberships / customers etc. automatisch op; daarna
+ * droppen we de losse User-rij (geen cascade vanuit Org → User).
  */
 async function runDemoCleanup() {
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
 
   const staleOrgs = await db.organization.findMany({
     where: { isDemo: true, createdAt: { lt: cutoff } },

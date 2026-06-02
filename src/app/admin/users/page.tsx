@@ -18,21 +18,30 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const q = (params.q ?? "").trim();
 
-  const users = await db.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { email: { contains: q, mode: "insensitive" } },
-            { name: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    include: {
-      _count: { select: { memberships: true } },
-    },
-  });
+  // Demo-accounts (isDemo) horen niet in de klanten-lijst — het zijn
+  // wegwerp-tenants van de publieke /demo. We tellen ze apart zodat de
+  // admin wel ziet hoeveel er rondzwerven, maar ze vervuilen de tabel niet.
+  const [users, demoCount] = await Promise.all([
+    db.user.findMany({
+      where: {
+        isDemo: false,
+        ...(q
+          ? {
+              OR: [
+                { email: { contains: q, mode: "insensitive" } },
+                { name: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: {
+        _count: { select: { memberships: true } },
+      },
+    }),
+    db.user.count({ where: { isDemo: true } }),
+  ]);
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -42,6 +51,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             <h1 className="text-2xl font-semibold tracking-tight">Gebruikers</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {users.length} {users.length === 1 ? "resultaat" : "resultaten"} (max 200)
+              {demoCount > 0 && (
+                <span className="text-muted-foreground/70">
+                  {" "}· {demoCount} demo-account{demoCount === 1 ? "" : "s"} verborgen
+                </span>
+              )}
             </p>
           </div>
           <form action="/admin/users" className="w-full max-w-sm">

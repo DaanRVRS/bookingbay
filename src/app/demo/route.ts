@@ -42,8 +42,30 @@ export async function GET() {
   }
 
   if (!userId) {
-    const created = await createDemoTenant();
-    userId = created.userId;
+    // Anti-bot rem: een crawler stuurt geen cookie, dus zonder limiet zou
+    // elke hit een nieuwe demo-tenant maken → DB-explosie. Cap het aantal
+    // verse demo-tenants per uur; bij een storm hergebruiken we een
+    // bestaande recente demo i.p.v. de DB vol te pompen. Normale bezoekers
+    // (enkele per uur) raken deze grens nooit.
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentDemoCount = await db.organization.count({
+      where: { isDemo: true, createdAt: { gte: oneHourAgo } },
+    });
+
+    if (recentDemoCount >= 20) {
+      const reuse = await db.user.findFirst({
+        where: { isDemo: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (reuse) userId = reuse.id;
+    }
+
+    if (!userId) {
+      const created = await createDemoTenant();
+      userId = created.userId;
+    }
+
     cookieStore.set(COOKIE, userId, {
       httpOnly: true,
       sameSite: "lax",
