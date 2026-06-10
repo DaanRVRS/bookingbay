@@ -89,13 +89,24 @@ function atTimeMs(day: Date, hhmm: string): number {
   return d.getTime();
 }
 
-function rangeOverlapsBooking(
+/**
+ * Hoeveel bestaande boekingen/blokken overlappen een kandidaat-tijdvak?
+ * De server (checkAvailability) accepteert de boeking zolang dit aantal
+ * < quantity is — de widget telt op exact dezelfde manier, zodat een item
+ * met meerdere exemplaren (bv. 2 boten) niet onterecht "vol" lijkt zodra
+ * er één geboekt is.
+ */
+function countOverlaps(
   startMs: number,
   endMs: number,
   bookings: BookingInterval[],
-): boolean {
-  if (!(endMs > startMs)) return false;
-  return bookings.some((b) => b.startMs < endMs && b.endMs > startMs);
+): number {
+  if (!(endMs > startMs)) return 0;
+  let n = 0;
+  for (const b of bookings) {
+    if (b.startMs < endMs && b.endMs > startMs) n++;
+  }
+  return n;
 }
 
 function dateKey(d: Date): string {
@@ -103,21 +114,22 @@ function dateKey(d: Date): string {
 }
 
 /**
- * Heeft een dag minstens één boekbaar tijdslot? Gebruikt EXACT dezelfde
- * overlap-logica als de slot-grid (atTimeMs + rangeOverlapsBooking), zodat
- * kalender en grid niet uit elkaar kunnen lopen. Een slot telt alleen mee
- * als z'n hele duur binnen het boekvenster valt (laatste slot dat ná het
- * venster zou eindigen is geen geldige boeking).
+ * Heeft een dag minstens één boekbaar tijdslot? Telt per slot hoeveel
+ * exemplaren bezet zijn en vergelijkt met `quantity` — EXACT dezelfde logica
+ * als de slot-grid en de server, zodat kalender en grid niet uit elkaar
+ * lopen. Een slot telt alleen mee als z'n hele duur binnen het boekvenster
+ * valt (laatste slot dat ná het venster zou eindigen is geen geldige boeking).
  */
 function dayHasFreeSlot(
   day: Date,
   cfg: SlotConfig,
   intervals: BookingInterval[],
+  quantity: number,
 ): boolean {
   for (let m = cfg.windowStartMin; m + cfg.intervalMinutes <= cfg.windowEndMin; m += cfg.intervalMinutes) {
     const hhmm = minToHHMM(m);
     const a = atTimeMs(day, hhmm);
-    if (!rangeOverlapsBooking(a, a + cfg.intervalMinutes * 60_000, intervals)) {
+    if (countOverlaps(a, a + cfg.intervalMinutes * 60_000, intervals) < quantity) {
       return true;
     }
   }
@@ -157,6 +169,9 @@ export function PublicBookingForm({
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [slotConfig, setSlotConfig] = useState<SlotConfig>(DEFAULT_SLOT_CONFIG);
   const [bookings, setBookings] = useState<BookingInterval[]>([]);
+  // Voorraad van het gekozen item (aantal exemplaren). Bepaalt hoeveel
+  // gelijktijdige boekingen een tijdslot aankan voor het "vol" is.
+  const [itemQuantity, setItemQuantity] = useState(1);
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false);
   const [locationPaymentAvailable, setLocationPaymentAvailable] =
     useState(true);
@@ -254,6 +269,7 @@ export function PublicBookingForm({
             ...(res.blocks ?? []),
           ];
           setBookings(intervals);
+          setItemQuantity(Number(res.quantity) > 0 ? Number(res.quantity) : 1);
           setOnlinePaymentAvailable(Boolean(res.onlinePaymentAvailable));
           setLocationPaymentAvailable(res.locationPaymentAvailable !== false);
           // Eén optie beschikbaar → automatisch voorselecteren (geen
@@ -337,13 +353,13 @@ export function PublicBookingForm({
     for (let i = 0; i <= lookaheadDays; i++) {
       const day = new Date(start);
       day.setDate(day.getDate() + i);
-      if (!dayHasFreeSlot(day, slotConfig, bookings)) {
+      if (!dayHasFreeSlot(day, slotConfig, bookings, itemQuantity)) {
         out.add(dateKey(day));
       }
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slotConfig, bookings, today.getTime(), lookaheadDays, unavailableDates]);
+  }, [slotConfig, bookings, itemQuantity, today.getTime(), lookaheadDays, unavailableDates]);
 
   // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
   // zijn voordat we naar de gegevens/betaal-stap gaan.
@@ -718,6 +734,7 @@ export function PublicBookingForm({
               day={date ?? null}
               cfg={slotConfig}
               intervals={bookings}
+              quantity={itemQuantity}
               accent={accent}
               onPick={(n) => {
                 setStartTime(n.startTime);
@@ -1062,6 +1079,7 @@ function TimeRangeGrid({
   day,
   cfg,
   intervals,
+  quantity,
   accent,
   onPick,
   labels,
@@ -1071,6 +1089,7 @@ function TimeRangeGrid({
   day: Date | null;
   cfg: SlotConfig;
   intervals: BookingInterval[];
+  quantity: number;
   accent: string;
   onPick: (next: { startTime: string; endTime: string }) => void;
   labels: { title: string; hint: string; fullTitle: string };
@@ -1114,25 +1133,25 @@ function TimeRangeGrid({
         {slots.map((slot) => {
           const slotMin = hhmmToMin(slot);
 
-          // 1) Slot-zelf zit in een boeking → uit.
+          // 1) Slot-zelf: pas "vol" als álle exemplaren bezet zijn.
           let overlap = false;
           if (day) {
             const a = atTimeMs(day, slot);
-            overlap = rangeOverlapsBooking(
-              a,
-              a + cfg.intervalMinutes * 60_000,
-              intervals,
-            );
+            overlap =
+              countOverlaps(a, a + cfg.intervalMinutes * 60_000, intervals) >=
+              quantity;
           }
-          // 2) Start al gezet en deze slot komt erna: bereik mag geen
-          //    boeking raken — anders kun je 'm niet als eind kiezen.
+          // 2) Start al gezet en deze slot komt erna: het hele bereik moet
+          //    nog minstens één exemplaar vrij hebben — anders kun je 'm
+          //    niet als eind kiezen.
           let crossDisabled = false;
           if (!overlap && day && startTime && !endTime && slotMin > startMin) {
-            crossDisabled = rangeOverlapsBooking(
-              atTimeMs(day, startTime),
-              atTimeMs(day, slot),
-              intervals,
-            );
+            crossDisabled =
+              countOverlaps(
+                atTimeMs(day, startTime),
+                atTimeMs(day, slot),
+                intervals,
+              ) >= quantity;
           }
           const disabled = overlap || crossDisabled;
 
