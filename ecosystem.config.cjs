@@ -25,6 +25,15 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: "3001",
+        // De Hetzner-box draait in UTC. Naïeve datetime-strings uit de
+        // boek-widget ("2026-07-31T09:00", géén tz-suffix) werden daardoor
+        // als 09:00 UTC gelezen i.p.v. 09:00 NL — waardoor server en
+        // browser het oneens waren over bezette tijdsloten (kalender groen
+        // maar alle uren "vol"). Dit hele product is NL-lokaal (openings-
+        // tijden, klanten), dus laten we Node in Europe/Amsterdam rekenen:
+        // naïeve tijden = NL-tijd, consistent met tenant + browser. IANA-tz
+        // handelt zomer/wintertijd automatisch af.
+        TZ: "Europe/Amsterdam",
       },
       time: true,
     },
