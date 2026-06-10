@@ -98,6 +98,32 @@ function rangeOverlapsBooking(
   return bookings.some((b) => b.startMs < endMs && b.endMs > startMs);
 }
 
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Heeft een dag minstens één boekbaar tijdslot? Gebruikt EXACT dezelfde
+ * overlap-logica als de slot-grid (atTimeMs + rangeOverlapsBooking), zodat
+ * kalender en grid niet uit elkaar kunnen lopen. Een slot telt alleen mee
+ * als z'n hele duur binnen het boekvenster valt (laatste slot dat ná het
+ * venster zou eindigen is geen geldige boeking).
+ */
+function dayHasFreeSlot(
+  day: Date,
+  cfg: SlotConfig,
+  intervals: BookingInterval[],
+): boolean {
+  for (let m = cfg.windowStartMin; m + cfg.intervalMinutes <= cfg.windowEndMin; m += cfg.intervalMinutes) {
+    const hhmm = minToHHMM(m);
+    const a = atTimeMs(day, hhmm);
+    if (!rangeOverlapsBooking(a, a + cfg.intervalMinutes * 60_000, intervals)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function PublicBookingForm({
   slug,
   orgName,
@@ -298,6 +324,26 @@ export function PublicBookingForm({
     return d;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today.getTime(), lookaheadDays]);
+
+  // Welke dagen zijn "vol"? Voor uur-items leiden we dit AF uit de
+  // tijdsloten zelf (zelfde overlap-logica als de grid), zodat de kalender
+  // nooit een dag groen kan tonen terwijl alle tijdsloten dichtzitten — de
+  // tegenstrijdigheid die "dag beschikbaar maar geen slot kiesbaar" gaf.
+  // Per-dag items (geen slot-grid) blijven de server-dagberekening volgen.
+  const derivedUnavailable = useMemo(() => {
+    if (slotConfig.intervalMinutes === 1440) return unavailableDates;
+    const out = new Set<string>();
+    const start = new Date(today);
+    for (let i = 0; i <= lookaheadDays; i++) {
+      const day = new Date(start);
+      day.setDate(day.getDate() + i);
+      if (!dayHasFreeSlot(day, slotConfig, bookings)) {
+        out.add(dateKey(day));
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotConfig, bookings, today.getTime(), lookaheadDays, unavailableDates]);
 
   // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
   // zijn voordat we naar de gegevens/betaal-stap gaan.
@@ -551,16 +597,15 @@ export function PublicBookingForm({
   const showItemPicker =
     !fixedItem && (!itemOptions || itemOptions.length > 0);
 
-  const formatDateKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
+  // derivedUnavailable is afgeleid van de tijdsloten zelf (zie boven) —
+  // gebruik die zodat kalender en grid altijd hetzelfde zeggen.
   const isUnavailable = (date: Date) =>
-    unavailableDates.has(formatDateKey(date));
+    derivedUnavailable.has(dateKey(date));
 
   const isAvailable = (date: Date) => {
     if (date < today) return false;
     if (date > lookaheadEnd) return false;
-    return !unavailableDates.has(formatDateKey(date));
+    return !derivedUnavailable.has(dateKey(date));
   };
 
   // Eén-dag selectie — geen aparte from/to meer.
