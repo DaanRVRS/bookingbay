@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { CustomerDialog } from "@/app/dashboard/customers/customer-dialog";
 import {
   DateTimePicker,
@@ -338,22 +339,19 @@ export function BookingForm({
                 }}
               />
             </div>
-            <Select
-              items={customers.map((c) => ({ value: c.id, label: c.name }))}
-              value={customerId || undefined}
-              onValueChange={(v) => v && setValue("customerId", v, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Kies of maak een klant" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={customers.map((c) => ({
+                value: c.id,
+                label: c.email ? `${c.name} · ${c.email}` : c.name,
+              }))}
+              value={customerId || null}
+              onValueChange={(v) =>
+                setValue("customerId", v ?? "", { shouldValidate: true })
+              }
+              placeholder="Zoek of kies een klant…"
+              emptyText="Geen klant gevonden"
+              invalid={Boolean(errors.customerId)}
+            />
             {errors.customerId?.message && (
               <p className="text-xs font-medium text-destructive">{errors.customerId.message}</p>
             )}
