@@ -7,7 +7,7 @@ import { Plus } from "lucide-react";
 const items = [
   {
     q: "Voor welke verhuurbedrijven is BookingBay geschikt?",
-    a: "Iedereen die spullen, voertuigen of ervaringen verhuurt — boten, fietsen, auto's, gereedschap, party-spullen, golfkarretjes. Je definieert je eigen categorieën, dus er is geen 'verkeerde' branche.",
+    a: "BookingBay is gebouwd voor de vrijetijdsbranche: botenverhuur, sup & kano, e-bikes, camping-, outdoor- en party-verhuur. Je definieert je eigen categorieën en tarieven, dus elke recreatie-niche past — van sloepenverhuur tot strandhuisjes.",
   },
   {
     q: "Kan ik mijn huidige Excel-bestand importeren?",

@@ -31,7 +31,7 @@ export function HeroSection() {
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-4xl leading-[1.04] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.7rem]"
             >
-              Verhuur.
+              Volgeboekt.
               <br />
               <span className="relative inline-block">
                 <span className="bg-gradient-to-r from-[oklch(0.72_0.2_38)] via-primary to-[oklch(0.58_0.2_22)] bg-clip-text text-transparent">
@@ -68,7 +68,8 @@ export function HeroSection() {
               Eén platform voor je <span className="font-medium text-foreground">planning</span>, je{" "}
               <span className="font-medium text-foreground">klanten</span>, je{" "}
               <span className="font-medium text-foreground">facturatie</span> én een eigen
-              boekingssite. Gebouwd voor Nederlandse verhuurbedrijven die genoeg hebben van Excel.
+              boekingssite. Gebouwd voor Nederlandse botenverhuur, watersport en
+              recreatie die genoeg hebben van Excel en telefoontjes.
             </motion.p>
 
             <motion.div
@@ -88,7 +89,7 @@ export function HeroSection() {
                 href="/#use-cases"
                 className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
               >
-                Bekijk wat je kunt verhuren
+                Bekijk voor wie het werkt
               </Link>
             </motion.div>
 

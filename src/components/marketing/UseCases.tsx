@@ -1,44 +1,52 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Sailboat, Bike, Car, Drill, PartyPopper, Tent, type LucideIcon } from "lucide-react";
+import {
+  Sailboat,
+  Waves,
+  Bike,
+  Tent,
+  PartyPopper,
+  TreePalm,
+  type LucideIcon,
+} from "lucide-react";
 
 const cases: { icon: LucideIcon; title: string; body: string; tag: string }[] = [
   {
     icon: Sailboat,
     title: "Boten & sloepen",
-    body: "Per uur, dagdeel of dag. Borg, schipper, brandstof — automatisch in de prijs.",
+    body: "Per uur, dagdeel of dag. Borg, schipper en brandstof — automatisch in de prijs.",
     tag: "Watersport",
+  },
+  {
+    icon: Waves,
+    title: "Sup, kano & kajak",
+    body: "Tijdsloten per board, voorraad per maat en weersafhankelijk annuleren.",
+    tag: "Peddelsport",
   },
   {
     icon: Bike,
     title: "Fietsen & e-bikes",
-    body: "Snelle uitgifte aan de balie, online reserveren, accu-status per fiets.",
-    tag: "Mobiliteit",
-  },
-  {
-    icon: Car,
-    title: "Auto's & busjes",
-    body: "Reserveringen, contracten, kilometerstanden en koppeling met je verzekering.",
-    tag: "Voertuigen",
-  },
-  {
-    icon: Drill,
-    title: "Gereedschap",
-    body: "Voorraad per item-instance, terugbrengcheck en automatische facturatie.",
-    tag: "Bouw & klus",
-  },
-  {
-    icon: PartyPopper,
-    title: "Party & event",
-    body: "Bundels, bezorging, opbouw en pakbon in één klik. Zelfs op zaterdag.",
-    tag: "Events",
+    body: "Snelle uitgifte aan de balie, online reserveren en accu-status per fiets.",
+    tag: "Recreatie",
   },
   {
     icon: Tent,
     title: "Outdoor & camping",
-    body: "Tenten, kano's, padelbanen — wat je ook verhuurt, je categoriseert het zelf.",
-    tag: "Recreatie",
+    body: "Tenten, trekkershutten en survival-gear — bundels, borg en terugbrengcheck.",
+    tag: "Outdoor",
+  },
+  {
+    icon: PartyPopper,
+    title: "Party & event",
+    body: "Springkussens, statafels, tappunten. Bezorging, opbouw en pakbon in één klik.",
+    tag: "Events",
+  },
+  {
+    icon: TreePalm,
+    title: "Strand & beleving",
+    body: "Strandhuisjes, dagje-uit-arrangementen en losse spullen — alles op je eigen agenda.",
+    tag: "Vakantie",
   },
 ];
 
@@ -47,13 +55,14 @@ export function UseCases() {
     <section id="use-cases" className="relative border-t border-border bg-muted/30 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Universeel toepasbaar</p>
+          <p className="text-sm font-medium text-primary">Gemaakt voor de vrijetijdsbranche</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Alles wat verhuurd kan worden, kan op BookingBay.
+            Gebouwd voor watersport & recreatie.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground text-pretty">
-            Definieer zelf je categorieën — geen hardcoded "boten" of "auto's". Of je nu zeilboten,
-            golfkarretjes of espressomachines verhuurt: één plek voor je hele administratie.
+            Van sloepen en sups tot e-bikes en kampeerspullen — jij bepaalt je
+            categorieën en tarieven. Per uur, dagdeel of week, met borg,
+            seizoensprijzen en weersafhankelijk annuleren.
           </p>
         </div>
 

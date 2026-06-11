@@ -19,11 +19,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "BookingBay — Verhuur-administratie zonder gedoe",
+    default: "BookingBay — Boekingssoftware voor watersport & recreatie",
     template: "%s · BookingBay",
   },
   description:
-    "Het verhuurplatform voor boten, fietsen, auto's, gereedschap en alles wat je verhuurt. Plan, factureer, en geef klanten een eigen boekingssite.",
+    "Het boekingsplatform voor botenverhuur, sup, kano, e-bikes en recreatie. Laat klanten online reserveren via je eigen site — met planning, borg en facturatie, zonder commissie aan platforms.",
 };
 
 export default function RootLayout({

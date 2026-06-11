@@ -39,11 +39,11 @@ export function CtaStrip() {
               BookingBay
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-primary-foreground sm:text-4xl">
-              Klaar om je verhuur op orde te brengen?
+              Klaar voor een vollere agenda?
             </h2>
             <p className="mt-4 text-lg text-pretty text-primary-foreground/85">
-              Begin gratis. Importeer je items. Geef klanten een eigen
-              reserveerpagina. Allemaal binnen een halve dag.
+              Begin gratis. Zet je vloot of voorraad klaar. Geef klanten een
+              eigen reserveerpagina. Allemaal binnen een halve dag.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
