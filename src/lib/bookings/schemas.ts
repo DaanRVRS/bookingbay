@@ -18,6 +18,16 @@ const bookingBaseShape = {
     .number({ message: "Vul een prijs in" })
     .nonnegative("Geen negatieve prijs"),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  // Gekozen add-ons (extra's): itemId + aantal. Prijs + naam worden
+  // server-side opgehaald. Leeg/afwezig = geen extra's.
+  addons: z
+    .array(
+      z.object({
+        itemId: z.string().min(1),
+        quantity: z.number().int().min(1).max(99),
+      }),
+    )
+    .optional(),
 };
 
 export const bookingCreateSchema = z

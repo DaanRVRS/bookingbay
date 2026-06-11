@@ -17,6 +17,17 @@ export const publicBookingSchema = z
     // Hoe de klant wil betalen. "online" = direct via tenant's Mollie/Stripe;
     // alles anders (incl. afwezig) = "location" → bij ophalen, booking PENDING.
     paymentChoice: z.enum(["location", "online"]).optional(),
+    // Gekozen add-ons (extra's): itemId + aantal. Prijs + naam worden
+    // server-side opgehaald uit het add-on-item (nooit van de client
+    // vertrouwen). Leeg/afwezig = geen extra's.
+    addons: z
+      .array(
+        z.object({
+          itemId: z.string().min(1),
+          quantity: z.number().int().min(1).max(99),
+        }),
+      )
+      .optional(),
   })
   .refine(
     (d) => {

@@ -52,6 +52,8 @@ export default async function EditItemPage({ params }: PageProps) {
               cleaningFee: item.cleaningFee ? Number(item.cleaningFee) : null,
               quantity: item.quantity,
               isActive: item.isActive,
+              isAddon: item.isAddon,
+              addonPrice: item.addonPrice ? Number(item.addonPrice) : null,
               bookingIntervalMinutes: item.bookingIntervalMinutes,
               bookingWindowStartMin: item.bookingWindowStartMin,
               bookingWindowEndMin: item.bookingWindowEndMin,

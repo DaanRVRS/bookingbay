@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { sendEmail, emailLayout } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
+import type { BookingAddonLine } from "@/lib/bookings/price";
 
 /**
  * Stuurt de klant een bevestiging met daarin de pre-authenticated
@@ -30,6 +31,7 @@ export async function sendBookingConfirmationMail(
       startAt: true,
       endAt: true,
       totalPrice: true,
+      addons: true,
       portalToken: true,
       customer: { select: { name: true, email: true } },
       item: { select: { name: true, cleaningFee: true } },
@@ -70,6 +72,15 @@ export async function sendBookingConfirmationMail(
     ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur.toFixed(2).replace(".", ",")} + schoonmaakkosten €${cleaningEur.toFixed(2).replace(".", ",")}</p>`
     : "";
 
+  // Gekozen extra's tonen als losse regel zodat het totaal verklaarbaar is.
+  const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
+  const addonsLine =
+    addonList.length > 0
+      ? `<p style="margin:0 0 4px 0"><strong>Extra's:</strong> ${addonList
+          .map((a) => `${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`)
+          .join(", ")}</p>`
+      : "";
+
   const contactLine =
     booking.organization.contactPhone || booking.organization.contactEmail
       ? `Heb je een vraag? ${
@@ -89,6 +100,7 @@ export async function sendBookingConfirmationMail(
       </p>
       <p style="margin:0 0 4px 0"><strong>Wat:</strong> ${booking.item.name}</p>
       <p style="margin:0 0 4px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
+      ${addonsLine}
       <p style="margin:0 0 4px 0"><strong>Totaal:</strong> ${amount}</p>
       ${cleaningLine}
       <div style="height:12px"></div>

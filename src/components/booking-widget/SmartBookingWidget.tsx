@@ -35,12 +35,20 @@ interface CategoryBucket {
   items: ItemRow[];
 }
 
+export interface AddonOption {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+}
+
 interface Props {
   slug: string;
   orgName: string;
   logoUrl?: string | null;
   accent: string;
   categories: CategoryBucket[];
+  addons?: AddonOption[];
   usps?: WidgetUsp[];
   tagline?: string | null;
   defaultLocale?: string;
@@ -54,6 +62,7 @@ export function SmartBookingWidget({
   logoUrl,
   accent,
   categories,
+  addons = [],
   usps = [],
   tagline = null,
   defaultLocale = "nl",
@@ -66,6 +75,7 @@ export function SmartBookingWidget({
         logoUrl={logoUrl ?? null}
         accent={accent}
         categories={categories}
+        addons={addons}
         usps={usps}
         tagline={tagline}
       />
@@ -161,6 +171,7 @@ function WidgetInner({
   logoUrl,
   accent,
   categories,
+  addons,
   usps,
   tagline,
 }: {
@@ -169,6 +180,7 @@ function WidgetInner({
   logoUrl: string | null;
   accent: string;
   categories: CategoryBucket[];
+  addons: AddonOption[];
   usps: WidgetUsp[];
   tagline: string | null;
 }) {
@@ -279,6 +291,7 @@ function WidgetInner({
           orgName={orgName}
           accent={accent}
           item={selectedItem}
+          addons={addons}
           onBack={() => {
             setItemId(null);
             setStep("item");
@@ -520,6 +533,7 @@ function FormStep({
   orgName,
   accent,
   item,
+  addons,
   onBack,
   onPhaseChange,
 }: {
@@ -527,6 +541,7 @@ function FormStep({
   orgName: string;
   accent: string;
   item: ItemRow;
+  addons: AddonOption[];
   onBack: () => void;
   onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
 }) {
@@ -582,6 +597,7 @@ function FormStep({
           pricePerWeek: item.pricePerWeek,
           cleaningFee: item.cleaningFee,
         }}
+        addons={addons}
         onPhaseChange={onPhaseChange}
       />
     </div>

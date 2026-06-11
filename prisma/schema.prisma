@@ -367,6 +367,13 @@ model Item {
   quantity Int     @default(1)
   isActive Boolean @default(true)
 
+  // Add-on: dit item is geen losse boeking maar een optionele extra
+  // (zwemvest, koelbox, schipper) die bij een gewone boeking meegekozen kan
+  // worden. addonPrice = vaste prijs per stuk. isAddon-items verschijnen NIET
+  // als zelfstandig boekbaar item in de widget/catalogus — alleen als extra.
+  isAddon    Boolean  @default(false)
+  addonPrice Decimal? @db.Decimal(10, 2)
+
   // Boek-slot configuratie. Bezoekers in de publieke widget zien start-
   // en eindtijden als dropdowns met deze stapgrootte, binnen het window.
   // 1440 = per-dag (geen tijdkeuze in widget).
@@ -451,6 +458,10 @@ model Booking {
   status         BookingStatus @default(CONFIRMED)
   totalPrice     Decimal       @db.Decimal(10, 2)
   notes          String?
+  // Gekozen add-ons (extra's) bij deze boeking — snapshot zodat historische
+  // boekingen kloppen ook als het add-on-item later wijzigt/verdwijnt.
+  // Shape: [{ itemId, name, unitPrice, quantity }]. Null = geen extra's.
+  addons         Json?
   // Nullable: bookings created via the public widget (no logged-in user)
   // have no createdBy. Internal bookings always set this.
   createdById    String?

@@ -14,6 +14,7 @@ import {
   CreditCard,
   Loader2,
   MapPin,
+  Plus,
   User,
   Wallet,
 } from "lucide-react";
@@ -25,7 +26,11 @@ import {
   publicBookingSchema,
   type PublicBookingInput,
 } from "@/lib/bookings/public-schemas";
-import { estimateRentalSubtotal } from "@/lib/bookings/price";
+import {
+  estimateRentalSubtotal,
+  sumAddons,
+  type BookingAddonLine,
+} from "@/lib/bookings/price";
 
 // CSS-vars gezet door themeStyle() op een ouder; nette fallbacks.
 const ON_ACCENT = "var(--bb-on-accent, #fff)";
@@ -40,12 +45,21 @@ interface ItemOption {
   cleaningFee?: number | null;
 }
 
+interface AddonOption {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+}
+
 interface Props {
   slug: string;
   orgName: string;
   accent: string;
   fixedItem?: ItemOption;
   itemOptions?: ItemOption[];
+  /** Optionele extra's die na de "Wanneer"-stap aangeboden worden. */
+  addons?: AddonOption[];
   /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
    *  voortgangsbalk de juiste stap kan oplichten. */
   onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
@@ -142,6 +156,7 @@ export function PublicBookingForm({
   accent,
   fixedItem,
   itemOptions,
+  addons = [],
   onPhaseChange,
 }: Props) {
   const { t, df } = useWidgetI18n();
@@ -183,6 +198,8 @@ export function PublicBookingForm({
   // Review-stap: na "Boeken" laten we eerst een overzicht zien. Pas op
   // "Bevestigen" wordt de boeking echt aangemaakt.
   const [reviewing, setReviewing] = useState(false);
+  // Gekozen extra's (itemId → aantal). Worden na de "Wanneer"-stap getoond.
+  const [addonQty, setAddonQty] = useState<Record<string, number>>({});
 
   const itemsById = useMemo(() => {
     const map = new Map<string, ItemOption>();
@@ -327,7 +344,29 @@ export function PublicBookingForm({
     const cleaningFee = selectedItem.cleaningFee ? Number(selectedItem.cleaningFee) : 0;
     return { subtotal, cleaningFee, total: subtotal + cleaningFee };
   }, [selectedItem, watchedStart, watchedEnd]);
-  const estimate = pricing?.total ?? null;
+  // Gekozen add-ons als prijsregels (snapshot van naam + stuksprijs).
+  const addonLines = useMemo<BookingAddonLine[]>(
+    () =>
+      addons
+        .map((a) => ({
+          itemId: a.id,
+          name: a.name,
+          unitPrice: a.price,
+          quantity: addonQty[a.id] ?? 0,
+        }))
+        .filter((l) => l.quantity > 0),
+    [addons, addonQty],
+  );
+  const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
+
+  // Eindschatting = item-subtotaal + schoonmaak + extra's. Zonder item-tarief
+  // maar wél met extra's tonen we toch het extra's-bedrag.
+  const estimate =
+    pricing != null
+      ? pricing.total + addonsTotal
+      : addonsTotal > 0
+        ? addonsTotal
+        : null;
 
   // ALLE hooks moeten vóór elke conditionele return staan (Rules of Hooks).
   // De `if (done)` / `if (reviewing)` returns hieronder zouden anders deze
@@ -416,6 +455,10 @@ export function PublicBookingForm({
           body: JSON.stringify({
             ...getValues(),
             paymentChoice,
+            addons: addonLines.map((l) => ({
+              itemId: l.itemId,
+              quantity: l.quantity,
+            })),
           }),
         });
         res = await r.json();
@@ -544,6 +587,14 @@ export function PublicBookingForm({
             value={getValues("customerEmail") || "—"}
             accent={accent}
           />
+          {addonLines.map((l) => (
+            <ReviewRow
+              key={l.itemId}
+              label={`${l.name} × ${l.quantity}`}
+              value={`€ ${(l.unitPrice * l.quantity).toFixed(2)}`}
+              accent={accent}
+            />
+          ))}
           {pricing && pricing.cleaningFee > 0 && (
             <>
               <ReviewRow
@@ -811,6 +862,50 @@ export function PublicBookingForm({
             {t("nav.back")}
           </button>
 
+      {/* Extra's — optionele add-ons die de tenant aanbiedt. Prijs telt mee
+          in de schatting; server haalt de echte prijs opnieuw op. */}
+      {addons.length > 0 && (
+        <Section icon={Plus} accent={accent} title={t("sec.extras")}>
+          <div className="flex flex-col gap-2">
+            {addons.map((a) => {
+              const qty = addonQty[a.id] ?? 0;
+              return (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-3 rounded-lg border p-3 transition-colors"
+                  style={{
+                    borderColor: qty > 0 ? accent : "var(--border)",
+                    background: qty > 0 ? `${accent}0D` : "transparent",
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{a.name}</p>
+                    {a.description && (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {a.description}
+                      </p>
+                    )}
+                    <p
+                      className="text-[11px] font-semibold tabular-nums"
+                      style={{ color: accent }}
+                    >
+                      € {a.price.toFixed(2)}
+                    </p>
+                  </div>
+                  <AddonStepper
+                    value={qty}
+                    accent={accent}
+                    onChange={(n) =>
+                      setAddonQty((prev) => ({ ...prev, [a.id]: n }))
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {/* Wie ben je. De [&_label]/[&_input]/[&_textarea]-utilities forceren
           de form-tekst naar de "Tekst"-thema-token (--muted-foreground) i.p.v.
           de geërfde "Koppen"-token (--foreground). Zonder dit wordt label- en
@@ -925,6 +1020,43 @@ export function PublicBookingForm({
         </>
       )}
     </form>
+  );
+}
+
+function AddonStepper({
+  value,
+  accent,
+  onChange,
+}: {
+  value: number;
+  accent: string;
+  onChange: (n: number) => void;
+}) {
+  const set = (n: number) => onChange(Math.max(0, Math.min(99, n)));
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        onClick={() => set(value - 1)}
+        disabled={value <= 0}
+        aria-label="Minder"
+        className="grid size-7 place-items-center rounded-md border border-border text-base leading-none transition-colors hover:bg-muted disabled:opacity-40"
+      >
+        −
+      </button>
+      <span className="w-6 text-center text-sm font-semibold tabular-nums">
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={() => set(value + 1)}
+        aria-label="Meer"
+        className="grid size-7 place-items-center rounded-md text-base leading-none text-white"
+        style={{ background: accent }}
+      >
+        +
+      </button>
+    </div>
   );
 }
 

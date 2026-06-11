@@ -14,6 +14,32 @@
  * Retourneert het subtotaal (excl. schoonmaakkosten) of null wanneer het
  * item geen enkel bruikbaar tarief heeft.
  */
+/**
+ * Eén gekozen add-on op een boeking. Snapshot van naam + stuksprijs op het
+ * moment van boeken, zodat de regel klopt ook als het add-on-item later
+ * wijzigt of verwijderd wordt. Wordt als JSON-array op Booking.addons bewaard.
+ */
+export interface BookingAddonLine {
+  itemId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+/** Som van alle add-on-regels (stuksprijs × aantal). Altijd op 2 decimalen. */
+export function sumAddons(
+  addons: BookingAddonLine[] | null | undefined,
+): number {
+  if (!addons || addons.length === 0) return 0;
+  let total = 0;
+  for (const a of addons) {
+    const q = Number(a.quantity) || 0;
+    const p = Number(a.unitPrice) || 0;
+    if (q > 0 && p >= 0) total += q * p;
+  }
+  return Math.round(total * 100) / 100;
+}
+
 export function estimateRentalSubtotal(opts: {
   startMs: number;
   endMs: number;

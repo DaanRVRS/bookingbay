@@ -26,6 +26,10 @@ const itemBaseShape = {
   cleaningFee: decimal,
   quantity: z.coerce.number().int().min(1).max(9999).default(1),
   isActive: z.coerce.boolean().default(true),
+  // Add-on: dit item is een optionele extra (zwemvest, koelbox, schipper)
+  // i.p.v. een zelfstandig boekbaar item. addonPrice = vaste prijs per stuk.
+  isAddon: z.coerce.boolean().default(false),
+  addonPrice: decimal,
   // Boek-slot configuratie. 1440 = per-dag (verbergt tijdkeuze in widget).
   bookingIntervalMinutes: z.coerce
     .number()

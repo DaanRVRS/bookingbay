@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { getTenantAddons } from "@/lib/tenants/queries";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { BookingForm } from "../booking-form";
 
@@ -22,9 +23,9 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const params = await searchParams;
 
-  const [items, customers, org] = await Promise.all([
+  const [items, customers, org, addons] = await Promise.all([
     db.item.findMany({
-      where: { organizationId: ctx.organization.id, isActive: true },
+      where: { organizationId: ctx.organization.id, isActive: true, isAddon: false },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -44,6 +45,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       where: { id: ctx.organization.id },
       select: { slug: true, primaryColor: true },
     }),
+    getTenantAddons(ctx.organization.id),
   ]);
   if (!org) redirect("/dashboard");
 
@@ -94,6 +96,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
             }))}
             customers={customerList.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
+            addons={addons}
             defaultItemId={params.item}
             defaultCustomerId={resolvedCustomerId}
             defaultStartAt={params.start}

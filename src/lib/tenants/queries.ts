@@ -38,7 +38,7 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
     orderBy: { sortOrder: "asc" },
     include: {
       items: {
-        where: { isActive: true },
+        where: { isActive: true, isAddon: false },
         orderBy: { name: "asc" },
         select: {
           id: true,
@@ -76,6 +76,39 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
     },
   });
 });
+
+export type AddonOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+};
+
+/**
+ * Actieve add-on-items (optionele extra's) van een org, met een geldige
+ * stuksprijs. Gebruikt door de boek-widget en het dashboard-boekformulier
+ * om na de itemkeuze extra's aan te kunnen bieden.
+ */
+export const getTenantAddons = cache(
+  async (organizationId: string): Promise<AddonOption[]> => {
+    const rows = await db.item.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        isAddon: true,
+        addonPrice: { not: null },
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, description: true, addonPrice: true },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      price: Number(r.addonPrice),
+    }));
+  },
+);
 
 export const searchTenantItems = cache(async (organizationId: string, query: string) => {
   const q = query.trim();

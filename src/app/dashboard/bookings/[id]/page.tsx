@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { getTenantAddons } from "@/lib/tenants/queries";
+import type { BookingAddonLine } from "@/lib/bookings/price";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { BookingDetail } from "./booking-detail";
 
@@ -14,7 +16,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const ctx = await requireOrg();
 
-  const [booking, items, customers, org] = await Promise.all([
+  const [booking, items, customers, org, addons] = await Promise.all([
     db.booking.findFirst({
       where: { id, organizationId: ctx.organization.id },
       include: {
@@ -23,7 +25,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
       },
     }),
     db.item.findMany({
-      where: { organizationId: ctx.organization.id, isActive: true },
+      where: { organizationId: ctx.organization.id, isActive: true, isAddon: false },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -43,6 +45,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
       where: { id: ctx.organization.id },
       select: { slug: true, primaryColor: true },
     }),
+    getTenantAddons(ctx.organization.id),
   ]);
 
   if (!booking || !org) notFound();
@@ -59,6 +62,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
           <BookingDetail
             orgSlug={org.slug}
             accent={org.primaryColor ?? undefined}
+            addons={addons}
             items={items.map((i) => ({
               id: i.id,
               name: i.name,
@@ -84,6 +88,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
               status: booking.status,
               totalPrice: Number(booking.totalPrice),
               notes: booking.notes ?? "",
+              addons: (booking.addons as BookingAddonLine[] | null) ?? null,
               paymentStatus: booking.paymentStatus,
               paymentProvider: booking.paymentProvider,
               completionDamage: booking.completionDamage,

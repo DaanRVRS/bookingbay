@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { checkAvailability } from "./conflicts";
 import { audit } from "@/lib/audit/log";
@@ -10,7 +11,7 @@ import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
-import { estimateRentalSubtotal } from "./price";
+import { estimateRentalSubtotal, sumAddons, type BookingAddonLine } from "./price";
 import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -131,6 +132,37 @@ export async function createPublicBooking(
     estimate = estimate + cleaningFee;
   }
 
+  // Add-ons (extra's): prijs + naam ALTIJD server-side ophalen uit het
+  // add-on-item — nooit de client vertrouwen. Alleen actieve isAddon-items
+  // van deze org met een geldige prijs tellen mee. Snapshot wordt op de
+  // boeking bewaard zodat de regel klopt ook als het item later wijzigt.
+  const addonLines: BookingAddonLine[] = [];
+  const requestedAddons = (data.addons ?? []).filter((a) => a.quantity > 0);
+  if (requestedAddons.length > 0) {
+    const addonItems = await db.item.findMany({
+      where: {
+        id: { in: requestedAddons.map((a) => a.itemId) },
+        organizationId: org.id,
+        isActive: true,
+        isAddon: true,
+        addonPrice: { not: null },
+      },
+      select: { id: true, name: true, addonPrice: true },
+    });
+    const byId = new Map(addonItems.map((a) => [a.id, a]));
+    for (const req of requestedAddons) {
+      const it = byId.get(req.itemId);
+      if (!it || it.addonPrice == null) continue;
+      addonLines.push({
+        itemId: it.id,
+        name: it.name,
+        unitPrice: Number(it.addonPrice),
+        quantity: req.quantity,
+      });
+    }
+    estimate = estimate + sumAddons(addonLines);
+  }
+
   // Pre-authenticated portal-token. Mailen we mee in de bevestiging
   // zodat de klant z'n boeking-pagina direct kan openen — geen login.
   const portalToken = randomBytes(32).toString("hex");
@@ -145,6 +177,10 @@ export async function createPublicBooking(
       status: "PENDING",
       totalPrice: estimate,
       notes: data.notes?.trim() || null,
+      addons:
+        addonLines.length > 0
+          ? (addonLines as unknown as Prisma.InputJsonValue)
+          : undefined,
       portalToken,
     },
     select: { id: true },

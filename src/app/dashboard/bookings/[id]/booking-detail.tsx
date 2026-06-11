@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { BookingForm } from "../booking-form";
 import { cancelBookingAction } from "@/lib/bookings/actions";
 import { deriveBookingStatus, paymentSublabel } from "@/lib/bookings/status";
+import { sumAddons, type BookingAddonLine } from "@/lib/bookings/price";
+import type { AddonOption } from "@/lib/tenants/queries";
 
 type BookingStatus =
   | "PENDING"
@@ -44,6 +46,7 @@ interface CustomerOpt {
 interface Props {
   items: ItemOpt[];
   customers: CustomerOpt[];
+  addons?: AddonOption[];
   orgSlug: string;
   accent?: string;
   view: {
@@ -58,6 +61,7 @@ interface Props {
     status: BookingStatus;
     totalPrice: number;
     notes: string;
+    addons: BookingAddonLine[] | null;
     paymentStatus: string | null;
     paymentProvider: string | null;
     completionDamage: boolean;
@@ -104,6 +108,7 @@ function durationLabel(a: string, b: string) {
 export function BookingDetail({
   items,
   customers,
+  addons = [],
   view,
   orgSlug,
   accent,
@@ -145,6 +150,7 @@ export function BookingDetail({
           accent={accent}
           items={items}
           customers={customers}
+          addons={addons}
           existing={{
             id: view.id,
             itemId: view.itemId,
@@ -154,6 +160,7 @@ export function BookingDetail({
             status: view.status,
             totalPrice: view.totalPrice,
             notes: view.notes,
+            addons: view.addons,
           }}
         />
 
@@ -334,6 +341,39 @@ export function BookingDetail({
           </p>
         </div>
       </div>
+
+      {view.addons && view.addons.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Package className="size-4" />
+            <span className="text-xs font-semibold tracking-wider uppercase">
+              Extra&apos;s
+            </span>
+          </div>
+          <ul className="mt-3 flex flex-col gap-1.5">
+            {view.addons.map((a) => (
+              <li
+                key={a.itemId}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span>
+                  {a.name}
+                  <span className="text-muted-foreground"> × {a.quantity}</span>
+                </span>
+                <span className="tabular-nums text-muted-foreground">
+                  € {(a.unitPrice * a.quantity).toFixed(2)}
+                </span>
+              </li>
+            ))}
+            <li className="mt-1 flex items-center justify-between gap-3 border-t border-border pt-1.5 text-sm font-semibold">
+              <span>Extra&apos;s totaal</span>
+              <span className="tabular-nums">
+                € {sumAddons(view.addons).toFixed(2)}
+              </span>
+            </li>
+          </ul>
+        </div>
+      )}
 
       {view.notes && (
         <div className="rounded-xl border border-border bg-card p-5">

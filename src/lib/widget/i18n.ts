@@ -109,6 +109,7 @@ export type TKey =
   | "sec.when"
   | "sec.you"
   | "sec.pay"
+  | "sec.extras"
   | "chip.from"
   | "chip.to"
   | "chip.pickDay"
@@ -188,6 +189,7 @@ const NL: Dict = {
   "sec.when": "Wanneer",
   "sec.you": "Jouw gegevens",
   "sec.pay": "Hoe wil je betalen?",
+  "sec.extras": "Extra's",
   "chip.from": "Vanaf",
   "chip.to": "Tot",
   "chip.pickDay": "Kies een dag",
@@ -265,6 +267,7 @@ const EN: Dict = {
   "sec.when": "When",
   "sec.you": "Your details",
   "sec.pay": "How would you like to pay?",
+  "sec.extras": "Extras",
   "chip.from": "From",
   "chip.to": "Until",
   "chip.pickDay": "Pick a day",
@@ -342,6 +345,7 @@ const FR: Dict = {
   "sec.when": "Quand",
   "sec.you": "Vos coordonnées",
   "sec.pay": "Comment souhaitez-vous payer ?",
+  "sec.extras": "Extras",
   "chip.from": "Du",
   "chip.to": "Au",
   "chip.pickDay": "Choisir un jour",
@@ -420,6 +424,7 @@ const DE: Dict = {
   "sec.when": "Wann",
   "sec.you": "Ihre Daten",
   "sec.pay": "Wie möchten Sie zahlen?",
+  "sec.extras": "Extras",
   "chip.from": "Von",
   "chip.to": "Bis",
   "chip.pickDay": "Tag wählen",
@@ -497,6 +502,7 @@ const ES: Dict = {
   "sec.when": "Cuándo",
   "sec.you": "Tus datos",
   "sec.pay": "¿Cómo quieres pagar?",
+  "sec.extras": "Extras",
   "chip.from": "Desde",
   "chip.to": "Hasta",
   "chip.pickDay": "Elige un día",
@@ -574,6 +580,7 @@ const IT: Dict = {
   "sec.when": "Quando",
   "sec.you": "I tuoi dati",
   "sec.pay": "Come vuoi pagare?",
+  "sec.extras": "Extra",
   "chip.from": "Dal",
   "chip.to": "Al",
   "chip.pickDay": "Scegli un giorno",
@@ -651,6 +658,7 @@ const RU: Dict = {
   "sec.when": "Когда",
   "sec.you": "Ваши данные",
   "sec.pay": "Как хотите оплатить?",
+  "sec.extras": "Дополнения",
   "chip.from": "С",
   "chip.to": "По",
   "chip.pickDay": "Выберите день",
@@ -728,6 +736,7 @@ const UK: Dict = {
   "sec.when": "Коли",
   "sec.you": "Ваші дані",
   "sec.pay": "Як хочете оплатити?",
+  "sec.extras": "Додатки",
   "chip.from": "З",
   "chip.to": "По",
   "chip.pickDay": "Оберіть день",
@@ -805,6 +814,7 @@ const PL: Dict = {
   "sec.when": "Kiedy",
   "sec.you": "Twoje dane",
   "sec.pay": "Jak chcesz zapłacić?",
+  "sec.extras": "Dodatki",
   "chip.from": "Od",
   "chip.to": "Do",
   "chip.pickDay": "Wybierz dzień",
@@ -882,6 +892,7 @@ const TR: Dict = {
   "sec.when": "Ne zaman",
   "sec.you": "Bilgileriniz",
   "sec.pay": "Nasıl ödemek istersiniz?",
+  "sec.extras": "Ekstralar",
   "chip.from": "Başlangıç",
   "chip.to": "Bitiş",
   "chip.pickDay": "Bir gün seçin",

@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { checkAvailability } from "./conflicts";
+import { sumAddons, type BookingAddonLine } from "./price";
 import {
   bookingCreateSchema,
   bookingUpdateSchema,
@@ -26,6 +28,42 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
     if (!out[path]) out[path] = i.message;
   }
   return out;
+}
+
+/**
+ * Zet de gevraagde add-ons (itemId + aantal) om in prijs-regels met de
+ * ECHTE naam/prijs uit de DB — nooit de client-waarden vertrouwen. Alleen
+ * actieve isAddon-items van deze org met een geldige prijs tellen mee.
+ */
+async function resolveAddonLines(
+  organizationId: string,
+  requested: { itemId: string; quantity: number }[] | undefined,
+): Promise<BookingAddonLine[]> {
+  const list = (requested ?? []).filter((a) => a.quantity > 0);
+  if (list.length === 0) return [];
+  const items = await db.item.findMany({
+    where: {
+      id: { in: list.map((a) => a.itemId) },
+      organizationId,
+      isActive: true,
+      isAddon: true,
+      addonPrice: { not: null },
+    },
+    select: { id: true, name: true, addonPrice: true },
+  });
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const lines: BookingAddonLine[] = [];
+  for (const req of list) {
+    const it = byId.get(req.itemId);
+    if (!it || it.addonPrice == null) continue;
+    lines.push({
+      itemId: it.id,
+      name: it.name,
+      unitPrice: Number(it.addonPrice),
+      quantity: req.quantity,
+    });
+  }
+  return lines;
 }
 
 export async function createBookingAction(
@@ -72,6 +110,10 @@ export async function createBookingAction(
     }
   }
 
+  // Add-ons: prijs server-side ophalen en bovenop het item-bedrag tellen.
+  const addonLines = await resolveAddonLines(ctx.organization.id, parsed.data.addons);
+  const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
+
   const created = await db.booking.create({
     data: {
       organizationId: ctx.organization.id,
@@ -80,8 +122,12 @@ export async function createBookingAction(
       startAt: parsed.data.startAt,
       endAt: parsed.data.endAt,
       status: parsed.data.status,
-      totalPrice: parsed.data.totalPrice,
+      totalPrice: grandTotal,
       notes: parsed.data.notes || null,
+      addons:
+        addonLines.length > 0
+          ? (addonLines as unknown as Prisma.InputJsonValue)
+          : undefined,
       createdById: ctx.user.id,
     },
     select: { id: true },
@@ -148,6 +194,9 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     }
   }
 
+  const addonLines = await resolveAddonLines(ctx.organization.id, parsed.data.addons);
+  const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
+
   await db.booking.update({
     where: { id: parsed.data.id },
     data: {
@@ -156,8 +205,12 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
       startAt: parsed.data.startAt,
       endAt: parsed.data.endAt,
       status: parsed.data.status,
-      totalPrice: parsed.data.totalPrice,
+      totalPrice: grandTotal,
       notes: parsed.data.notes || null,
+      addons:
+        addonLines.length > 0
+          ? (addonLines as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
     },
   });
 

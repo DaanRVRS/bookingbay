@@ -83,6 +83,8 @@ interface Existing {
   cleaningFee: number | null;
   quantity: number;
   isActive: boolean;
+  isAddon: boolean;
+  addonPrice: number | null;
   bookingIntervalMinutes: number;
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
@@ -120,6 +122,8 @@ export function ItemForm({ categories, existing }: Props) {
       cleaningFee: existing?.cleaningFee ?? null,
       quantity: existing?.quantity ?? 1,
       isActive: existing?.isActive ?? true,
+      isAddon: existing?.isAddon ?? false,
+      addonPrice: existing?.addonPrice ?? null,
       bookingIntervalMinutes: existing?.bookingIntervalMinutes ?? 60,
       bookingWindowStartMin: existing?.bookingWindowStartMin ?? 540,
       bookingWindowEndMin: existing?.bookingWindowEndMin ?? 1080,
@@ -129,6 +133,7 @@ export function ItemForm({ categories, existing }: Props) {
 
   const categoryId = watch("categoryId");
   const isActive = watch("isActive");
+  const isAddon = Boolean(watch("isAddon"));
   const imageUrl = watch("imageUrl") ?? null;
   const businessHoursOverride =
     (watch("businessHoursOverride") as BusinessHours | null | undefined) ?? null;
@@ -234,6 +239,50 @@ export function ItemForm({ categories, existing }: Props) {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold">Type</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Een add-on is geen losse boeking, maar een optionele extra (bijv.
+          zwemvest, koelbox, schipper) die klanten kunnen toevoegen bij het
+          boeken van een item.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setValue("isAddon", false, { shouldDirty: true })}
+            className={`rounded-lg border p-3 text-left transition-colors ${
+              !isAddon
+                ? "border-primary/40 bg-primary/5"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            <span className="block text-sm font-medium">Normaal item</span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              Zelfstandig te boeken (boot, fiets, …)
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setValue("isAddon", true, { shouldDirty: true })}
+            className={`rounded-lg border p-3 text-left transition-colors ${
+              isAddon
+                ? "border-primary/40 bg-primary/5"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            <span className="block text-sm font-medium">Add-on (extra)</span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              Optioneel bij te boeken, vaste prijs per stuk
+            </span>
+          </button>
+        </div>
+        <input
+          type="hidden"
+          {...register("isAddon")}
+          value={isAddon ? "true" : "false"}
+        />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Afbeelding</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Wordt op de klantsite gebruikt en in je catalogus-overzicht.
@@ -247,55 +296,69 @@ export function ItemForm({ categories, existing }: Props) {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Prijzen</h2>
+        <h2 className="text-sm font-semibold">{isAddon ? "Prijs" : "Prijzen"}</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Zet aan welke tarieven dit item heeft. Uitgezette tarieven verschijnen
-          niet op de klantsite of in de boeking-flow.
+          {isAddon
+            ? "Vaste prijs per stuk. Wordt per gekozen aantal bij de boeking opgeteld."
+            : "Zet aan welke tarieven dit item heeft. Uitgezette tarieven verschijnen niet op de klantsite of in de boeking-flow."}
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <PriceField
-            label="Per uur"
-            name="pricePerHour"
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            toggleable
-          />
-          <PriceField
-            label="Per dag"
-            name="pricePerDay"
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            toggleable
-          />
-          <PriceField
-            label="Per week"
-            name="pricePerWeek"
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            toggleable
-          />
-          <PriceField
-            label="Borg"
-            name="deposit"
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            toggleable
-          />
-          <PriceField
-            label="Schoonmaak"
-            name="cleaningFee"
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            toggleable
-          />
-        </div>
+        {isAddon ? (
+          <div className="mt-4 sm:max-w-xs">
+            <PriceField
+              label="Prijs per stuk"
+              name="addonPrice"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+            />
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <PriceField
+              label="Per uur"
+              name="pricePerHour"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              toggleable
+            />
+            <PriceField
+              label="Per dag"
+              name="pricePerDay"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              toggleable
+            />
+            <PriceField
+              label="Per week"
+              name="pricePerWeek"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              toggleable
+            />
+            <PriceField
+              label="Borg"
+              name="deposit"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              toggleable
+            />
+            <PriceField
+              label="Schoonmaak"
+              name="cleaningFee"
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              toggleable
+            />
+          </div>
+        )}
       </div>
 
+      {!isAddon && (
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Reserveer-slots</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -378,7 +441,9 @@ export function ItemForm({ categories, existing }: Props) {
           )}
         </div>
       </div>
+      )}
 
+      {!isAddon && (
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Openingstijden override</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -400,6 +465,7 @@ export function ItemForm({ categories, existing }: Props) {
           />
         </div>
       </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Voorraad & status</h2>
@@ -506,7 +572,13 @@ function PriceField({
   toggleable = false,
 }: {
   label: string;
-  name: "pricePerHour" | "pricePerDay" | "pricePerWeek" | "deposit" | "cleaningFee";
+  name:
+    | "pricePerHour"
+    | "pricePerDay"
+    | "pricePerWeek"
+    | "deposit"
+    | "cleaningFee"
+    | "addonPrice";
   register: ReturnType<typeof useForm<ItemFormValues>>["register"];
   watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
   setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];

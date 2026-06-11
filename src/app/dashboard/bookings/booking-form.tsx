@@ -29,6 +29,8 @@ import {
   bookingCreateSchema,
   type BookingCreateInput,
 } from "@/lib/bookings/schemas";
+import { sumAddons, type BookingAddonLine } from "@/lib/bookings/price";
+import type { AddonOption } from "@/lib/tenants/queries";
 
 type BookingFormValues = z.input<typeof bookingCreateSchema>;
 import {
@@ -61,11 +63,15 @@ interface Existing {
   status: BookingCreateInput["status"];
   totalPrice: number;
   notes: string;
+  /** Eerder gekozen add-ons (snapshot). Null = geen. */
+  addons?: BookingAddonLine[] | null;
 }
 
 interface Props {
   items: ItemOpt[];
   customers: CustomerOpt[];
+  /** Optionele extra's die de org aanbiedt. */
+  addons?: AddonOption[];
   /** Slug van de eigen organisatie — voor /api/public/availability. */
   orgSlug: string;
   /** Aksent-kleur voor de kalender/slot-grid. */
@@ -107,6 +113,7 @@ function tryParseLocalIso(s: string | undefined): string | null {
 export function BookingForm({
   items,
   customers: initialCustomers,
+  addons: addonOptions = [],
   orgSlug,
   accent,
   existing,
@@ -119,6 +126,11 @@ export function BookingForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [customers, setCustomers] = useState(initialCustomers);
+  const [addonQty, setAddonQty] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    for (const a of existing?.addons ?? []) init[a.itemId] = a.quantity;
+    return init;
+  });
   const [availability, setAvailability] = useState<{
     state: "idle" | "checking" | "available" | "conflict";
     message?: string;
@@ -202,6 +214,22 @@ export function BookingForm({
     [items, itemId],
   );
 
+  // Gekozen add-ons als prijsregels + hun totaal. Server telt deze opnieuw op
+  // bovenop het item-subtotaal (totalPrice hieronder = alleen het item-deel).
+  const addonLines = useMemo<BookingAddonLine[]>(
+    () =>
+      addonOptions
+        .map((a) => ({
+          itemId: a.id,
+          name: a.name,
+          unitPrice: a.price,
+          quantity: addonQty[a.id] ?? 0,
+        }))
+        .filter((l) => l.quantity > 0),
+    [addonOptions, addonQty],
+  );
+  const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
+
   // Calculate suggested price from duration
   const computeSuggestion = () => {
     if (!selectedItem || !startAt || !endAt) return null;
@@ -228,18 +256,13 @@ export function BookingForm({
     return null;
   };
 
-  // On first render, if we have an item + time range but no price yet
-  // (typical when navigating in from a lead), compute and pre-fill the
-  // suggested price. The user can still edit it.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // totalPrice = alleen het item-subtotaal (prijs × duur). Live herberekend
+  // bij item-/tijd-wijziging, ook bij bewerken — de extra's worden er
+  // server-side bovenop geteld, dus dit veld blijft puur het item-deel.
   useEffect(() => {
-    if (existing) return;
-    const current = watch("totalPrice");
-    if (current && Number(current) > 0) return;
-    const sug = computeSuggestion();
-    if (sug != null) {
-      setValue("totalPrice", sug, { shouldValidate: false });
-    }
+    const base = computeSuggestion();
+    setValue("totalPrice", base ?? 0, { shouldValidate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItem?.id, startAt, endAt]);
 
   // Live availability check (debounced)
@@ -274,10 +297,14 @@ export function BookingForm({
   }, [itemId, startAt, endAt, status, existing?.id]);
 
   const onSubmit = handleSubmit((values) => {
+    const addonPayload = addonLines.map((l) => ({
+      itemId: l.itemId,
+      quantity: l.quantity,
+    }));
     startTransition(async () => {
       const res = existing
-        ? await updateBookingAction({ ...values, id: existing.id })
-        : await createBookingAction(values);
+        ? await updateBookingAction({ ...values, addons: addonPayload, id: existing.id })
+        : await createBookingAction({ ...values, addons: addonPayload });
       if (!res.ok) {
         if (res.fieldErrors) {
           for (const [k, v] of Object.entries(res.fieldErrors)) {
@@ -387,6 +414,61 @@ export function BookingForm({
         <AvailabilityHint state={availability} />
       </div>
 
+      {addonOptions.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold">Extra&apos;s</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optionele add-ons die je bij deze boeking kunt toevoegen.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            {addonOptions.map((a) => {
+              const qty = addonQty[a.id] ?? 0;
+              return (
+                <div
+                  key={a.id}
+                  className={`flex items-center gap-3 rounded-lg border p-3 ${
+                    qty > 0 ? "border-primary/40 bg-primary/5" : "border-border"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{a.name}</p>
+                    <p className="text-[11px] font-semibold tabular-nums text-primary">
+                      € {a.price.toFixed(2)} p/st
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAddonQty((p) => ({ ...p, [a.id]: Math.max(0, qty - 1) }))
+                      }
+                      disabled={qty <= 0}
+                      aria-label="Minder"
+                      className="grid size-7 place-items-center rounded-md border border-border text-base leading-none hover:bg-muted disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAddonQty((p) => ({ ...p, [a.id]: Math.min(99, qty + 1) }))
+                      }
+                      aria-label="Meer"
+                      className="grid size-7 place-items-center rounded-md bg-primary text-base leading-none text-primary-foreground"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Bedrag & notities</h2>
 
@@ -396,7 +478,9 @@ export function BookingForm({
         <input type="hidden" {...register("status")} />
 
         <div className="mt-4 flex flex-col gap-1.5">
-          <Label htmlFor="totalPrice">Totaalbedrag</Label>
+          <Label htmlFor="totalPrice">
+            {addonsTotal > 0 ? "Item-bedrag" : "Totaalbedrag"}
+          </Label>
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
               €
@@ -420,6 +504,26 @@ export function BookingForm({
             <p className="text-xs font-medium text-destructive">
               {errors.totalPrice.message}
             </p>
+          )}
+          {addonsTotal > 0 && (
+            <div className="mt-1 space-y-1 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Item</span>
+                <span className="tabular-nums">
+                  € {Number(watch("totalPrice") || 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Extra&apos;s</span>
+                <span className="tabular-nums">€ {addonsTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-t border-border pt-1 font-semibold">
+                <span>Totaal</span>
+                <span className="tabular-nums">
+                  € {(Number(watch("totalPrice") || 0) + addonsTotal).toFixed(2)}
+                </span>
+              </div>
+            </div>
           )}
         </div>
 
