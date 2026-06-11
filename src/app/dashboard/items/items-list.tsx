@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 
 interface Item {
   id: string;
@@ -24,6 +23,8 @@ interface Item {
   pricePerHour: string | null;
   quantity: number;
   isActive: boolean;
+  isAddon: boolean;
+  addonPrice: string | null;
 }
 
 export function ItemsList({
@@ -130,14 +131,30 @@ export function ItemsList({
                     <ImageIcon className="size-8 opacity-40" />
                   </div>
                 )}
-                {!item.isActive && (
-                  <Badge
-                    variant="secondary"
-                    className="absolute top-2 right-2"
+                {/* Status + type — in één oogopslag zichtbaar op de foto */}
+                <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                  {item.isAddon && (
+                    <span className="inline-flex items-center rounded-full bg-[oklch(0.55_0.13_255)]/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur">
+                      Add-on
+                    </span>
+                  )}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm backdrop-blur ${
+                      item.isActive
+                        ? "bg-[oklch(0.78_0.13_145)]/90 text-[oklch(0.25_0.1_150)]"
+                        : "bg-muted/95 text-muted-foreground"
+                    }`}
                   >
-                    Inactief
-                  </Badge>
-                )}
+                    <span
+                      className={`size-1.5 rounded-full ${
+                        item.isActive
+                          ? "bg-[oklch(0.42_0.13_150)]"
+                          : "bg-muted-foreground/60"
+                      }`}
+                    />
+                    {item.isActive ? "Actief" : "Inactief"}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -153,7 +170,15 @@ export function ItemsList({
                   {item.category}
                 </p>
                 <div className="mt-auto flex items-baseline gap-3 text-xs">
-                  {item.pricePerDay && (
+                  {item.isAddon && item.addonPrice && (
+                    <span>
+                      <span className="font-semibold text-foreground tabular-nums">
+                        € {Number(item.addonPrice).toFixed(2)}
+                      </span>{" "}
+                      <span className="text-muted-foreground">/ stuk</span>
+                    </span>
+                  )}
+                  {!item.isAddon && item.pricePerDay && (
                     <span>
                       <span className="font-semibold text-foreground tabular-nums">
                         € {Number(item.pricePerDay).toFixed(2)}
@@ -161,7 +186,7 @@ export function ItemsList({
                       <span className="text-muted-foreground">/ dag</span>
                     </span>
                   )}
-                  {!item.pricePerDay && item.pricePerHour && (
+                  {!item.isAddon && !item.pricePerDay && item.pricePerHour && (
                     <span>
                       <span className="font-semibold text-foreground tabular-nums">
                         € {Number(item.pricePerHour).toFixed(2)}
@@ -169,7 +194,8 @@ export function ItemsList({
                       <span className="text-muted-foreground">/ uur</span>
                     </span>
                   )}
-                  {!item.pricePerDay && !item.pricePerHour && (
+                  {((item.isAddon && !item.addonPrice) ||
+                    (!item.isAddon && !item.pricePerDay && !item.pricePerHour)) && (
                     <span className="text-muted-foreground">Geen prijs ingesteld</span>
                   )}
                 </div>

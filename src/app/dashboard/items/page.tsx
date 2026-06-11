@@ -82,6 +82,8 @@ export default async function ItemsPage({ searchParams }: PageProps) {
                 pricePerHour: i.pricePerHour?.toString() ?? null,
                 quantity: i.quantity,
                 isActive: i.isActive,
+                isAddon: i.isAddon,
+                addonPrice: i.addonPrice?.toString() ?? null,
               }))}
               categories={categories}
               currentCategory={categoryId}
