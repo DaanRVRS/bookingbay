@@ -48,7 +48,7 @@ export function ImageUploader({ value, onChange, disabled }: Props) {
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-muted/40 sm:w-48">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 sm:w-40">
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewUrl} alt="" className="size-full object-cover" />
@@ -64,7 +64,7 @@ export function ImageUploader({ value, onChange, disabled }: Props) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         <input
           ref={inputRef}
           type="file"
@@ -80,10 +80,12 @@ export function ImageUploader({ value, onChange, disabled }: Props) {
           variant="outline"
           onClick={onPick}
           disabled={disabled || pending}
-          className="w-full sm:w-auto"
+          className="w-full"
         >
-          <UploadCloud className="size-4" />
-          {previewUrl ? "Andere afbeelding" : "Afbeelding uploaden"}
+          <UploadCloud className="size-4 shrink-0" />
+          <span className="truncate">
+            {previewUrl ? "Andere afbeelding" : "Afbeelding uploaden"}
+          </span>
         </Button>
         {previewUrl && (
           <Button
@@ -91,7 +93,7 @@ export function ImageUploader({ value, onChange, disabled }: Props) {
             variant="outline"
             onClick={onClear}
             disabled={disabled || pending}
-            className="w-full text-destructive hover:bg-destructive/10 sm:w-auto"
+            className="w-full text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="size-4" />
             Verwijderen
