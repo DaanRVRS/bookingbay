@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { checkAvailability } from "./conflicts";
-import { sumAddons, type BookingAddonLine } from "./price";
+import { sumAddons, addonAppliesToCategory, type BookingAddonLine } from "./price";
 import {
   bookingCreateSchema,
   bookingUpdateSchema,
@@ -33,11 +33,14 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
 /**
  * Zet de gevraagde add-ons (itemId + aantal) om in prijs-regels met de
  * ECHTE naam/prijs uit de DB — nooit de client-waarden vertrouwen. Alleen
- * actieve isAddon-items van deze org met een geldige prijs tellen mee.
+ * actieve isAddon-items van deze org met een geldige prijs tellen mee, en
+ * alleen als hun categorie-scope het hoofd-item dekt (`itemCategoryIds` =
+ * categorie van het hoofd-item + evt. parent).
  */
 async function resolveAddonLines(
   organizationId: string,
   requested: { itemId: string; quantity: number }[] | undefined,
+  itemCategoryIds: string[],
 ): Promise<BookingAddonLine[]> {
   const list = (requested ?? []).filter((a) => a.quantity > 0);
   if (list.length === 0) return [];
@@ -49,13 +52,17 @@ async function resolveAddonLines(
       isAddon: true,
       addonPrice: { not: null },
     },
-    select: { id: true, name: true, addonPrice: true },
+    select: { id: true, name: true, addonPrice: true, addonCategoryIds: true },
   });
   const byId = new Map(items.map((i) => [i.id, i]));
   const lines: BookingAddonLine[] = [];
   for (const req of list) {
     const it = byId.get(req.itemId);
     if (!it || it.addonPrice == null) continue;
+    const scope = Array.isArray(it.addonCategoryIds)
+      ? (it.addonCategoryIds as string[])
+      : null;
+    if (!addonAppliesToCategory(scope, itemCategoryIds)) continue;
     lines.push({
       itemId: it.id,
       name: it.name,
@@ -86,7 +93,13 @@ export async function createBookingAction(
   const [item, customer] = await Promise.all([
     db.item.findFirst({
       where: { id: parsed.data.itemId, organizationId: ctx.organization.id, isAddon: false },
-      select: { id: true, quantity: true, isActive: true },
+      select: {
+        id: true,
+        quantity: true,
+        isActive: true,
+        categoryId: true,
+        category: { select: { parentId: true } },
+      },
     }),
     db.customer.findFirst({
       where: { id: parsed.data.customerId, organizationId: ctx.organization.id },
@@ -112,7 +125,14 @@ export async function createBookingAction(
   }
 
   // Add-ons: prijs server-side ophalen en bovenop het item-bedrag tellen.
-  const addonLines = await resolveAddonLines(ctx.organization.id, parsed.data.addons);
+  const itemCategoryIds = [item.categoryId, item.category.parentId].filter(
+    (v): v is string => Boolean(v),
+  );
+  const addonLines = await resolveAddonLines(
+    ctx.organization.id,
+    parsed.data.addons,
+    itemCategoryIds,
+  );
   const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
 
   const created = await db.booking.create({
@@ -177,7 +197,12 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
 
   const item = await db.item.findFirst({
     where: { id: parsed.data.itemId, organizationId: ctx.organization.id, isAddon: false },
-    select: { id: true, quantity: true },
+    select: {
+      id: true,
+      quantity: true,
+      categoryId: true,
+      category: { select: { parentId: true } },
+    },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
 
@@ -195,7 +220,11 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     }
   }
 
-  const addonLines = await resolveAddonLines(ctx.organization.id, parsed.data.addons);
+  const addonLines = await resolveAddonLines(
+    ctx.organization.id,
+    parsed.data.addons,
+    [item.categoryId, item.category.parentId].filter((v): v is string => Boolean(v)),
+  );
   const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
 
   await db.booking.update({

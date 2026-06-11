@@ -82,6 +82,8 @@ export type AddonOption = {
   name: string;
   description: string | null;
   price: number;
+  /** Category-ids waarbij deze add-on geldt; null = alle categorieën. */
+  categoryIds: string[] | null;
 };
 
 /**
@@ -99,13 +101,23 @@ export const getTenantAddons = cache(
         addonPrice: { not: null },
       },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, description: true, addonPrice: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        addonPrice: true,
+        addonCategoryIds: true,
+      },
     });
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
       description: r.description,
       price: Number(r.addonPrice),
+      categoryIds:
+        Array.isArray(r.addonCategoryIds) && r.addonCategoryIds.length > 0
+          ? (r.addonCategoryIds as string[])
+          : null,
     }));
   },
 );

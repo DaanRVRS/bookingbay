@@ -30,6 +30,8 @@ function buildBuckets(
   const out: {
     id: string;
     name: string;
+    /** Hoofdcategorie + evt. subcategorie — voor add-on-matching. */
+    categoryIds: string[];
     items: {
       id: string;
       name: string;
@@ -46,6 +48,7 @@ function buildBuckets(
       out.push({
         id: cat.id,
         name: cat.name,
+        categoryIds: [cat.id],
         items: cat.items.map((i) => ({
           id: i.id,
           name: i.name,
@@ -63,6 +66,7 @@ function buildBuckets(
         out.push({
           id: sub.id,
           name: `${cat.name} · ${sub.name}`,
+          categoryIds: [cat.id, sub.id],
           items: sub.items.map((i) => ({
             id: i.id,
             name: i.name,

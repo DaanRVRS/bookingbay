@@ -26,6 +26,20 @@ export interface BookingAddonLine {
   quantity: number;
 }
 
+/**
+ * Geldt een add-on voor een item in deze categorie(ën)? `addonCategoryIds`
+ * null/leeg = overal. `itemCategoryIds` = de categorie van het hoofd-item
+ * plus eventueel diens parent, zodat "Boten" selecteren ook subcategorie
+ * "Motorboten" dekt. Pure functie — gedeeld door widget, dashboard en server.
+ */
+export function addonAppliesToCategory(
+  addonCategoryIds: string[] | null | undefined,
+  itemCategoryIds: string[],
+): boolean {
+  if (!addonCategoryIds || addonCategoryIds.length === 0) return true;
+  return itemCategoryIds.some((id) => addonCategoryIds.includes(id));
+}
+
 /** Som van alle add-on-regels (stuksprijs × aantal). Altijd op 2 decimalen. */
 export function sumAddons(
   addons: BookingAddonLine[] | null | undefined,

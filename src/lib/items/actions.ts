@@ -92,6 +92,13 @@ export async function createItemAction(
       isActive: parsed.data.isActive,
       isAddon: parsed.data.isAddon,
       addonPrice: parsed.data.addonPrice,
+      addonCategoryIds:
+        parsed.data.addonCategoryIds === undefined
+          ? undefined
+          : parsed.data.addonCategoryIds === null ||
+              parsed.data.addonCategoryIds.length === 0
+            ? Prisma.JsonNull
+            : parsed.data.addonCategoryIds,
       bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,
@@ -157,6 +164,13 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
       isActive: parsed.data.isActive,
       isAddon: parsed.data.isAddon,
       addonPrice: parsed.data.addonPrice,
+      addonCategoryIds:
+        parsed.data.addonCategoryIds === undefined
+          ? undefined
+          : parsed.data.addonCategoryIds === null ||
+              parsed.data.addonCategoryIds.length === 0
+            ? Prisma.JsonNull
+            : parsed.data.addonCategoryIds,
       bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,

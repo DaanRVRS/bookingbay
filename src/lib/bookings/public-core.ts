@@ -11,7 +11,12 @@ import { readPaymentConfig, onlineReady } from "@/lib/payments/config";
 import { createMolliePaymentForBooking } from "@/lib/payments/tenant-mollie";
 import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
-import { estimateRentalSubtotal, sumAddons, type BookingAddonLine } from "./price";
+import {
+  estimateRentalSubtotal,
+  sumAddons,
+  addonAppliesToCategory,
+  type BookingAddonLine,
+} from "./price";
 import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -72,6 +77,8 @@ export async function createPublicBooking(
       id: true,
       name: true,
       quantity: true,
+      categoryId: true,
+      category: { select: { parentId: true } },
       pricePerHour: true,
       pricePerDay: true,
       pricePerWeek: true,
@@ -141,6 +148,11 @@ export async function createPublicBooking(
   const addonLines: BookingAddonLine[] = [];
   const requestedAddons = (data.addons ?? []).filter((a) => a.quantity > 0);
   if (requestedAddons.length > 0) {
+    // Categorie-scope: add-on moet gelden voor de categorie van het hoofd-
+    // item (of diens parent). Niet-passende add-ons vallen er stil uit.
+    const itemCategoryIds = [item.categoryId, item.category.parentId].filter(
+      (v): v is string => Boolean(v),
+    );
     const addonItems = await db.item.findMany({
       where: {
         id: { in: requestedAddons.map((a) => a.itemId) },
@@ -149,12 +161,16 @@ export async function createPublicBooking(
         isAddon: true,
         addonPrice: { not: null },
       },
-      select: { id: true, name: true, addonPrice: true },
+      select: { id: true, name: true, addonPrice: true, addonCategoryIds: true },
     });
     const byId = new Map(addonItems.map((a) => [a.id, a]));
     for (const req of requestedAddons) {
       const it = byId.get(req.itemId);
       if (!it || it.addonPrice == null) continue;
+      const scope = Array.isArray(it.addonCategoryIds)
+        ? (it.addonCategoryIds as string[])
+        : null;
+      if (!addonAppliesToCategory(scope, itemCategoryIds)) continue;
       addonLines.push({
         itemId: it.id,
         name: it.name,

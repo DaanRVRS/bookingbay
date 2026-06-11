@@ -32,6 +32,8 @@ interface ItemRow {
 interface CategoryBucket {
   id: string;
   name: string;
+  /** Hoofdcategorie + evt. subcategorie — voor add-on-matching. */
+  categoryIds?: string[];
   items: ItemRow[];
 }
 
@@ -40,6 +42,8 @@ export interface AddonOption {
   name: string;
   description: string | null;
   price: number;
+  /** Category-ids waarbij deze add-on geldt; null = alle categorieën. */
+  categoryIds?: string[] | null;
 }
 
 interface Props {
@@ -206,6 +210,21 @@ function WidgetInner({
   const selectedItem =
     selectedCategory?.items.find((i) => i.id === itemId) ?? null;
 
+  // Add-ons gefilterd op de categorie van het gekozen item. Zonder gekozen
+  // categorie (nog op de categorie-/item-stap) tellen we alle add-ons mee
+  // voor de voortgangsbalk; de echte filtering gebeurt zodra het item vast
+  // staat. addon.categoryIds null/leeg = geldt overal.
+  const relevantAddons = selectedCategory
+    ? addons.filter(
+        (a) =>
+          !a.categoryIds ||
+          a.categoryIds.length === 0 ||
+          (selectedCategory.categoryIds ?? [selectedCategory.id]).some((id) =>
+            a.categoryIds!.includes(id),
+          ),
+      )
+    : addons;
+
   const brand = (
     <BrandHeader
       orgName={orgName}
@@ -230,7 +249,7 @@ function WidgetInner({
   // Voortgang: [Categorie?] → Item → Wanneer → [Extra's?] → Gegevens →
   // Bevestiging. De Extra's-stap bestaat alleen als de org add-ons heeft.
   const showCategoryStep = categories.length > 1;
-  const hasExtras = addons.length > 0;
+  const hasExtras = relevantAddons.length > 0;
   const prefixLabels = showCategoryStep
     ? [t("progress.category"), t("progress.item")]
     : [t("progress.item")];
@@ -295,7 +314,7 @@ function WidgetInner({
           orgName={orgName}
           accent={accent}
           item={selectedItem}
-          addons={addons}
+          addons={relevantAddons}
           onBack={() => {
             setItemId(null);
             setStep("item");

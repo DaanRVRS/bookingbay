@@ -29,7 +29,11 @@ import {
   bookingCreateSchema,
   type BookingCreateInput,
 } from "@/lib/bookings/schemas";
-import { sumAddons, type BookingAddonLine } from "@/lib/bookings/price";
+import {
+  sumAddons,
+  addonAppliesToCategory,
+  type BookingAddonLine,
+} from "@/lib/bookings/price";
 import type { AddonOption } from "@/lib/tenants/queries";
 
 type BookingFormValues = z.input<typeof bookingCreateSchema>;
@@ -43,6 +47,8 @@ interface ItemOpt {
   id: string;
   name: string;
   categoryName: string;
+  /** Categorie + evt. parent — voor add-on-matching. */
+  categoryIds?: string[];
   pricePerHour: number | null;
   pricePerDay: number | null;
   pricePerWeek: number | null;
@@ -214,11 +220,21 @@ export function BookingForm({
     [items, itemId],
   );
 
+  // Add-ons gefilterd op de categorie van het gekozen item — zelfde regels
+  // als de widget en de server (categoryIds null/leeg = geldt overal).
+  const applicableAddons = useMemo(
+    () =>
+      addonOptions.filter((a) =>
+        addonAppliesToCategory(a.categoryIds, selectedItem?.categoryIds ?? []),
+      ),
+    [addonOptions, selectedItem],
+  );
+
   // Gekozen add-ons als prijsregels + hun totaal. Server telt deze opnieuw op
   // bovenop het item-subtotaal (totalPrice hieronder = alleen het item-deel).
   const addonLines = useMemo<BookingAddonLine[]>(
     () =>
-      addonOptions
+      applicableAddons
         .map((a) => ({
           itemId: a.id,
           name: a.name,
@@ -226,7 +242,7 @@ export function BookingForm({
           quantity: addonQty[a.id] ?? 0,
         }))
         .filter((l) => l.quantity > 0),
-    [addonOptions, addonQty],
+    [applicableAddons, addonQty],
   );
   const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
 
@@ -414,14 +430,14 @@ export function BookingForm({
         <AvailabilityHint state={availability} />
       </div>
 
-      {addonOptions.length > 0 && (
+      {applicableAddons.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6">
           <h2 className="text-sm font-semibold">Extra&apos;s</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Optionele add-ons die je bij deze boeking kunt toevoegen.
           </p>
           <div className="mt-4 flex flex-col gap-2">
-            {addonOptions.map((a) => {
+            {applicableAddons.map((a) => {
               const qty = addonQty[a.id] ?? 0;
               return (
                 <div

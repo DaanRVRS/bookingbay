@@ -33,6 +33,8 @@ interface ItemOpt {
   id: string;
   name: string;
   categoryName: string;
+  /** Categorie + evt. parent — voor add-on-matching. */
+  categoryIds?: string[];
   pricePerHour: number | null;
   pricePerDay: number | null;
   pricePerWeek: number | null;

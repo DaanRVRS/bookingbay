@@ -85,6 +85,7 @@ interface Existing {
   isActive: boolean;
   isAddon: boolean;
   addonPrice: number | null;
+  addonCategoryIds: string[] | null;
   bookingIntervalMinutes: number;
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
@@ -124,6 +125,7 @@ export function ItemForm({ categories, existing }: Props) {
       isActive: existing?.isActive ?? true,
       isAddon: existing?.isAddon ?? false,
       addonPrice: existing?.addonPrice ?? null,
+      addonCategoryIds: existing?.addonCategoryIds ?? null,
       bookingIntervalMinutes: existing?.bookingIntervalMinutes ?? 60,
       bookingWindowStartMin: existing?.bookingWindowStartMin ?? 540,
       bookingWindowEndMin: existing?.bookingWindowEndMin ?? 1080,
@@ -134,6 +136,11 @@ export function ItemForm({ categories, existing }: Props) {
   const categoryId = watch("categoryId");
   const isActive = watch("isActive");
   const isAddon = Boolean(watch("isAddon"));
+  const addonCategoryIds =
+    (watch("addonCategoryIds") as string[] | null | undefined) ?? null;
+  const quantityRaw = Number(watch("quantity") ?? 1);
+  // quantity 0 = voorraad n.v.t. (alleen voor add-ons).
+  const stockNa = isAddon && quantityRaw === 0;
   const imageUrl = watch("imageUrl") ?? null;
   const businessHoursOverride =
     (watch("businessHoursOverride") as BusinessHours | null | undefined) ?? null;
@@ -280,6 +287,78 @@ export function ItemForm({ categories, existing }: Props) {
           {...register("isAddon")}
           value={isAddon ? "true" : "false"}
         />
+
+        {/* Bij welke categorieën verschijnt deze add-on. Leeg = overal. */}
+        {isAddon && (
+          <div className="mt-5 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Beschikbaar bij</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Bij welke categorieën klanten deze extra te zien krijgen.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setValue(
+                    "addonCategoryIds",
+                    addonCategoryIds === null ? [] : null,
+                    { shouldDirty: true },
+                  )
+                }
+                className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  addonCategoryIds === null ? "bg-primary" : "bg-muted"
+                }`}
+                aria-pressed={addonCategoryIds === null}
+                aria-label="Alle categorieën"
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                    addonCategoryIds === null ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+              {addonCategoryIds === null
+                ? "Alle categorieën — deze extra verschijnt bij elke boeking."
+                : "Alleen bij de aangevinkte categorieën (een hoofdcategorie dekt ook z'n subcategorieën):"}
+            </p>
+            {addonCategoryIds !== null && (
+              <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                {categories.map((c) => {
+                  const checked = addonCategoryIds.includes(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        checked
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border hover:bg-accent"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...addonCategoryIds, c.id]
+                            : addonCategoryIds.filter((id) => id !== c.id);
+                          setValue("addonCategoryIds", next, { shouldDirty: true });
+                        }}
+                        className="size-4 accent-[var(--primary)]"
+                      />
+                      <span className="truncate">
+                        {c.parentId ? `↳ ${c.name}` : c.name}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
@@ -471,17 +550,49 @@ export function ItemForm({ categories, existing }: Props) {
         <h2 className="text-sm font-semibold">Voorraad & status</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="quantity">Aantal beschikbaar</Label>
-            <Input
-              id="quantity"
-              type="number"
-              min={1}
-              step={1}
-              {...register("quantity")}
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="quantity">Aantal beschikbaar</Label>
+              {isAddon && (
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={stockNa}
+                    onChange={(e) =>
+                      setValue("quantity", e.target.checked ? 0 : 1, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    className="size-3.5 accent-[var(--primary)]"
+                  />
+                  N.v.t.
+                </label>
+              )}
+            </div>
+            {stockNa ? (
+              // RHF onthoudt de waarde (0) ook zonder gemount input.
+              <div className="flex h-10 items-center rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
+                Niet van toepassing
+              </div>
+            ) : (
+              <Input
+                id="quantity"
+                type="number"
+                min={isAddon ? 0 : 1}
+                step={1}
+                {...register("quantity")}
+              />
+            )}
             <p className="text-xs text-muted-foreground">
-              Hoeveel exemplaren van dit item heb je?
+              {isAddon
+                ? "Optioneel — vink N.v.t. aan als deze extra geen voorraadlimiet heeft."
+                : "Hoeveel exemplaren van dit item heb je?"}
             </p>
+            {errors.quantity?.message && (
+              <p className="text-xs font-medium text-destructive">
+                {errors.quantity.message}
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Status</Label>

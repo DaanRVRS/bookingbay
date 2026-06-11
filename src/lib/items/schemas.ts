@@ -24,12 +24,16 @@ const itemBaseShape = {
   pricePerWeek: decimal,
   deposit: decimal,
   cleaningFee: decimal,
-  quantity: z.coerce.number().int().min(1).max(9999).default(1),
+  // 0 is alleen toegestaan voor add-ons en betekent "voorraad n.v.t." —
+  // de refine hieronder dwingt min 1 af voor normale items.
+  quantity: z.coerce.number().int().min(0).max(9999).default(1),
   isActive: z.coerce.boolean().default(true),
   // Add-on: dit item is een optionele extra (zwemvest, koelbox, schipper)
   // i.p.v. een zelfstandig boekbaar item. addonPrice = vaste prijs per stuk.
   isAddon: z.coerce.boolean().default(false),
   addonPrice: decimal,
+  // Categorieën waarbij deze add-on aangeboden wordt. Null/leeg = overal.
+  addonCategoryIds: z.array(z.string().min(1)).nullable().optional(),
   // Boek-slot configuratie. 1440 = per-dag (verbergt tijdkeuze in widget).
   bookingIntervalMinutes: z.coerce
     .number()
@@ -47,11 +51,19 @@ const itemBaseShape = {
 const windowOrderRefine = (d: { bookingWindowStartMin: number; bookingWindowEndMin: number }) =>
   d.bookingWindowEndMin > d.bookingWindowStartMin;
 
+// quantity 0 ("n.v.t.") mag alleen bij add-ons.
+const quantityRefine = (d: { isAddon: boolean; quantity: number }) =>
+  d.isAddon || d.quantity >= 1;
+
 export const itemCreateSchema = z
   .object(itemBaseShape)
   .refine(windowOrderRefine, {
     message: "Eind-tijd moet na start-tijd liggen",
     path: ["bookingWindowEndMin"],
+  })
+  .refine(quantityRefine, {
+    message: "Vul een aantal van minimaal 1 in",
+    path: ["quantity"],
   });
 
 export const itemUpdateSchema = z
@@ -59,6 +71,10 @@ export const itemUpdateSchema = z
   .refine(windowOrderRefine, {
     message: "Eind-tijd moet na start-tijd liggen",
     path: ["bookingWindowEndMin"],
+  })
+  .refine(quantityRefine, {
+    message: "Vul een aantal van minimaal 1 in",
+    path: ["quantity"],
   });
 
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;

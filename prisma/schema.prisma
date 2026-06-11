@@ -373,6 +373,11 @@ model Item {
   // als zelfstandig boekbaar item in de widget/catalogus — alleen als extra.
   isAddon    Boolean  @default(false)
   addonPrice Decimal? @db.Decimal(10, 2)
+  // Bij welke categorieën deze add-on aangeboden wordt. Array van
+  // category-ids; null/leeg = bij alle categorieën. Match op de categorie
+  // van het hoofd-item óf diens parent (selecteer "Boten" → geldt ook
+  // voor subcategorie "Motorboten").
+  addonCategoryIds Json?
 
   // Boek-slot configuratie. Bezoekers in de publieke widget zien start-
   // en eindtijden als dropdowns met deze stapgrootte, binnen het window.

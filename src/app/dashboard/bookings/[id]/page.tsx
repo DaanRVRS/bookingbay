@@ -30,7 +30,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
       select: {
         id: true,
         name: true,
-        category: { select: { name: true } },
+        categoryId: true,
+        category: { select: { name: true, parentId: true } },
         pricePerHour: true,
         pricePerDay: true,
         pricePerWeek: true,
@@ -67,6 +68,9 @@ export default async function BookingDetailPage({ params }: PageProps) {
               id: i.id,
               name: i.name,
               categoryName: i.category.name,
+              categoryIds: [i.categoryId, i.category.parentId].filter(
+                (v): v is string => Boolean(v),
+              ),
               pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
               pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
               pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
