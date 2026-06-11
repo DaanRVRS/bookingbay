@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getOrgBySlug, getTenantCatalog } from "@/lib/tenants/queries";
+import { getOrgBySlug, getTenantCatalog, getTenantAddons } from "@/lib/tenants/queries";
 import type { CSSProperties } from "react";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 import { resolveWidgetDesign } from "@/lib/widget/design";
@@ -77,7 +77,10 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
   const org = await getOrgBySlug(slug);
   if (!org) notFound();
 
-  const categories = await getTenantCatalog(org.id);
+  const [categories, addons] = await Promise.all([
+    getTenantCatalog(org.id),
+    getTenantAddons(org.id),
+  ]);
   const buckets = buildBuckets(categories);
   const design = resolveWidgetDesign(org, sp);
 
@@ -92,6 +95,7 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
         logoUrl={org.logoUrl}
         accent={design.accent}
         categories={buckets}
+        addons={addons}
         usps={design.usps}
         tagline={design.tagline}
         defaultLocale={design.defaultLocale}

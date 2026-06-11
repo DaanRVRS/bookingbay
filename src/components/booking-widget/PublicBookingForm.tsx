@@ -58,11 +58,12 @@ interface Props {
   accent: string;
   fixedItem?: ItemOption;
   itemOptions?: ItemOption[];
-  /** Optionele extra's die na de "Wanneer"-stap aangeboden worden. */
+  /** Optionele extra's — krijgen een eigen stap tussen "Wanneer" en
+   *  "Gegevens", die alleen bestaat als er add-ons zijn. */
   addons?: AddonOption[];
   /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
    *  voortgangsbalk de juiste stap kan oplichten. */
-  onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
+  onPhaseChange?: (phase: "when" | "extras" | "details" | "confirm") => void;
 }
 
 interface SlotConfig {
@@ -170,9 +171,10 @@ export function PublicBookingForm({
 
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
-  // Twee sub-stappen binnen het boekformulier: eerst datum/tijd, dan pas
-  // (op een aparte stap) gegevens + betaalwijze.
-  const [formStep, setFormStep] = useState<"when" | "details">("when");
+  // Sub-stappen binnen het boekformulier: datum/tijd → (extra's, alleen
+  // als de org add-ons heeft) → gegevens + betaalwijze.
+  const hasExtras = addons.length > 0;
+  const [formStep, setFormStep] = useState<"when" | "extras" | "details">("when");
   const [date, setDate] = useState<Date | undefined>(undefined);
   // Niets vooraf geselecteerd — de klant kiest zelf start- en eindtijd.
   const [startTime, setStartTime] = useState("");
@@ -400,9 +402,10 @@ export function PublicBookingForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotConfig, bookings, itemQuantity, today.getTime(), lookaheadDays, unavailableDates]);
 
-  // Sub-stap "Wanneer" → "Gegevens": valideer dat datum + tijd gekozen
-  // zijn voordat we naar de gegevens/betaal-stap gaan.
-  const goToDetails = () => {
+  // Sub-stap "Wanneer" → volgende: valideer dat datum + tijd gekozen zijn.
+  // Met add-ons gaat de flow eerst langs de "Extra's"-stap; zonder add-ons
+  // direct door naar gegevens/betaalwijze.
+  const goNextFromWhen = () => {
     if (!date) {
       toast.error(t("when.pickDate"));
       return;
@@ -417,8 +420,13 @@ export function PublicBookingForm({
       toast.error(t("when.pickTime"));
       return;
     }
-    setFormStep("details");
-    onPhaseChange?.("details");
+    if (hasExtras) {
+      setFormStep("extras");
+      onPhaseChange?.("extras");
+    } else {
+      setFormStep("details");
+      onPhaseChange?.("details");
+    }
   };
 
   // Sub-stap "Gegevens": "Boeken" geklikt → valideer + ga naar review.
@@ -834,7 +842,103 @@ export function PublicBookingForm({
 
           <button
             type="button"
-            onClick={goToDetails}
+            onClick={goNextFromWhen}
+            className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+            style={{
+              background: accent,
+              color: ON_ACCENT,
+              boxShadow: `0 4px 14px -4px ${accent}80`,
+            }}
+          >
+            {t("nav.next")}
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </>
+      )}
+
+      {/* Eigen stap "Extra's" — bestaat alleen als de org add-ons heeft.
+          Prijs telt mee in de schatting; server haalt de echte prijs
+          opnieuw op. */}
+      {formStep === "extras" && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setFormStep("when");
+              onPhaseChange?.("when");
+            }}
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowRight className="size-3 rotate-180" />
+            {t("nav.back")}
+          </button>
+
+          <Section icon={Plus} accent={accent} title={t("sec.extras")}>
+            <div className="flex flex-col gap-2">
+              {addons.map((a) => {
+                const qty = addonQty[a.id] ?? 0;
+                return (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-3 rounded-lg border p-3 transition-colors"
+                    style={{
+                      borderColor: qty > 0 ? accent : "var(--border)",
+                      background: qty > 0 ? `${accent}0D` : "transparent",
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{a.name}</p>
+                      {a.description && (
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {a.description}
+                        </p>
+                      )}
+                      <p
+                        className="text-[11px] font-semibold tabular-nums"
+                        style={{ color: accent }}
+                      >
+                        € {a.price.toFixed(2)}
+                      </p>
+                    </div>
+                    <AddonStepper
+                      value={qty}
+                      accent={accent}
+                      onChange={(n) =>
+                        setAddonQty((prev) => ({ ...prev, [a.id]: n }))
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {estimate !== null && (
+              <div
+                className="mt-3 flex items-center justify-between gap-3 rounded-lg px-3.5 py-2.5"
+                style={{
+                  background: `${accent}0D`,
+                  border: `1px solid ${accent}33`,
+                }}
+              >
+                <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+                  {t("price.estimate")}
+                </p>
+                <p
+                  className="text-lg font-semibold tabular-nums leading-tight"
+                  style={{ color: accent }}
+                >
+                  € {estimate.toFixed(2)}
+                </p>
+              </div>
+            )}
+          </Section>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFormStep("details");
+              onPhaseChange?.("details");
+            }}
             className="group relative mt-2 inline-flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
             style={{
               background: accent,
@@ -853,58 +957,19 @@ export function PublicBookingForm({
           <button
             type="button"
             onClick={() => {
-              setFormStep("when");
-              onPhaseChange?.("when");
+              if (hasExtras) {
+                setFormStep("extras");
+                onPhaseChange?.("extras");
+              } else {
+                setFormStep("when");
+                onPhaseChange?.("when");
+              }
             }}
             className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowRight className="size-3 rotate-180" />
             {t("nav.back")}
           </button>
-
-      {/* Extra's — optionele add-ons die de tenant aanbiedt. Prijs telt mee
-          in de schatting; server haalt de echte prijs opnieuw op. */}
-      {addons.length > 0 && (
-        <Section icon={Plus} accent={accent} title={t("sec.extras")}>
-          <div className="flex flex-col gap-2">
-            {addons.map((a) => {
-              const qty = addonQty[a.id] ?? 0;
-              return (
-                <div
-                  key={a.id}
-                  className="flex items-center gap-3 rounded-lg border p-3 transition-colors"
-                  style={{
-                    borderColor: qty > 0 ? accent : "var(--border)",
-                    background: qty > 0 ? `${accent}0D` : "transparent",
-                  }}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{a.name}</p>
-                    {a.description && (
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {a.description}
-                      </p>
-                    )}
-                    <p
-                      className="text-[11px] font-semibold tabular-nums"
-                      style={{ color: accent }}
-                    >
-                      € {a.price.toFixed(2)}
-                    </p>
-                  </div>
-                  <AddonStepper
-                    value={qty}
-                    accent={accent}
-                    onChange={(n) =>
-                      setAddonQty((prev) => ({ ...prev, [a.id]: n }))
-                    }
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
 
       {/* Wie ben je. De [&_label]/[&_input]/[&_textarea]-utilities forceren
           de form-tekst naar de "Tekst"-thema-token (--muted-foreground) i.p.v.

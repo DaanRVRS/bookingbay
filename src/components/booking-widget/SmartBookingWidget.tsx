@@ -192,7 +192,7 @@ function WidgetInner({
   );
   const [itemId, setItemId] = useState<string | null>(null);
   const [formPhase, setFormPhase] = useState<
-    "when" | "details" | "confirm"
+    "when" | "extras" | "details" | "confirm"
   >("when");
 
   useEffect(() => {
@@ -227,26 +227,30 @@ function WidgetInner({
     );
   }
 
-  // Voortgang: bij meerdere categorieën 5 stappen, anders 4.
-  // [Categorie?] → Item → Wanneer → Gegevens → Bevestiging
+  // Voortgang: [Categorie?] → Item → Wanneer → [Extra's?] → Gegevens →
+  // Bevestiging. De Extra's-stap bestaat alleen als de org add-ons heeft.
   const showCategoryStep = categories.length > 1;
+  const hasExtras = addons.length > 0;
   const prefixLabels = showCategoryStep
     ? [t("progress.category"), t("progress.item")]
     : [t("progress.item")];
-  const labels = [
-    ...prefixLabels,
-    t("progress.when"),
-    t("progress.details"),
-    t("progress.confirm"),
-  ];
+  const phaseOrder: ("when" | "extras" | "details" | "confirm")[] = hasExtras
+    ? ["when", "extras", "details", "confirm"]
+    : ["when", "details", "confirm"];
+  const phaseLabels: Record<(typeof phaseOrder)[number], string> = {
+    when: t("progress.when"),
+    extras: t("sec.extras"),
+    details: t("progress.details"),
+    confirm: t("progress.confirm"),
+  };
+  const labels = [...prefixLabels, ...phaseOrder.map((p) => phaseLabels[p])];
   const prefixLen = prefixLabels.length;
   const stepIndex =
     step === "category"
       ? 0
       : step === "item"
         ? prefixLen - 1
-        : prefixLen +
-          (formPhase === "when" ? 0 : formPhase === "details" ? 1 : 2);
+        : prefixLen + Math.max(0, phaseOrder.indexOf(formPhase));
 
   return (
     <div>
@@ -543,7 +547,7 @@ function FormStep({
   item: ItemRow;
   addons: AddonOption[];
   onBack: () => void;
-  onPhaseChange?: (phase: "when" | "details" | "confirm") => void;
+  onPhaseChange?: (phase: "when" | "extras" | "details" | "confirm") => void;
 }) {
   const { t } = useWidgetI18n();
   return (
