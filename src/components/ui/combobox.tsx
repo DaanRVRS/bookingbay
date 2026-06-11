@@ -85,8 +85,11 @@ export function Combobox({
               "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             )}
           >
-            <ComboboxPrimitive.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
-              {emptyText}
+            {/* Base UI houdt deze div altijd gemount (voor screenreaders);
+                alleen de children verdwijnen bij resultaten. Padding dus op
+                het binnen-element, anders blijft er een lege gap staan. */}
+            <ComboboxPrimitive.Empty className="text-sm text-muted-foreground">
+              <div className="px-3 py-6 text-center">{emptyText}</div>
             </ComboboxPrimitive.Empty>
             <ComboboxPrimitive.List>
               {(item: ComboboxOption) => (
