@@ -22,7 +22,7 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
   let preselectedItem: { id: string; name: string } | null = null;
   if (itemParam) {
     const found = await db.item.findFirst({
-      where: { id: itemParam, organizationId: org.id, isActive: true },
+      where: { id: itemParam, organizationId: org.id, isActive: true, isAddon: false },
       select: { id: true, name: true },
     });
     if (found) preselectedItem = found;
