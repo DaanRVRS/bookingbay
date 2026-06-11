@@ -64,8 +64,10 @@ export async function createPublicBooking(
     };
   }
 
+  // isAddon: false — extra's zijn nooit zelfstandig boekbaar, ook niet via
+  // een directe API-call met het add-on-itemId.
   const item = await db.item.findFirst({
-    where: { id: data.itemId, organizationId: org.id, isActive: true },
+    where: { id: data.itemId, organizationId: org.id, isActive: true, isAddon: false },
     select: {
       id: true,
       name: true,
@@ -320,7 +322,7 @@ export async function getItemAvailability(
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
 
   const item = await db.item.findFirst({
-    where: { id: itemId, organizationId: org.id, isActive: true },
+    where: { id: itemId, organizationId: org.id, isActive: true, isAddon: false },
     select: {
       quantity: true,
       bookingIntervalMinutes: true,

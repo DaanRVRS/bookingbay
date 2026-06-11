@@ -58,7 +58,7 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
         orderBy: { sortOrder: "asc" },
         include: {
           items: {
-            where: { isActive: true },
+            where: { isActive: true, isAddon: false },
             orderBy: { name: "asc" },
             select: {
               id: true,
@@ -117,6 +117,7 @@ export const searchTenantItems = cache(async (organizationId: string, query: str
     where: {
       organizationId,
       isActive: true,
+      isAddon: false,
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
@@ -131,7 +132,7 @@ export const searchTenantItems = cache(async (organizationId: string, query: str
 
 export const getTenantItem = cache(async (organizationId: string, itemId: string) => {
   return db.item.findFirst({
-    where: { id: itemId, organizationId, isActive: true },
+    where: { id: itemId, organizationId, isActive: true, isAddon: false },
     include: { category: { select: { id: true, name: true } } },
   });
 });
@@ -164,6 +165,7 @@ export async function getPriceListItems(
     where: {
       organizationId,
       isActive: true,
+      isAddon: false,
       ...(useItemIds ? { id: { in: itemIds } } : {}),
       ...(categoryId && !useItemIds ? { categoryId } : {}),
     },

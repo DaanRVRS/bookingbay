@@ -81,10 +81,11 @@ export async function createBookingAction(
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
   }
 
-  // Validate item + customer belong to org
+  // Validate item + customer belong to org. isAddon: false — een add-on is
+  // nooit het hoofd-item van een boeking.
   const [item, customer] = await Promise.all([
     db.item.findFirst({
-      where: { id: parsed.data.itemId, organizationId: ctx.organization.id },
+      where: { id: parsed.data.itemId, organizationId: ctx.organization.id, isAddon: false },
       select: { id: true, quantity: true, isActive: true },
     }),
     db.customer.findFirst({
@@ -175,7 +176,7 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
   const item = await db.item.findFirst({
-    where: { id: parsed.data.itemId, organizationId: ctx.organization.id },
+    where: { id: parsed.data.itemId, organizationId: ctx.organization.id, isAddon: false },
     select: { id: true, quantity: true },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -413,7 +414,7 @@ export async function moveBookingAction(input: {
   }
 
   const item = await db.item.findFirst({
-    where: { id: newItemId, organizationId: ctx.organization.id },
+    where: { id: newItemId, organizationId: ctx.organization.id, isAddon: false },
     select: { id: true, quantity: true, name: true },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -470,7 +471,7 @@ export async function moveBookingAction(input: {
 export async function checkBookingAvailability(input: AvailabilityCheckInput) {
   const ctx = await requireOrg();
   const item = await db.item.findFirst({
-    where: { id: input.itemId, organizationId: ctx.organization.id },
+    where: { id: input.itemId, organizationId: ctx.organization.id, isAddon: false },
     select: { id: true, quantity: true },
   });
   if (!item) return { available: false, message: "Item niet gevonden", overlapping: [] };

@@ -21,7 +21,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
 
   const [items, bookings] = await Promise.all([
     db.item.findMany({
-      where: { organizationId: orgId, isActive: true },
+      where: { organizationId: orgId, isActive: true, isAddon: false },
       orderBy: { name: "asc" },
       select: { id: true, name: true, quantity: true },
     }),

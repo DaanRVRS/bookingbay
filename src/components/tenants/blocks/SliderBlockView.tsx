@@ -35,6 +35,7 @@ async function loadCards(
     where: {
       organizationId,
       isActive: true,
+      isAddon: false,
       ...(block.categoryId ? { categoryId: block.categoryId } : {}),
     },
     orderBy: { name: "asc" },
