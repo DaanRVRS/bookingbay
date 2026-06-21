@@ -43,6 +43,10 @@ export interface IntegrationDef {
   faq?: { q: string; a: string }[];
   /** URL naar de website van de provider (voor klant referentie). */
   vendorUrl?: string;
+  /** Gezet = self-serve koppeling: de klant stelt 'm zelf in op dit pad
+   *  (bv. betaalproviders → /dashboard/settings/organization#betalen) i.p.v.
+   *  via de aanvraag-/activatie-flow. De detailpagina linkt direct hierheen. */
+  selfServeConfigPath?: string;
   /** Iconify-icoonnaam (uit de `logos`-collectie) — bv. "logos:slack".
    *  Wordt gerenderd door <IntegrationLogo />. Werkt offline omdat we
    *  Iconify in de bundle hebben. */
@@ -181,6 +185,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     categorySlug: "betaalproviders",
     status: "available",
     monthlyPriceEuro: 0,
+    selfServeConfigPath: "/dashboard/settings/organization#betalen",
     tagline: "iDEAL, Bancontact, kaart en meer — direct bij het boeken.",
     description: [
       "Mollie is de meest gebruikte payment-provider in Nederland. Klanten zien direct iDEAL bij het afrekenen — geen account, geen omwegen.",
@@ -215,8 +220,9 @@ export const INTEGRATIONS: IntegrationDef[] = [
     slug: "stripe",
     name: "Stripe",
     categorySlug: "betaalproviders",
-    status: "coming-soon",
+    status: "available",
     monthlyPriceEuro: 0,
+    selfServeConfigPath: "/dashboard/settings/organization#betalen",
     tagline: "Internationale kaartbetalingen + abonnementen.",
     description: [
       "Voor wie ook buiten Nederland verhuurt. Stripe ondersteunt kaarten wereldwijd, Apple Pay, Google Pay en SEPA — handig als je klanten uit meerdere landen hebt.",

@@ -56,6 +56,12 @@ export async function registerInterestAction(
   }
   const def = getIntegration(parsed.data.slug);
   if (!def) return { ok: false, error: "Koppeling onbekend" };
+  if (def.selfServeConfigPath) {
+    return {
+      ok: false,
+      error: "Deze koppeling stel je zelf in bij Instellingen > Betalen.",
+    };
+  }
   if (def.status === "available") {
     return {
       ok: false,
@@ -215,6 +221,12 @@ export async function requestActivationAction(
   }
   const def = getIntegration(parsed.data.slug);
   if (!def) return { ok: false, error: "Koppeling onbekend" };
+  if (def.selfServeConfigPath) {
+    return {
+      ok: false,
+      error: "Deze koppeling stel je zelf in bij Instellingen > Betalen.",
+    };
+  }
   if (def.status === "coming-soon") {
     return {
       ok: false,

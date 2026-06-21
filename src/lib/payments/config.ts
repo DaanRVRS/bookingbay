@@ -54,6 +54,17 @@ export function onlineReady(cfg: DecryptedPaymentConfig): boolean {
   return false;
 }
 
+/** Is de betaalprovider met deze integratie-slug de actieve online provider?
+ *  Gebruikt om Mollie/Stripe-koppelingen (self-serve) als "Actief" te tonen. */
+export function isActivePaymentProvider(
+  cfg: DecryptedPaymentConfig,
+  slug: string,
+): boolean {
+  if (slug === "mollie") return cfg.onlineProvider === "MOLLIE";
+  if (slug === "stripe") return cfg.onlineProvider === "STRIPE";
+  return false;
+}
+
 function safeDecrypt(enc: string | null): string | null {
   if (!enc) return null;
   try {

@@ -11,23 +11,38 @@ import {
   sumActiveMonthlyUpsell,
 } from "@/lib/integrations/queries";
 import { INTEGRATIONS, getIntegration } from "@/lib/integrations/catalog";
+import { readPaymentConfig } from "@/lib/payments/config";
 
 export const metadata = { title: "Koppelingen" };
 
 export default async function IntegrationsPage() {
   const ctx = await requireOrg();
-  const [orgMap, monthlyUpsell] = await Promise.all([
+  const [orgMap, monthlyUpsell, paymentCfg] = await Promise.all([
     getOrgIntegrationsMap(ctx.organization.id),
     sumActiveMonthlyUpsell(ctx.organization.id),
+    readPaymentConfig(ctx.organization.id),
   ]);
 
+  // Self-serve betaalproviders (Mollie/Stripe) worden niet via de aanvraag-
+  // flow beheerd maar via Instellingen > Betalen. Hun status komt uit de
+  // payment-config; eventuele oude OrgIntegration-rijen negeren we hier.
+  const isSelfServeSlug = (slug: string) =>
+    Boolean(getIntegration(slug)?.selfServeConfigPath);
+
   const statusByKey: Record<string, OrgIntegrationStatus> = {};
-  for (const [k, v] of orgMap) statusByKey[k] = v.status;
+  for (const [k, v] of orgMap) {
+    if (isSelfServeSlug(k)) continue;
+    statusByKey[k] = v.status;
+  }
+  if (paymentCfg.onlineProvider === "MOLLIE") statusByKey["mollie"] = "ACTIVE";
+  if (paymentCfg.onlineProvider === "STRIPE") statusByKey["stripe"] = "ACTIVE";
 
   type OrgRow = NonNullable<ReturnType<typeof orgMap.get>>;
   type Pair = { row: OrgRow; def: NonNullable<ReturnType<typeof getIntegration>> };
 
-  const allRows: OrgRow[] = [...orgMap.values()];
+  const allRows: OrgRow[] = [...orgMap.values()].filter(
+    (r) => !isSelfServeSlug(r.integrationKey),
+  );
   const pair = (r: OrgRow): Pair | null => {
     const def = getIntegration(r.integrationKey);
     return def ? { row: r, def } : null;

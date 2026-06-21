@@ -10,6 +10,7 @@ import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
 import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
 import { getCategory, getIntegration } from "@/lib/integrations/catalog";
 import { getOrgIntegration } from "@/lib/integrations/queries";
+import { readPaymentConfig, isActivePaymentProvider } from "@/lib/payments/config";
 import type { CalendarListEntry } from "@/lib/integrations/google-calendar";
 import { ActivationActions } from "./activation-actions";
 import { GoogleCalendarSetup } from "./google-calendar-setup";
@@ -37,6 +38,16 @@ export default async function IntegrationDetailPage({
 
   const ctx = await requireOrg();
   const orgRow = await getOrgIntegration(ctx.organization.id, def.slug);
+
+  // Self-serve koppelingen (Mollie/Stripe) lopen niet via de aanvraag-flow,
+  // maar via Instellingen > Betalen. Status leiden we af uit de payment-config.
+  const isSelfServe = Boolean(def.selfServeConfigPath);
+  const paymentCfg = isSelfServe
+    ? await readPaymentConfig(ctx.organization.id)
+    : null;
+  const selfServeActive = paymentCfg
+    ? isActivePaymentProvider(paymentCfg, def.slug)
+    : false;
 
   // Lees account-email / scopes / lastSyncAt uit de config. Niet-encrypted
   // velden zijn meteen leesbaar — we hoeven hier geen tokens te decrypten.
@@ -115,7 +126,13 @@ export default async function IntegrationDetailPage({
                 <div className="flex flex-wrap items-center gap-2">
                   <IntegrationStatusBadge
                     catalogStatus={def.status}
-                    orgStatus={orgRow?.status ?? null}
+                    orgStatus={
+                      isSelfServe
+                        ? selfServeActive
+                          ? "ACTIVE"
+                          : null
+                        : (orgRow?.status ?? null)
+                    }
                   />
                   {cat && (
                     <Link
@@ -280,21 +297,41 @@ export default async function IntegrationDetailPage({
 
               <div className="my-4 h-px bg-border" />
 
-              <ActivationActions
-                slug={def.slug}
-                catalogStatus={def.status}
-                orgStatus={orgRow?.status ?? null}
-                vendorUrl={def.vendorUrl}
-                monthlyPriceEuro={def.monthlyPriceEuro}
-              />
+              {isSelfServe && def.selfServeConfigPath ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {selfServeActive
+                      ? `${def.name} is je actieve betaalmethode. Beheer je provider of API-key in de betaalinstellingen.`
+                      : `Geen aanvraag nodig — stel dit direct zelf in. Vul je ${def.name}-key in bij de betaalinstellingen en je accepteert meteen online betalingen.`}
+                  </p>
+                  <Link
+                    href={def.selfServeConfigPath}
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    {selfServeActive
+                      ? "Beheer in betaalinstellingen"
+                      : "Naar betaalinstellingen"}
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <ActivationActions
+                    slug={def.slug}
+                    catalogStatus={def.status}
+                    orgStatus={orgRow?.status ?? null}
+                    vendorUrl={def.vendorUrl}
+                    monthlyPriceEuro={def.monthlyPriceEuro}
+                  />
 
-              {orgRow?.supportTicketId && (
-                <Link
-                  href={`/dashboard/support/${orgRow.supportTicketId}`}
-                  className="mt-4 block text-center text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  Open support-ticket
-                </Link>
+                  {orgRow?.supportTicketId && (
+                    <Link
+                      href={`/dashboard/support/${orgRow.supportTicketId}`}
+                      className="mt-4 block text-center text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    >
+                      Open support-ticket
+                    </Link>
+                  )}
+                </>
               )}
             </div>
 

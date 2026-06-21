@@ -83,7 +83,7 @@ export default async function OrgSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-6">
+      <section id="betalen" className="scroll-mt-20 rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold">Betalen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Hoe wil je dat klanten in de boekwidget afrekenen? &quot;Op locatie&quot; is
