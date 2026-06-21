@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImageIcon } from "lucide-react";
 import { PublicBookingForm } from "./PublicBookingForm";
 import {
   WidgetI18nProvider,
@@ -279,6 +279,10 @@ function WidgetInner({
         accent={accent}
         currentIndex={stepIndex}
         labels={labels}
+        stepLabel={t("progress.stepOf", {
+          n: stepIndex + 1,
+          total: labels.length,
+        })}
       />
 
       {step === "category" && (
@@ -333,55 +337,41 @@ function ProgressIndicator({
   accent,
   currentIndex,
   labels,
+  stepLabel,
 }: {
   accent: string;
   currentIndex: number;
   labels: string[];
+  stepLabel: string;
 }) {
+  const total = labels.length;
+  // +1 zodat de eerste stap al deels gevuld is en de laatste 100% vult.
+  const pct = total > 0 ? Math.round(((currentIndex + 1) / total) * 100) : 0;
   return (
-    // Op mobile alleen cijfers + lijnen; labels passen niet bij 4-5 stappen
-    // in de smalle widget-container (zou over de rand uitsteken). Vanaf sm:
-    // labels weer ernaast.
-    <div className="mb-6 flex items-center gap-1.5 sm:gap-2">
-      {labels.map((label, i) => {
-        const done = i < currentIndex;
-        const active = i === currentIndex;
-        return (
-          <div key={label} className="flex flex-1 items-center gap-1.5 sm:gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all"
-                style={{
-                  background: done || active ? accent : "transparent",
-                  color: done || active ? ON_ACCENT : "var(--muted-foreground)",
-                  border: done || active ? "none" : "1.5px solid var(--border)",
-                }}
-              >
-                {done ? <Check className="size-3" /> : i + 1}
-              </span>
-              <span
-                className="hidden text-xs font-medium tracking-wide sm:inline"
-                style={{
-                  // done + future allebei --muted-foreground (de "Tekst"-
-                  // thema-token): --foreground (Koppen) kan door een tenant
-                  // licht/wit gezet zijn → voltooide labels werden onleesbaar.
-                  color: active ? accent : "var(--muted-foreground)",
-                }}
-              >
-                {label}
-              </span>
-            </div>
-            {i < labels.length - 1 && (
-              <div
-                className="h-px flex-1 transition-all"
-                style={{
-                  background: i < currentIndex ? accent : "var(--border)",
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
+    // Compacte voortgang: huidige stapnaam + "Stap X van Y" op één regel,
+    // met een dunne gevulde balk eronder. Vervangt de brede labelrij die bij
+    // 5-6 stappen over de rand van de smalle widget-container liep.
+    <div className="mb-6">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <span
+          className="text-sm font-semibold tracking-wide"
+          style={{ color: accent }}
+        >
+          {labels[currentIndex] ?? ""}
+        </span>
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+          {stepLabel}
+        </span>
+      </div>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full"
+        style={{ background: "var(--border)" }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-300"
+          style={{ width: `${pct}%`, background: accent }}
+        />
+      </div>
     </div>
   );
 }

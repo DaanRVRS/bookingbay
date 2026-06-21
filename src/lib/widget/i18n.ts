@@ -71,6 +71,7 @@ export type TKey =
   | "progress.when"
   | "progress.details"
   | "progress.confirm"
+  | "progress.stepOf"
   | "empty.catalog"
   | "cat.title"
   | "cat.subtitle"
@@ -149,6 +150,7 @@ const NL: Dict = {
   "progress.when": "Wanneer",
   "progress.details": "Gegevens",
   "progress.confirm": "Bevestiging",
+  "progress.stepOf": "Stap {n} van {total}",
   "empty.catalog": "Het aanbod wordt nog samengesteld.",
   "cat.title": "Waarmee kunnen we helpen?",
   "cat.subtitle": "Kies een categorie om te beginnen.",
@@ -228,6 +230,7 @@ const EN: Dict = {
   "progress.when": "When",
   "progress.details": "Details",
   "progress.confirm": "Confirm",
+  "progress.stepOf": "Step {n} of {total}",
   "empty.catalog": "The catalogue is being put together.",
   "cat.title": "How can we help?",
   "cat.subtitle": "Pick a category to get started.",
@@ -306,6 +309,7 @@ const FR: Dict = {
   "progress.when": "Quand",
   "progress.details": "Détails",
   "progress.confirm": "Confirmation",
+  "progress.stepOf": "Étape {n} sur {total}",
   "empty.catalog": "Le catalogue est en cours de préparation.",
   "cat.title": "Comment pouvons-nous aider ?",
   "cat.subtitle": "Choisissez une catégorie pour commencer.",
@@ -384,6 +388,7 @@ const DE: Dict = {
   "progress.when": "Wann",
   "progress.details": "Daten",
   "progress.confirm": "Bestätigung",
+  "progress.stepOf": "Schritt {n} von {total}",
   "empty.catalog": "Das Angebot wird noch zusammengestellt.",
   "cat.title": "Wie können wir helfen?",
   "cat.subtitle": "Wählen Sie eine Kategorie, um zu starten.",
@@ -463,6 +468,7 @@ const ES: Dict = {
   "progress.when": "Cuándo",
   "progress.details": "Datos",
   "progress.confirm": "Confirmar",
+  "progress.stepOf": "Paso {n} de {total}",
   "empty.catalog": "El catálogo se está preparando.",
   "cat.title": "¿Cómo podemos ayudar?",
   "cat.subtitle": "Elige una categoría para empezar.",
@@ -541,6 +547,7 @@ const IT: Dict = {
   "progress.when": "Quando",
   "progress.details": "Dati",
   "progress.confirm": "Conferma",
+  "progress.stepOf": "Passo {n} di {total}",
   "empty.catalog": "Il catalogo è in preparazione.",
   "cat.title": "Come possiamo aiutarti?",
   "cat.subtitle": "Scegli una categoria per iniziare.",
@@ -619,6 +626,7 @@ const RU: Dict = {
   "progress.when": "Когда",
   "progress.details": "Данные",
   "progress.confirm": "Подтверждение",
+  "progress.stepOf": "Шаг {n} из {total}",
   "empty.catalog": "Каталог ещё формируется.",
   "cat.title": "Чем можем помочь?",
   "cat.subtitle": "Выберите категорию, чтобы начать.",
@@ -697,6 +705,7 @@ const UK: Dict = {
   "progress.when": "Коли",
   "progress.details": "Дані",
   "progress.confirm": "Підтвердження",
+  "progress.stepOf": "Крок {n} з {total}",
   "empty.catalog": "Каталог ще формується.",
   "cat.title": "Чим можемо допомогти?",
   "cat.subtitle": "Оберіть категорію, щоб почати.",
@@ -775,6 +784,7 @@ const PL: Dict = {
   "progress.when": "Kiedy",
   "progress.details": "Dane",
   "progress.confirm": "Potwierdzenie",
+  "progress.stepOf": "Krok {n} z {total}",
   "empty.catalog": "Oferta jest właśnie przygotowywana.",
   "cat.title": "Jak możemy pomóc?",
   "cat.subtitle": "Wybierz kategorię, aby zacząć.",
@@ -853,6 +863,7 @@ const TR: Dict = {
   "progress.when": "Ne zaman",
   "progress.details": "Bilgiler",
   "progress.confirm": "Onay",
+  "progress.stepOf": "Adım {n}/{total}",
   "empty.catalog": "Katalog hazırlanıyor.",
   "cat.title": "Nasıl yardımcı olabiliriz?",
   "cat.subtitle": "Başlamak için bir kategori seçin.",
