@@ -72,6 +72,7 @@ export function OrgSettingsForm({ initial, disabled }: Props) {
           <Input
             id="slug"
             disabled={disabled}
+            placeholder="aurora"
             className="pl-[4.5rem] pr-32"
             {...register("slug")}
           />
