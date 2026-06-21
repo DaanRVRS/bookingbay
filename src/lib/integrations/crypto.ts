@@ -23,6 +23,13 @@ function getKey(): Buffer {
   return Buffer.from(env.INTEGRATION_ENCRYPTION_KEY, "hex");
 }
 
+/** Is er een versleutel-sleutel geconfigureerd? Zonder kunnen we geen
+ *  secrets (API-keys, OAuth-tokens) versleuteld opslaan — encryptSecret()
+ *  zou dan throwen. Callers checken dit vooraf voor een nette foutmelding. */
+export function isEncryptionConfigured(): boolean {
+  return Boolean(env.INTEGRATION_ENCRYPTION_KEY);
+}
+
 export function encryptSecret(plaintext: string): string {
   const key = getKey();
   const iv = randomBytes(12); // 96-bit nonce voor GCM

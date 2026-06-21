@@ -6,6 +6,7 @@ import { assertCan } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
 import { blockDemoWriteResponse } from "@/lib/demo/guard";
 import { encryptIfPresent } from "@/lib/payments/config";
+import { isEncryptionConfigured } from "@/lib/integrations/crypto";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -69,6 +70,23 @@ export async function POST(req: Request) {
 
   const data = parsed.data;
   const onlineProvider = data.onlineProvider ?? null;
+
+  // Een nieuwe key opslaan vereist een geconfigureerde versleutel-sleutel.
+  // Zonder zou encryptSecret() throwen → HTTP 500 → de client kan de JSON
+  // niet lezen en toont onterecht "Verbinding mislukt". Vang het hier af
+  // met een duidelijke, leesbare melding.
+  const wantsNewSecret = Boolean(
+    data.mollieKey?.trim() ||
+      data.stripeKey?.trim() ||
+      data.stripeWebhookSecret?.trim(),
+  );
+  if (wantsNewSecret && !isEncryptionConfigured()) {
+    return NextResponse.json({
+      ok: false,
+      error:
+        "Online betalen kan nog niet ingesteld worden: de server-versleutelsleutel (INTEGRATION_ENCRYPTION_KEY) ontbreekt. Neem contact op met de beheerder.",
+    });
+  }
 
   const current = await db.organization.findUnique({
     where: { id: ctx.organization.id },
