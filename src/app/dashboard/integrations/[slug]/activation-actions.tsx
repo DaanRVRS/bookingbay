@@ -17,6 +17,8 @@ interface Props {
   orgStatus: OrgIntegrationStatus | null;
   /** Provider-URL voor "registreer eerst" hint bij sommige koppelingen. */
   vendorUrl?: string;
+  /** 0 = gratis koppeling → geen "op je factuur"-melding tonen. */
+  monthlyPriceEuro: number;
 }
 
 export function ActivationActions({
@@ -24,6 +26,7 @@ export function ActivationActions({
   catalogStatus,
   orgStatus,
   vendorUrl,
+  monthlyPriceEuro,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -56,7 +59,9 @@ export function ActivationActions({
     return (
       <div className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
-          Deze koppeling is actief en wordt elke maand op je factuur meegenomen.
+          {monthlyPriceEuro === 0
+            ? "Deze koppeling is actief — gratis, geen kosten op je factuur."
+            : "Deze koppeling is actief en wordt elke maand op je factuur meegenomen."}
         </p>
         <button
           type="button"

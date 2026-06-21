@@ -26,9 +26,10 @@ export interface IntegrationDef {
   name: string;
   categorySlug: string;
   status: IntegrationStatus;
-  /** Maandprijs als upsell bovenop het maand-abbo. Altijd > 0 — elke
-   *  koppeling kost iets, ook bij providers die zelf geen kosten rekenen
-   *  (wij draaien de plumbing, sync en support). */
+  /** Maandprijs als upsell bovenop het maand-abbo. Meestal > 0 (wij draaien
+   *  de plumbing, sync en support). 0 = gratis: bv. betaalproviders, want
+   *  online betalen accepteren regel je in Instellingen > Betalen en de
+   *  koppeling zelf kost niets — transactiekosten gaan naar de provider. */
   monthlyPriceEuro: number;
   /** 1-zinsbeschrijving voor de catalogus-tegel. */
   tagline: string;
@@ -179,7 +180,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Mollie",
     categorySlug: "betaalproviders",
     status: "available",
-    monthlyPriceEuro: 9,
+    monthlyPriceEuro: 0,
     tagline: "iDEAL, Bancontact, kaart en meer — direct bij het boeken.",
     description: [
       "Mollie is de meest gebruikte payment-provider in Nederland. Klanten zien direct iDEAL bij het afrekenen — geen account, geen omwegen.",
@@ -196,7 +197,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     faq: [
       {
         q: "Wat zijn de transactiekosten?",
-        a: "Die rekent Mollie zelf — ~€0,29 per iDEAL-betaling. BookingBay rekent €9/maand voor de koppeling zelf, geen marge bovenop transacties.",
+        a: "Die rekent Mollie zelf — ~€0,29 per iDEAL-betaling. De koppeling zelf is gratis; BookingBay rekent geen marge bovenop transacties.",
       },
       {
         q: "Heb ik een Mollie-account nodig?",
@@ -215,7 +216,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     name: "Stripe",
     categorySlug: "betaalproviders",
     status: "coming-soon",
-    monthlyPriceEuro: 9,
+    monthlyPriceEuro: 0,
     tagline: "Internationale kaartbetalingen + abonnementen.",
     description: [
       "Voor wie ook buiten Nederland verhuurt. Stripe ondersteunt kaarten wereldwijd, Apple Pay, Google Pay en SEPA — handig als je klanten uit meerdere landen hebt.",
@@ -627,5 +628,6 @@ export function statusLabel(status: IntegrationStatus): string {
 }
 
 export function priceLabel(monthly: number): string {
+  if (monthly <= 0) return "Gratis";
   return `€${monthly}/m`;
 }

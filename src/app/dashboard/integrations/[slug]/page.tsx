@@ -239,13 +239,21 @@ export default async function IntegrationDetailPage({
                 Prijs
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums">
-                €{def.monthlyPriceEuro}
-                <span className="ml-1 text-sm font-normal text-muted-foreground">
-                  / maand
-                </span>
+                {def.monthlyPriceEuro === 0 ? (
+                  "Gratis"
+                ) : (
+                  <>
+                    €{def.monthlyPriceEuro}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">
+                      / maand
+                    </span>
+                  </>
+                )}
               </p>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Bovenop je BookingBay-abonnement
+                {def.monthlyPriceEuro === 0
+                  ? "Inbegrepen bij elk abonnement"
+                  : "Bovenop je BookingBay-abonnement"}
               </p>
 
               {/* Verbindings-info: alleen tonen wanneer koppeling actief is */}
@@ -277,6 +285,7 @@ export default async function IntegrationDetailPage({
                 catalogStatus={def.status}
                 orgStatus={orgRow?.status ?? null}
                 vendorUrl={def.vendorUrl}
+                monthlyPriceEuro={def.monthlyPriceEuro}
               />
 
               {orgRow?.supportTicketId && (
