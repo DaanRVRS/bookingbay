@@ -73,7 +73,7 @@ export function OrgSettingsForm({ initial, disabled }: Props) {
             id="slug"
             disabled={disabled}
             placeholder="aurora"
-            className="pl-[4.5rem] pr-32"
+            className="pl-15 pr-32"
             {...register("slug")}
           />
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">

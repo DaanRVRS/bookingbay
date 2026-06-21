@@ -129,7 +129,7 @@ export function OnboardingForm({ defaultName }: Props) {
           <input
             id="slug"
             placeholder="aurora"
-            className="border-input flex h-10 w-full rounded-md border bg-background pl-[4.5rem] pr-32 py-2 text-sm shadow-xs outline-none ring-3 ring-transparent focus:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-destructive/15"
+            className="border-input flex h-10 w-full rounded-md border bg-background pl-15 pr-32 py-2 text-sm shadow-xs outline-none ring-3 ring-transparent focus:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-destructive/15"
             aria-invalid={Boolean(errors.slug)}
             {...register("slug", {
               onChange: () => setSlugTouched(true),
