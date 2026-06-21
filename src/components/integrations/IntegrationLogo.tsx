@@ -93,7 +93,10 @@ export function IntegrationLogo({
           {brandInitial(integration.name)}
         </span>
       ) : (
-        <Icon icon={integration.iconifyId} className={ICON_SIZE[size]} />
+        <Icon
+          icon={integration.iconifyId}
+          className={`${ICON_SIZE[size]} text-zinc-900`}
+        />
       )}
     </div>
   );

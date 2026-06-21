@@ -31,7 +31,7 @@ const ORG: Record<OrgIntegrationStatus, { label: string; className: string }> = 
     className: "bg-primary/15 text-primary",
   },
   ACTIVE: {
-    label: "Actief",
+    label: "Gekoppeld",
     className:
       "bg-[oklch(0.93_0.07_150)] text-[oklch(0.4_0.14_150)] dark:bg-[oklch(0.28_0.08_150)] dark:text-[oklch(0.82_0.1_150)]",
   },

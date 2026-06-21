@@ -32,7 +32,7 @@ export function IntegrationCatalog({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return INTEGRATIONS.filter((i) => {
+    const matched = INTEGRATIONS.filter((i) => {
       if (category !== "all" && i.categorySlug !== category) return false;
       if (!q) return true;
       return (
@@ -41,7 +41,15 @@ export function IntegrationCatalog({
         i.categorySlug.includes(q)
       );
     });
-  }, [category, query]);
+    // Sorteer: gekoppeld (geactiveerd) → beschikbaar → binnenkort. Binnen elke
+    // groep blijft de catalogus-volgorde behouden (Array.sort is stabiel).
+    const rank = (i: IntegrationDef): number => {
+      if (orgStatusByKey?.[i.slug] === "ACTIVE") return 0;
+      if (i.status === "available" || i.status === "beta") return 1;
+      return 2;
+    };
+    return matched.sort((a, b) => rank(a) - rank(b));
+  }, [category, query, orgStatusByKey]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { all: INTEGRATIONS.length };

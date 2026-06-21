@@ -214,7 +214,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       },
     ],
     vendorUrl: "https://mollie.com",
-    iconifyId: "simple-icons:mollie",
+    iconifyId: "hugeicons:mollie",
   },
   {
     slug: "stripe",
