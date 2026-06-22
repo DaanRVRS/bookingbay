@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DERIVED_FILTERS,
@@ -39,6 +39,27 @@ const SORT_OPTIONS = [
   { value: "date", label: "Op boekingsdatum" },
 ];
 
+const DIR_OPTIONS = [
+  { value: "desc", label: "Nieuwste eerst" },
+  { value: "asc", label: "Oudste eerst" },
+];
+
+/**
+ * Zichtbare pagina-knoppen: bij ≤7 alle nummers, anders eerste + laatste +
+ * een venster rond de huidige, met "…" voor de gaten.
+ */
+function pageItems(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out: (number | "…")[] = [1];
+  if (current > 3) out.push("…");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) out.push(i);
+  if (current < total - 2) out.push("…");
+  out.push(total);
+  return out;
+}
+
 /**
  * Eén bron van waarheid (src/lib/bookings/status.ts): hoofdlabel afgeleid van
  * tijd (Gereserveerd → Bezig → Voltooid) of handmatig Geannuleerd, plus een
@@ -61,40 +82,69 @@ export function BookingList({
   bookings,
   currentStatus,
   currentSort,
+  currentDir,
   currentSearch,
+  currentPage = 1,
+  totalPages = 1,
+  totalResults = 0,
 }: {
   bookings: Booking[];
   currentStatus?: string;
   currentSort?: string;
+  currentDir?: string;
   currentSearch?: string;
+  currentPage?: number;
+  totalPages?: number;
+  totalResults?: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
-  const onStatusChange = (v: string | null) => {
+  // Elke filter-/sorteer-/zoek-wijziging stuurt terug naar pagina 1 — anders
+  // sta je op een pagina die in de nieuwe selectie niet meer bestaat.
+  const navigate = (
+    mutate: (sp: URLSearchParams) => void,
+    resetPage = true,
+  ) => {
     const sp = new URLSearchParams(searchParams.toString());
-    if (!v || v === "__all__") sp.delete("status");
-    else sp.set("status", v);
-    startTransition(() => router.replace(`/dashboard/bookings?${sp.toString()}`));
-  };
-
-  const onSortChange = (v: string | null) => {
-    const sp = new URLSearchParams(searchParams.toString());
-    if (!v || v === "created") sp.delete("sort");
-    else sp.set("sort", v);
-    startTransition(() => router.replace(`/dashboard/bookings?${sp.toString()}`));
-  };
-
-  const onSearch = (value: string) => {
-    const sp = new URLSearchParams(searchParams.toString());
-    const v = value.trim();
-    if (!v) sp.delete("q");
-    else sp.set("q", v);
+    mutate(sp);
+    if (resetPage) sp.delete("page");
     startTransition(() =>
       router.replace(`/dashboard/bookings?${sp.toString()}`),
     );
   };
+
+  const onStatusChange = (v: string | null) =>
+    navigate((sp) => {
+      if (!v || v === "__all__") sp.delete("status");
+      else sp.set("status", v);
+    });
+
+  const onSortChange = (v: string | null) =>
+    navigate((sp) => {
+      if (!v || v === "created") sp.delete("sort");
+      else sp.set("sort", v);
+    });
+
+  const onDirChange = (v: string | null) =>
+    navigate((sp) => {
+      if (!v || v === "desc") sp.delete("dir");
+      else sp.set("dir", v);
+    });
+
+  const onSearch = (value: string) =>
+    navigate((sp) => {
+      const v = value.trim();
+      if (!v) sp.delete("q");
+      else sp.set("q", v);
+    });
+
+  const onPage = (p: number) =>
+    navigate((sp) => {
+      if (p <= 1) sp.delete("page");
+      else sp.set("page", String(p));
+    }, false);
 
   return (
     <>
@@ -142,6 +192,23 @@ export function BookingList({
             {SORT_OPTIONS.map((s) => (
               <SelectItem key={s.value} value={s.value}>
                 {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          items={DIR_OPTIONS}
+          value={currentDir ?? "desc"}
+          onValueChange={onDirChange}
+        >
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Richting" />
+          </SelectTrigger>
+          <SelectContent>
+            {DIR_OPTIONS.map((d) => (
+              <SelectItem key={d.value} value={d.value}>
+                {d.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -255,6 +322,59 @@ export function BookingList({
           </ul>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <nav className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <p className="text-xs text-muted-foreground tabular-nums">
+            Pagina {currentPage} van {totalPages} · {totalResults} boeking
+            {totalResults === 1 ? "" : "en"}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Vorige pagina"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            {pageItems(currentPage, totalPages).map((p, i) =>
+              p === "…" ? (
+                <span
+                  key={`gap-${i}`}
+                  className="px-1 text-xs text-muted-foreground"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPage(p)}
+                  aria-current={p === currentPage ? "page" : undefined}
+                  className={`inline-flex size-8 items-center justify-center rounded-lg border text-xs font-medium tabular-nums transition-colors ${
+                    p === currentPage
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              onClick={() => onPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Volgende pagina"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </nav>
+      )}
     </>
   );
 }

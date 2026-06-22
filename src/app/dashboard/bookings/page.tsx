@@ -11,16 +11,27 @@ import { BookingList } from "./booking-list";
 export const metadata = { title: "Boekingen" };
 
 interface PageProps {
-  searchParams: Promise<{ status?: string; sort?: string; q?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    sort?: string;
+    q?: string;
+    dir?: string;
+    page?: string;
+  }>;
 }
 
+const PAGE_SIZE = 20;
+
 /**
- * Twee weergaven: "created" = op reserveringsdatum (wanneer geboekt,
- * nieuwste eerst) — standaard. "date" = op boekingsdatum (de
- * gereserveerde startdatum, nieuwste eerst).
+ * Twee velden × twee richtingen. "created" = reserveringsdatum (wanneer
+ * geboekt) — standaard. "date" = boekingsdatum (de gereserveerde startdatum).
+ * dir = "desc" (nieuwste eerst) of "asc" (oudste eerst).
  */
-function sortOrder(sort: string | undefined): Prisma.BookingOrderByWithRelationInput {
-  return sort === "date" ? { startAt: "desc" } : { createdAt: "desc" };
+function sortOrder(
+  sort: string | undefined,
+  dir: "asc" | "desc",
+): Prisma.BookingOrderByWithRelationInput {
+  return sort === "date" ? { startAt: dir } : { createdAt: dir };
 }
 
 /**
@@ -46,36 +57,47 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const status = params.status;
   const sort = params.sort === "date" ? "date" : "created";
+  const dir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
   const search = (params.q ?? "").trim();
+  const requestedPage = Math.max(
+    1,
+    Number.parseInt(params.page ?? "1", 10) || 1,
+  );
+
+  const where: Prisma.BookingWhereInput = {
+    organizationId: ctx.organization.id,
+    ...derivedWhere(status),
+    ...(search && {
+      OR: [
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { email: { contains: search, mode: "insensitive" } } },
+        { item: { name: { contains: search, mode: "insensitive" } } },
+      ],
+    }),
+  };
+
+  const [filteredCount, totalCount, itemCount] = await Promise.all([
+    db.booking.count({ where }),
+    db.booking.count({ where: { organizationId: ctx.organization.id } }),
+    db.item.count({
+      where: { organizationId: ctx.organization.id, isActive: true },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
 
   const bookings = await db.booking.findMany({
-    where: {
-      organizationId: ctx.organization.id,
-      ...derivedWhere(status),
-      ...(search && {
-        OR: [
-          { customer: { name: { contains: search, mode: "insensitive" } } },
-          { customer: { email: { contains: search, mode: "insensitive" } } },
-          { item: { name: { contains: search, mode: "insensitive" } } },
-        ],
-      }),
-    },
+    where,
     include: {
       item: { select: { name: true } },
       customer: { select: { name: true } },
     },
-    orderBy: sortOrder(sort),
-    take: 100,
+    orderBy: sortOrder(sort, dir),
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
   // paymentStatus/paymentProvider zitten niet in include maar wel op de row.
-
-  const totalCount = await db.booking.count({
-    where: { organizationId: ctx.organization.id },
-  });
-
-  const itemCount = await db.item.count({
-    where: { organizationId: ctx.organization.id, isActive: true },
-  });
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
@@ -129,7 +151,11 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               }))}
               currentStatus={status}
               currentSort={sort}
+              currentDir={dir}
               currentSearch={search}
+              currentPage={page}
+              totalPages={totalPages}
+              totalResults={filteredCount}
             />
           )}
         </div>
