@@ -6,9 +6,10 @@ const CATALOG: Record<
   { label: string; className: string }
 > = {
   available: {
+    // Blauw — onderscheidt "kan gekoppeld worden" van het groene "Gekoppeld".
     label: "Beschikbaar",
     className:
-      "bg-[oklch(0.95_0.04_150)] text-[oklch(0.45_0.14_150)] dark:bg-[oklch(0.3_0.06_150)] dark:text-[oklch(0.8_0.1_150)]",
+      "bg-[oklch(0.95_0.04_250)] text-[oklch(0.45_0.15_250)] dark:bg-[oklch(0.3_0.06_250)] dark:text-[oklch(0.8_0.1_250)]",
   },
   beta: {
     label: "Beta",
