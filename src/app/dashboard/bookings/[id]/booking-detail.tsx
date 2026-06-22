@@ -38,6 +38,7 @@ interface ItemOpt {
   pricePerHour: number | null;
   pricePerDay: number | null;
   pricePerWeek: number | null;
+  cleaningFee: number | null;
 }
 interface CustomerOpt {
   id: string;
