@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireUser, ACTIVE_ORG_COOKIE } from "@/lib/auth/session";
@@ -116,6 +117,12 @@ export async function setActiveOrgAction(orgId: string): Promise<ActionResult> {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
+
+  // De actieve org wordt op layout-niveau uit de cookie gelezen (requireOrg).
+  // Zonder expliciete revalidatie serveert de App Router-cache de RSC-segmenten
+  // van de vórige org — router.refresh() in de switcher alleen is niet genoeg
+  // na een cookie-mutatie. Vernieuw de hele dashboard-layout-subtree.
+  revalidatePath("/dashboard", "layout");
 
   return { ok: true };
 }
