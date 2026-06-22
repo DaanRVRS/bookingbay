@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
+import { can } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { env } from "@/lib/env";
@@ -48,6 +49,9 @@ export async function registerInterestAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult<{ status: "INTERESTED" }>> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "integrations:manage")) {
+    return { ok: false, error: "Je hebt geen rechten om koppelingen te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
@@ -213,6 +217,9 @@ export async function requestActivationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult<{ status: "REQUESTED" } | { redirectTo: string }>> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "integrations:manage")) {
+    return { ok: false, error: "Je hebt geen rechten om koppelingen te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
@@ -373,6 +380,9 @@ export async function pauseIntegrationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "integrations:manage")) {
+    return { ok: false, error: "Je hebt geen rechten om koppelingen te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);
@@ -433,6 +443,9 @@ export async function removeIntegrationAction(
   input: z.infer<typeof slugSchema>,
 ): Promise<ActionResult> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "integrations:manage")) {
+    return { ok: false, error: "Je hebt geen rechten om koppelingen te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const parsed = slugSchema.safeParse(input);

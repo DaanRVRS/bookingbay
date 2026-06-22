@@ -7,6 +7,7 @@ export type Action =
   | "members:manage"
   | "site:customize"
   | "catalog:manage"
+  | "integrations:manage"
   | "bookings:manage"
   | "bookings:view";
 
@@ -17,6 +18,8 @@ const matrix: Record<Action, Role[]> = {
   "members:manage": ["OWNER", "ADMIN"],
   "site:customize": ["OWNER", "ADMIN"],
   "catalog:manage": ["OWNER", "ADMIN"],
+  // Koppelingen activeren/pauzeren raakt sync én facturatie — OWNER/ADMIN.
+  "integrations:manage": ["OWNER", "ADMIN"],
   "bookings:manage": ["OWNER", "ADMIN", "MANAGER"],
   "bookings:view": ["OWNER", "ADMIN", "MANAGER", "VIEWER"],
 };

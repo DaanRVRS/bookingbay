@@ -148,6 +148,30 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
     return { ok: false, error: e instanceof Error ? e.message : "Categorie ongeldig" };
   }
 
+  // Plan-limiet ook hier afdwingen: een inactief item activeren (false -> true)
+  // mag de actieve-item-limiet niet overschrijden. Anders kon je de limiet
+  // omzeilen door items inactief aan te maken en daarna te activeren.
+  if (parsed.data.isActive && !existing.isActive) {
+    const orgPlan = await db.organization.findUnique({
+      where: { id: ctx.organization.id },
+      select: { plan: true },
+    });
+    if (orgPlan) {
+      const limit = planLimits(orgPlan.plan);
+      if (Number.isFinite(limit.maxItems)) {
+        const count = await db.item.count({
+          where: { organizationId: ctx.organization.id, isActive: true },
+        });
+        if (count >= limit.maxItems) {
+          return {
+            ok: false,
+            error: `Je ${limit.label}-plan staat ${limit.maxItems} actieve items toe. Upgrade of deactiveer eerst een ander item.`,
+          };
+        }
+      }
+    }
+  }
+
   await db.item.update({
     where: { id: parsed.data.id },
     data: {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
+import { can } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit/log";
 import { env } from "@/lib/env";
 import { planLimits } from "@/lib/plans";
@@ -29,6 +30,9 @@ export async function setCustomDomainAction(
   input: { domain: string },
 ): Promise<ActionResult<{ cnameTarget: string }>> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "site:customize")) {
+    return { ok: false, error: "Je hebt geen rechten om het domein te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const limits = planLimits(ctx.organization.plan as Plan);
@@ -89,6 +93,9 @@ export async function verifyCustomDomainAction(): Promise<
   ActionResult<{ verified: boolean; observed?: string[]; expected: string }>
 > {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "site:customize")) {
+    return { ok: false, error: "Je hebt geen rechten om het domein te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const org = await db.organization.findUnique({
@@ -156,6 +163,9 @@ export async function verifyCustomDomainAction(): Promise<
 
 export async function removeCustomDomainAction(): Promise<ActionResult> {
   const ctx = await requireOrg();
+  if (!can(ctx.membership.role, "site:customize")) {
+    return { ok: false, error: "Je hebt geen rechten om het domein te beheren." };
+  }
   const demoBlocked = blockDemoWrite(ctx);
   if (demoBlocked) return demoBlocked;
   const org = await db.organization.findUnique({
