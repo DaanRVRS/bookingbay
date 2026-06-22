@@ -30,6 +30,7 @@ const inputSchema = z.object({
 });
 
 export async function POST(req: Request) {
+ try {
   let body: unknown;
   try {
     body = await req.json();
@@ -182,4 +183,16 @@ export async function POST(req: Request) {
 
   revalidatePath("/dashboard/settings/organization");
   return NextResponse.json({ ok: true });
+ } catch (err) {
+    // Een versleutel-fout (bv. ontbrekende/ongeldige INTEGRATION_ENCRYPTION_KEY)
+    // of DB-fout zou anders een kale HTTP 500 geven — de client kan die JSON
+    // niet lezen en toont onterecht "Verbinding mislukt". Vang het af en geef
+    // de échte reden door zodat het probleem leesbaar wordt.
+    console.error("[payment-config] opslaan mislukt:", err);
+    const msg = err instanceof Error ? err.message : "Onbekende serverfout";
+    return NextResponse.json({
+      ok: false,
+      error: `Opslaan mislukt op de server: ${msg}`,
+    });
+ }
 }
