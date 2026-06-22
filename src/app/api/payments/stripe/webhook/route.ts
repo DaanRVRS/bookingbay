@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
 import { readPaymentConfig } from "@/lib/payments/config";
-import { mapStripeStatus } from "@/lib/payments/tenant-stripe";
+import { fetchStripeSession, mapStripeStatus } from "@/lib/payments/tenant-stripe";
 import { notifyPaymentStatusChange } from "@/lib/notifications/payment-notif";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       paymentProvider: true,
       paymentStatus: true,
       status: true,
+      totalPrice: true,
     },
   });
   if (!booking || booking.paymentProvider !== "stripe") {
@@ -53,8 +54,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Optioneel: signature verifiëren als de tenant een secret heeft ingesteld.
   const cfg = await readPaymentConfig(booking.organizationId);
+  // Signature verifiëren als de tenant een secret heeft ingesteld (met
+  // replay-bescherming). Ook zónder secret vertrouwen we de body NIET — zie
+  // de re-fetch hieronder.
   if (cfg.stripeWebhookSecret) {
     const sig = req.headers.get("stripe-signature");
     if (!sig || !verifyStripeSignature(raw, sig, cfg.stripeWebhookSecret)) {
@@ -63,9 +66,36 @@ export async function POST(req: Request) {
     }
   }
 
-  const paymentStatus = event.data?.object?.payment_status ?? "";
-  const sessionStatus = event.data?.object?.status ?? "";
-  const next = mapStripeStatus(paymentStatus, sessionStatus);
+  // Vertrouw de event-body NIET (een ongetekende POST kon anders een boeking
+  // gratis op "betaald" zetten). Haal de sessie opnieuw op via de tenant-key:
+  // alleen de echte Stripe-account van de tenant kan die sessie ophalen.
+  if (!cfg.stripeKey) {
+    console.error("[stripe-webhook] geen stripe key voor org", booking.organizationId);
+    return NextResponse.json({ ok: true });
+  }
+  let session;
+  try {
+    session = await fetchStripeSession({ apiKey: cfg.stripeKey, sessionId });
+  } catch (err) {
+    console.error("[stripe-webhook] session-fetch mislukt:", err);
+    return NextResponse.json({ ok: true });
+  }
+
+  const next = mapStripeStatus(session.payment_status, session.status);
+
+  // Bedrag-verificatie tegen de boeking — voorkomt bevestiging op een afwijkend
+  // (gemanipuleerd of fout-geconfigureerd) bedrag.
+  if (next === "PAID") {
+    const paidCents =
+      typeof session.amount_total === "number" ? session.amount_total : NaN;
+    const expectedCents = Math.round(Number(booking.totalPrice) * 100);
+    if (!Number.isFinite(paidCents) || paidCents !== expectedCents) {
+      console.error(
+        `[stripe-webhook] bedrag-mismatch booking ${booking.id}: ${paidCents} vs ${expectedCents}`,
+      );
+      return NextResponse.json({ ok: true });
+    }
+  }
 
   const updates: { paymentStatus?: string; status?: "CONFIRMED" | "CANCELED" } = {};
   if (next !== booking.paymentStatus) updates.paymentStatus = next;
@@ -76,10 +106,15 @@ export async function POST(req: Request) {
   }
 
   if (Object.keys(updates).length > 0) {
-    await db.booking.update({
-      where: { id: booking.id },
+    // Optimistic lock op paymentStatus: voorkomt dubbele transitie/notif bij
+    // gelijktijdige of herhaalde events.
+    const res = await db.booking.updateMany({
+      where: { id: booking.id, paymentStatus: booking.paymentStatus },
       data: updates,
     });
+    if (res.count === 0) {
+      return NextResponse.json({ ok: true });
+    }
     await audit({
       organizationId: booking.organizationId,
       action: "booking.payment.update",
@@ -117,6 +152,12 @@ function verifyStripeSignature(
     const t = parts.t;
     const v1 = parts.v1;
     if (!t || !v1) return false;
+    // Replay-bescherming: weiger events buiten een tolerantie van 5 min
+    // (Stripe's eigen lib doet hetzelfde).
+    const tsSec = Number(t);
+    if (!Number.isFinite(tsSec) || Math.abs(Date.now() / 1000 - tsSec) > 300) {
+      return false;
+    }
     const payload = `${t}.${body}`;
     const expected = createHmac("sha256", secret).update(payload).digest("hex");
     const a = Buffer.from(expected, "hex");

@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       paymentProvider: true,
       paymentStatus: true,
       status: true,
+      totalPrice: true,
     },
   });
   if (!booking || booking.paymentProvider !== "mollie") {
@@ -68,23 +69,44 @@ export async function POST(req: Request) {
 
   const next = mapMollieStatus(payment.status);
 
+  // Bedrag-verificatie: vertrouw niet blind dat "paid" voor het juiste bedrag
+  // is. Bij mismatch niet auto-bevestigen — log zodat de eigenaar 't oppakt.
+  if (next === "PAID") {
+    const paid = payment.amount ? Number(payment.amount.value) : NaN;
+    const expected = Number(booking.totalPrice);
+    if (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01) {
+      console.error(
+        `[mollie-webhook] bedrag-mismatch booking ${booking.id}: betaald ${paid} vs verwacht ${expected}`,
+      );
+      return NextResponse.json({ ok: true });
+    }
+  }
+
   // Updates: alleen schrijven als er iets verandert.
   const updates: { paymentStatus?: string; status?: "CONFIRMED" | "CANCELED" } = {};
   if (next !== booking.paymentStatus) updates.paymentStatus = next;
 
-  // Auto-bevestig bij PAID, auto-cancel bij EXPIRED — alleen vanuit PENDING
-  // zodat we tenant-handmatige overrides niet platwalsen.
+  // Auto-bevestig bij PAID, auto-cancel bij EXPIRED/FAILED — alleen vanuit
+  // PENDING zodat we tenant-handmatige overrides niet platwalsen.
   if (next === "PAID" && booking.status === "PENDING") {
     updates.status = "CONFIRMED";
-  } else if (next === "EXPIRED" && booking.status === "PENDING") {
+  } else if (
+    (next === "EXPIRED" || next === "FAILED") &&
+    booking.status === "PENDING"
+  ) {
     updates.status = "CANCELED";
   }
 
   if (Object.keys(updates).length > 0) {
-    await db.booking.update({
-      where: { id: booking.id },
+    // Optimistic lock op paymentStatus: bij gelijktijdige webhooks (Mollie
+    // stuurt er vaak meerdere) doet alleen de eerste de transitie + notif.
+    const res = await db.booking.updateMany({
+      where: { id: booking.id, paymentStatus: booking.paymentStatus },
       data: updates,
     });
+    if (res.count === 0) {
+      return NextResponse.json({ ok: true });
+    }
     await audit({
       organizationId: booking.organizationId,
       action: "booking.payment.update",
@@ -92,9 +114,6 @@ export async function POST(req: Request) {
       resourceId: booking.id,
       metadata: { provider: "mollie", paymentId, status: next },
     });
-    // Alleen wanneer paymentStatus daadwerkelijk transitioneerde (zit in
-    // updates) een notif sturen — anders zou elke webhook-retry een ping
-    // genereren.
     if (updates.paymentStatus) {
       await notifyPaymentStatusChange(booking.id, updates.paymentStatus, "mollie");
     }

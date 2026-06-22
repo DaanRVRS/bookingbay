@@ -23,6 +23,7 @@ interface StripeCheckoutSession {
   payment_intent: string | null;
   payment_status: string; // paid | unpaid | no_payment_required
   status: string; // complete | open | expired
+  amount_total?: number | null; // in centen — voor bedrag-verificatie
   metadata?: { bookingId?: string };
 }
 

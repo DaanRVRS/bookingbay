@@ -13,6 +13,7 @@ const MOLLIE_API = "https://api.mollie.com/v2";
 interface MolliePayment {
   id: string;
   status: string; // open | pending | authorized | expired | failed | canceled | paid
+  amount?: { currency: string; value: string } | null;
   metadata?: { bookingId?: string } | null;
   _links?: { checkout?: { href: string } | null };
 }
@@ -70,14 +71,13 @@ export async function fetchMolliePayment(args: {
   return (await res.json()) as MolliePayment;
 }
 
-export function mapMollieStatus(status: string): "PAID" | "EXPIRED" | "UNPAID" {
+export function mapMollieStatus(
+  status: string,
+): "PAID" | "EXPIRED" | "UNPAID" | "FAILED" {
   if (status === "paid" || status === "authorized") return "PAID";
-  if (
-    status === "expired" ||
-    status === "failed" ||
-    status === "canceled"
-  ) {
-    return "EXPIRED";
-  }
+  // "failed"/"canceled" = de klant betaalde niet (≠ verlopen) — apart zodat de
+  // tenant een correcte "mislukt"-notif krijgt i.p.v. "verlopen".
+  if (status === "failed" || status === "canceled") return "FAILED";
+  if (status === "expired") return "EXPIRED";
   return "UNPAID";
 }

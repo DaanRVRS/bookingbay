@@ -27,6 +27,7 @@ const inputSchema = z.object({
   stripeKey: z.string().optional(),
   clearStripe: z.boolean().optional(),
   stripeWebhookSecret: z.string().optional(),
+  clearStripeWebhookSecret: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -154,7 +155,9 @@ export async function POST(req: Request) {
   }
 
   let nextStripeWh: string | null | undefined = undefined;
-  if (data.stripeWebhookSecret && data.stripeWebhookSecret.trim().length > 0) {
+  if (data.clearStripeWebhookSecret) {
+    nextStripeWh = null;
+  } else if (data.stripeWebhookSecret && data.stripeWebhookSecret.trim().length > 0) {
     nextStripeWh = encryptIfPresent(data.stripeWebhookSecret);
   }
 
