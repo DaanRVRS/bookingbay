@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { timingSafeEqualStr } from "@/lib/security/timing-safe";
 import {
   runBillingChecks,
   runSaasLifecycleChecks,
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
 
   const auth = req.headers.get("authorization") ?? "";
   const expected = `Bearer ${env.CRON_SECRET}`;
-  if (auth !== expected) {
+  if (!timingSafeEqualStr(auth, expected)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { timingSafeEqualStr } from "@/lib/security/timing-safe";
 import { db } from "@/lib/db";
 import {
   refreshExpiringChannels,
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
     );
   }
   const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${env.CRON_SECRET}`) {
+  if (!timingSafeEqualStr(auth, `Bearer ${env.CRON_SECRET}`)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 

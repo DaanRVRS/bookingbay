@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { timingSafeEqualStr } from "@/lib/security/timing-safe";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
   // Token-check als CADDY_ASK_TOKEN ingesteld is — anders alles weigeren
   // behalve lokale dev.
   if (env.CADDY_ASK_TOKEN) {
-    if (token !== env.CADDY_ASK_TOKEN) {
+    if (!timingSafeEqualStr(token, env.CADDY_ASK_TOKEN)) {
       return new NextResponse("forbidden", { status: 403 });
     }
   } else if (env.NODE_ENV === "production") {
