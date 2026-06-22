@@ -151,3 +151,17 @@ export function emailLayout(content: string): string {
 export function btn(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">${label}</a>`;
 }
+
+/**
+ * Escapet tekst voor veilige interpolatie in HTML-mails — voorkomt dat
+ * klant- of tenant-invoer (naam, itemnaam, ...) de opmaak breekt of links
+ * injecteert in uitgaande e-mails.
+ */
+export function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ??
+      c,
+  );
+}

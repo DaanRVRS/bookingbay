@@ -2,7 +2,7 @@ import "server-only";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
-import { sendEmail, emailLayout } from "@/lib/email";
+import { sendEmail, emailLayout, escapeHtml } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
 import type { BookingAddonLine } from "@/lib/bookings/price";
@@ -63,6 +63,11 @@ export async function sendBookingConfirmationMail(
   const totalEur = Number(booking.totalPrice);
   const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
 
+  // Klant- en tenant-invoer escapen vóór HTML-interpolatie (zie escapeHtml).
+  const safeCustomer = escapeHtml(booking.customer.name);
+  const safeOrg = escapeHtml(booking.organization.name);
+  const safeItem = escapeHtml(booking.item.name);
+
   // Splitsing tonen als het item een cleaning fee heeft — anders wekt het
   // verwarring ("waarom is het meer dan de item-prijs?").
   const cleaningEur = booking.item.cleaningFee ? Number(booking.item.cleaningFee) : 0;
@@ -77,7 +82,7 @@ export async function sendBookingConfirmationMail(
   const addonsLine =
     addonList.length > 0
       ? `<p style="margin:0 0 4px 0"><strong>Extra's:</strong> ${addonList
-          .map((a) => `${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`)
+          .map((a) => `${escapeHtml(a.name)}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`)
           .join(", ")}</p>`
       : "";
 
@@ -85,8 +90,8 @@ export async function sendBookingConfirmationMail(
     booking.organization.contactPhone || booking.organization.contactEmail
       ? `Heb je een vraag? ${
           booking.organization.contactPhone
-            ? `Bel ${booking.organization.contactPhone}`
-            : `Mail ${booking.organization.contactEmail}`
+            ? `Bel ${escapeHtml(booking.organization.contactPhone)}`
+            : `Mail ${escapeHtml(booking.organization.contactEmail ?? "")}`
         }.`
       : "";
 
@@ -94,11 +99,11 @@ export async function sendBookingConfirmationMail(
     to: booking.customer.email,
     subject: `Bevestiging: ${booking.item.name} bij ${booking.organization.name}`,
     html: emailLayout(`
-      <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Bedankt, ${booking.customer.name}!</h1>
+      <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Bedankt, ${safeCustomer}!</h1>
       <p style="margin:0 0 12px 0">
-        Je boeking bij <strong>${booking.organization.name}</strong> staat in de planning.
+        Je boeking bij <strong>${safeOrg}</strong> staat in de planning.
       </p>
-      <p style="margin:0 0 4px 0"><strong>Wat:</strong> ${booking.item.name}</p>
+      <p style="margin:0 0 4px 0"><strong>Wat:</strong> ${safeItem}</p>
       <p style="margin:0 0 4px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
       ${addonsLine}
       <p style="margin:0 0 4px 0"><strong>Totaal:</strong> ${amount}</p>

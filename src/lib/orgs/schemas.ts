@@ -19,6 +19,12 @@ const reservedSlugs = new Set([
   "blog",
   "mail",
   "billing",
+  // Gelijkgetrokken met de lijst in settings/actions.ts — deze botsen met
+  // bestaande routes/subdomeinen en mochten bij aanmaken niet ontbreken.
+  "uploads",
+  "site",
+  "embed",
+  "invite",
 ]);
 
 export const slugSchema = z

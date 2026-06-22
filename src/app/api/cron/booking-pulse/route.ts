@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { notifyOrgMembers } from "@/lib/notifications/send";
-import { sendEmail, emailLayout } from "@/lib/email";
+import { sendEmail, emailLayout, escapeHtml } from "@/lib/email";
 import { audit } from "@/lib/audit/log";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -212,12 +212,26 @@ async function runKlantEmailReminder() {
     if (!b.customer.email) continue;
     const start = format(b.startAt, "EEEE d MMMM 'om' HH:mm", { locale: nl });
     const end = format(b.endAt, "HH:mm", { locale: nl });
+    // Het reminder-venster is 12-36u, dus "morgen" klopt niet altijd. Bepaal
+    // het label op kalenderdagen: vandaag / morgen / de dagnaam+datum.
+    const dayDiff = Math.round(
+      (startOfDay(b.startAt).getTime() - startOfDay(now).getTime()) / 86_400_000,
+    );
+    const when =
+      dayDiff <= 0
+        ? "vandaag"
+        : dayDiff === 1
+          ? "morgen"
+          : format(b.startAt, "EEEE d MMMM", { locale: nl });
+    const safeName = escapeHtml(b.customer.name);
+    const safeItem = escapeHtml(b.item.name);
+    const safeOrg = escapeHtml(b.organization.name);
     const contact =
       b.organization.contactPhone || b.organization.contactEmail
         ? `Heb je een vraag? ${
             b.organization.contactPhone
-              ? `Bel ${b.organization.contactPhone}`
-              : `Mail ${b.organization.contactEmail}`
+              ? `Bel ${escapeHtml(b.organization.contactPhone)}`
+              : `Mail ${escapeHtml(b.organization.contactEmail ?? "")}`
           }.`
         : "";
 
@@ -236,18 +250,18 @@ async function runKlantEmailReminder() {
 
     const result = await sendEmail({
       to: b.customer.email,
-      subject: `Herinnering: ${b.item.name} morgen om ${format(b.startAt, "HH:mm")}`,
+      subject: `Herinnering: ${b.item.name} ${when} om ${format(b.startAt, "HH:mm")}`,
       html: emailLayout(`
-        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Tot morgen, ${b.customer.name}!</h1>
+        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Bijna zover, ${safeName}!</h1>
         <p style="margin:0 0 12px 0">
-          Even een korte herinnering: je hebt <strong>${b.item.name}</strong>
-          geboekt bij <strong>${b.organization.name}</strong>.
+          Even een korte herinnering: je hebt <strong>${safeItem}</strong>
+          geboekt bij <strong>${safeOrg}</strong>.
         </p>
         <p style="margin:0 0 8px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
         ${portalBlock}
         ${contact ? `<p style="margin:16px 0 0 0">${contact}</p>` : ""}
       `),
-      text: `Tot morgen ${b.customer.name}! Je hebt ${b.item.name} geboekt bij ${b.organization.name} op ${start} tot ${end}.`,
+      text: `Herinnering ${b.customer.name}! Je hebt ${b.item.name} geboekt bij ${b.organization.name} ${when} (${start} tot ${end}).`,
     });
 
     if (result.ok) {

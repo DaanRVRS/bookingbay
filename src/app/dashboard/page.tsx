@@ -42,6 +42,7 @@ export default async function DashboardOverviewPage() {
     db.booking.count({
       where: {
         organizationId: orgId,
+        status: { not: "CANCELED" },
         startAt: { gte: weekStart, lte: weekEnd },
       },
     }),
