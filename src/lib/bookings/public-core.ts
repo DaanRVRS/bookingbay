@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { checkAvailability } from "./conflicts";
 import { audit } from "@/lib/audit/log";
@@ -91,6 +91,24 @@ export async function createPublicBooking(
 
   const startAt = new Date(data.startAt);
   const endAt = new Date(data.endAt);
+
+  // Server-side guards. De widget dwingt deze client-side al af, maar een
+  // directe API-call mag niet in het verleden of absurd ver vooruit boeken.
+  const nowMs = Date.now();
+  if (startAt.getTime() < nowMs) {
+    return {
+      ok: false,
+      error: "Je kunt niet in het verleden boeken",
+      fieldErrors: { startAt: "Deze tijd is al geweest" },
+    };
+  }
+  if (startAt.getTime() > nowMs + AVAILABILITY_LOOKAHEAD_DAYS * 86_400_000) {
+    return {
+      ok: false,
+      error: `Boekingen kunnen maximaal ${AVAILABILITY_LOOKAHEAD_DAYS} dagen vooruit`,
+      fieldErrors: { startAt: "Te ver in de toekomst" },
+    };
+  }
 
   const availability = await checkAvailability({
     organizationId: org.id,
@@ -185,24 +203,74 @@ export async function createPublicBooking(
   // zodat de klant z'n boeking-pagina direct kan openen — geen login.
   const portalToken = randomBytes(32).toString("hex");
 
-  const booking = await db.booking.create({
-    data: {
-      organizationId: org.id,
-      itemId: item.id,
-      customerId: customer.id,
-      startAt,
-      endAt,
-      status: "PENDING",
-      totalPrice: estimate,
-      notes: data.notes?.trim() || null,
-      addons:
-        addonLines.length > 0
-          ? (addonLines as unknown as Prisma.InputJsonValue)
-          : undefined,
-      portalToken,
-    },
-    select: { id: true },
-  });
+  // Race-vrije definitieve check + create. Een Serializable-transactie zorgt
+  // dat twee gelijktijdige requests voor hetzelfde slot niet allebei kunnen
+  // inserten: Postgres SSI detecteert de write-skew → één faalt (P2034) en
+  // wordt hier als "net te laat" afgehandeld i.p.v. een dubbelboeking. De
+  // losse pre-check hierboven blijft voor snelle, nette UX-feedback.
+  const CONFLICT = "BOOKING_SLOT_TAKEN";
+  let booking: { id: string };
+  try {
+    booking = await db.$transaction(
+      async (tx) => {
+        const [overlap, blocked] = await Promise.all([
+          tx.booking.count({
+            where: {
+              itemId: item.id,
+              organizationId: org.id,
+              status: { not: "CANCELED" },
+              startAt: { lt: endAt },
+              endAt: { gt: startAt },
+            },
+          }),
+          tx.calendarBlock.count({
+            where: {
+              organizationId: org.id,
+              startAt: { lt: endAt },
+              endAt: { gt: startAt },
+              OR: [{ itemId: item.id }, { itemId: null }],
+            },
+          }),
+        ]);
+        if (overlap + blocked >= item.quantity) {
+          throw new Error(CONFLICT);
+        }
+        return tx.booking.create({
+          data: {
+            organizationId: org.id,
+            itemId: item.id,
+            customerId: customer.id,
+            startAt,
+            endAt,
+            status: "PENDING",
+            totalPrice: estimate,
+            notes: data.notes?.trim() || null,
+            addons:
+              addonLines.length > 0
+                ? (addonLines as unknown as Prisma.InputJsonValue)
+                : undefined,
+            portalToken,
+          },
+          select: { id: true },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (err) {
+    if (err instanceof Error && err.message === CONFLICT) {
+      return { ok: false, error: "Net te laat — dit tijdslot is zojuist geboekt." };
+    }
+    // Postgres serialisatie-conflict: een gelijktijdige boeking won de race.
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "P2034"
+    ) {
+      return { ok: false, error: "Net te laat — probeer een ander tijdslot." };
+    }
+    throw err;
+  }
 
   await audit({
     organizationId: org.id,
@@ -218,38 +286,10 @@ export async function createPublicBooking(
     },
   });
 
-  try {
-    await syncBookingExternal(booking.id, "upsert");
-  } catch (err) {
-    console.error("[public-booking] external sync mislukt:", err);
-  }
-
-  // Notif aan org-members: nieuwe boeking via publieke widget. Best-effort —
-  // niet de booking-create afkappen als de fan-out mislukt.
-  try {
-    const datumLabel = format(startAt, "d MMM, HH:mm", { locale: nl });
-    await notifyOrgMembers(org.id, {
-      type: "booking.new",
-      title: "Nieuwe boeking",
-      body: `${data.customerName.trim()} reserveerde ${item.name} op ${datumLabel}.`,
-      ctaUrl: `/dashboard/bookings/${booking.id}`,
-      ctaLabel: "Bekijk",
-    });
-  } catch (err) {
-    console.error("[public-booking] notif fan-out mislukt:", err);
-  }
-
-  // Confirmation mail naar de klant met de pre-authenticated portal-link.
-  // No-op als customerPortalEnabled uit staat — tenant kiest of dit gebeurt.
-  try {
-    await sendBookingConfirmationMail(booking.id);
-  } catch (err) {
-    console.error("[public-booking] confirmation mail mislukt:", err);
-  }
-
+  // Online betaling — vóór de notif/mail zodat we bij een mislukte checkout
+  // een eerlijke fout kunnen geven i.p.v. de klant valselijk "bevestigd" te
+  // tonen. "location" = betalen bij ophalen → boeking blijft gewoon PENDING.
   let redirectUrl: string | undefined;
-  // Alleen online afrekenen als de klant daar expliciet voor koos én er
-  // een bedrag is. "location" = betalen bij ophalen → boeking blijft PENDING.
   if (data.paymentChoice === "online" && estimate > 0) {
     try {
       const paymentCfg = await readPaymentConfig(org.id);
@@ -298,6 +338,45 @@ export async function createPublicBooking(
     } catch (err) {
       console.error("[public-booking] payment-create mislukt:", err);
     }
+
+    // Online gekozen maar er kwam geen checkout-URL (geen werkende provider,
+    // of de creatie faalde): geef een eerlijke fout. De boeking blijft als
+    // PENDING staan zodat de verhuurder 'm alsnog ziet.
+    if (!redirectUrl) {
+      return {
+        ok: false,
+        error:
+          "Online betalen lukte niet. Je boeking is genoteerd; neem contact op met de verhuurder of kies 'betalen op locatie'.",
+      };
+    }
+  }
+
+  // Best-effort vervolgacties — niet de boeking afkappen als deze falen.
+  try {
+    await syncBookingExternal(booking.id, "upsert");
+  } catch (err) {
+    console.error("[public-booking] external sync mislukt:", err);
+  }
+
+  try {
+    const datumLabel = format(startAt, "d MMM, HH:mm", { locale: nl });
+    await notifyOrgMembers(org.id, {
+      type: "booking.new",
+      title: "Nieuwe boeking",
+      body: `${data.customerName.trim()} reserveerde ${item.name} op ${datumLabel}.`,
+      ctaUrl: `/dashboard/bookings/${booking.id}`,
+      ctaLabel: "Bekijk",
+    });
+  } catch (err) {
+    console.error("[public-booking] notif fan-out mislukt:", err);
+  }
+
+  // Confirmation mail naar de klant met de pre-authenticated portal-link.
+  // No-op als customerPortalEnabled uit staat — tenant kiest of dit gebeurt.
+  try {
+    await sendBookingConfirmationMail(booking.id);
+  } catch (err) {
+    console.error("[public-booking] confirmation mail mislukt:", err);
   }
 
   return { ok: true, id: booking.id, redirectUrl };
