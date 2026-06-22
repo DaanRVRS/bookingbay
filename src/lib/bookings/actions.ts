@@ -99,6 +99,7 @@ export async function createBookingAction(
         isActive: true,
         categoryId: true,
         category: { select: { parentId: true } },
+        cleaningFee: true,
       },
     }),
     db.customer.findFirst({
@@ -133,7 +134,9 @@ export async function createBookingAction(
     parsed.data.addons,
     itemCategoryIds,
   );
-  const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
+  // Schoonmaakkosten server-side bijtellen — consistent met de publieke flow.
+  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
+  const grandTotal = parsed.data.totalPrice + cleaningFee + sumAddons(addonLines);
 
   const created = await db.booking.create({
     data: {
@@ -202,6 +205,7 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
       quantity: true,
       categoryId: true,
       category: { select: { parentId: true } },
+      cleaningFee: true,
     },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -225,7 +229,8 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     parsed.data.addons,
     [item.categoryId, item.category.parentId].filter((v): v is string => Boolean(v)),
   );
-  const grandTotal = parsed.data.totalPrice + sumAddons(addonLines);
+  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
+  const grandTotal = parsed.data.totalPrice + cleaningFee + sumAddons(addonLines);
 
   await db.booking.update({
     where: { id: parsed.data.id },

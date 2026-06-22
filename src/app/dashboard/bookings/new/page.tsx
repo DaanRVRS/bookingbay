@@ -35,6 +35,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         pricePerHour: true,
         pricePerDay: true,
         pricePerWeek: true,
+        cleaningFee: true,
       },
     }),
     db.customer.findMany({
@@ -98,6 +99,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
               pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
               pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
+              cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
             }))}
             customers={customerList.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
             addons={addons}

@@ -52,6 +52,7 @@ interface ItemOpt {
   pricePerHour: number | null;
   pricePerDay: number | null;
   pricePerWeek: number | null;
+  cleaningFee: number | null;
 }
 
 interface CustomerOpt {
@@ -245,6 +246,9 @@ export function BookingForm({
     [applicableAddons, addonQty],
   );
   const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
+  // Schoonmaakkosten van het gekozen item — server telt ze bovenop het
+  // item-subtotaal (net als de extra's), dus tonen we ze hier ook apart.
+  const cleaningFee = selectedItem?.cleaningFee ?? 0;
 
   // Calculate suggested price from duration
   const computeSuggestion = () => {
@@ -495,7 +499,7 @@ export function BookingForm({
 
         <div className="mt-4 flex flex-col gap-1.5">
           <Label htmlFor="totalPrice">
-            {addonsTotal > 0 ? "Item-bedrag" : "Totaalbedrag"}
+            {addonsTotal > 0 || cleaningFee > 0 ? "Item-bedrag" : "Totaalbedrag"}
           </Label>
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
@@ -521,7 +525,7 @@ export function BookingForm({
               {errors.totalPrice.message}
             </p>
           )}
-          {addonsTotal > 0 && (
+          {(addonsTotal > 0 || cleaningFee > 0) && (
             <div className="mt-1 space-y-1 rounded-lg border border-border bg-muted/30 p-3 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Item</span>
@@ -529,14 +533,22 @@ export function BookingForm({
                   € {Number(watch("totalPrice") || 0).toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Extra&apos;s</span>
-                <span className="tabular-nums">€ {addonsTotal.toFixed(2)}</span>
-              </div>
+              {cleaningFee > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Schoonmaak</span>
+                  <span className="tabular-nums">€ {cleaningFee.toFixed(2)}</span>
+                </div>
+              )}
+              {addonsTotal > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Extra&apos;s</span>
+                  <span className="tabular-nums">€ {addonsTotal.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <span>Totaal</span>
                 <span className="tabular-nums">
-                  € {(Number(watch("totalPrice") || 0) + addonsTotal).toFixed(2)}
+                  € {(Number(watch("totalPrice") || 0) + cleaningFee + addonsTotal).toFixed(2)}
                 </span>
               </div>
             </div>
