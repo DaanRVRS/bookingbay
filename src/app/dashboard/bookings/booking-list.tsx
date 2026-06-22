@@ -10,7 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CalendarClock,
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DERIVED_FILTERS,
@@ -34,14 +43,17 @@ interface Booking {
   completionDamage: boolean;
 }
 
+// Labels bewust concreet i.p.v. "boekings-/reserveringsdatum" (klonken als
+// synoniemen). "Aangemaakt op" = wanneer de boeking geplaatst is (createdAt),
+// "Startdatum" = wanneer de reservering begint (startAt).
 const SORT_OPTIONS = [
-  { value: "created", label: "Op reserveringsdatum" },
-  { value: "date", label: "Op boekingsdatum" },
+  { value: "created", label: "Aangemaakt op", icon: CalendarPlus },
+  { value: "date", label: "Startdatum", icon: CalendarClock },
 ];
 
 const DIR_OPTIONS = [
-  { value: "desc", label: "Nieuwste eerst" },
-  { value: "asc", label: "Oudste eerst" },
+  { value: "desc", label: "Nieuwste eerst", icon: ArrowDown },
+  { value: "asc", label: "Oudste eerst", icon: ArrowUp },
 ];
 
 /**
@@ -146,6 +158,13 @@ export function BookingList({
       else sp.set("page", String(p));
     }, false);
 
+  // Icoon van de actieve keuze — ook in de (gesloten) trigger, niet alleen
+  // in de open dropdown.
+  const SortIcon =
+    SORT_OPTIONS.find((o) => o.value === (currentSort ?? "created"))?.icon;
+  const DirIcon =
+    DIR_OPTIONS.find((o) => o.value === (currentDir ?? "desc"))?.icon;
+
   return (
     <>
       <div className="relative mb-3 max-w-md">
@@ -181,36 +200,46 @@ export function BookingList({
         </Select>
 
         <Select
-          items={SORT_OPTIONS}
+          items={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           value={currentSort ?? "created"}
           onValueChange={onSortChange}
         >
-          <SelectTrigger className="sm:w-52">
+          <SelectTrigger className="sm:w-56">
+            {SortIcon && <SortIcon className="size-4 text-muted-foreground" />}
             <SelectValue placeholder="Sorteren" />
           </SelectTrigger>
           <SelectContent>
-            {SORT_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
+            {SORT_OPTIONS.map((s) => {
+              const Icon = s.icon;
+              return (
+                <SelectItem key={s.value} value={s.value}>
+                  <Icon className="size-4 text-muted-foreground" />
+                  {s.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
 
         <Select
-          items={DIR_OPTIONS}
+          items={DIR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           value={currentDir ?? "desc"}
           onValueChange={onDirChange}
         >
-          <SelectTrigger className="sm:w-44">
+          <SelectTrigger className="sm:w-48">
+            {DirIcon && <DirIcon className="size-4 text-muted-foreground" />}
             <SelectValue placeholder="Richting" />
           </SelectTrigger>
           <SelectContent>
-            {DIR_OPTIONS.map((d) => (
-              <SelectItem key={d.value} value={d.value}>
-                {d.label}
-              </SelectItem>
-            ))}
+            {DIR_OPTIONS.map((d) => {
+              const Icon = d.icon;
+              return (
+                <SelectItem key={d.value} value={d.value}>
+                  <Icon className="size-4 text-muted-foreground" />
+                  {d.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
