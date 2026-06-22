@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Box,
+  CalendarCheck,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -95,6 +96,7 @@ const PALETTE: { type: BlockType; icon: LucideIcon }[] = [
   { type: "gallery", icon: ImagesIcon },
   { type: "iconRow", icon: Sparkles },
   { type: "priceTable", icon: Tag },
+  { type: "bookingWidget", icon: CalendarCheck },
   { type: "testimonials", icon: Quote },
   { type: "openingHours", icon: Clock },
   { type: "map", icon: MapPin },
@@ -932,6 +934,20 @@ function BlockPreview({
       return <QuoteBlockView block={block} accent={accent} />;
     case "imageSlider":
       return <ImageSliderBlockView block={block} />;
+    case "bookingWidget":
+      return (
+        <div className="px-6 py-12 text-center">
+          <p className="text-sm font-medium">Boek-widget</p>
+          {block.heading ? (
+            <p className="text-xs text-muted-foreground">
+              &ldquo;{block.heading}&rdquo;
+            </p>
+          ) : null}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            De volledige boek-widget verschijnt op je live pagina.
+          </p>
+        </div>
+      );
     case "container":
       return (
         <ContainerBlockView block={block} accent={accent}>

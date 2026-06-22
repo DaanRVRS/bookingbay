@@ -273,6 +273,14 @@ const imageSliderBlock = z.object({
     .default([]),
 });
 
+const bookingWidgetBlock = z.object({
+  id: idField,
+  type: z.literal("bookingWidget"),
+  // Optionele kop boven de widget. De widget zelf gebruikt de
+  // org-widgetinstellingen (kleur, USP's, taal) — geen losse config nodig.
+  heading: z.string().max(160).default(""),
+});
+
 const containerBlock = z.object({
   id: idField,
   type: z.literal("container"),
@@ -309,6 +317,7 @@ const nonContainerBlock = z.discriminatedUnion("type", [
   buttonBlock,
   quoteBlock,
   imageSliderBlock,
+  bookingWidgetBlock,
 ]);
 
 export const blockSchema = z.union([nonContainerBlock, containerBlock]);
@@ -334,6 +343,7 @@ export type MapBlock = z.infer<typeof mapBlock>;
 export type ButtonBlock = z.infer<typeof buttonBlock>;
 export type QuoteBlock = z.infer<typeof quoteBlock>;
 export type ImageSliderBlock = z.infer<typeof imageSliderBlock>;
+export type BookingWidgetBlock = z.infer<typeof bookingWidgetBlock>;
 export type ContainerBlock = z.infer<typeof containerBlock>;
 
 export type BlockType = Block["type"];
@@ -356,6 +366,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   button: "Knop",
   quote: "Citaat",
   imageSlider: "Foto-slider",
+  bookingWidget: "Boek-widget",
   container: "Container",
 };
 
@@ -377,6 +388,7 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   button: "Losse knop met variant en uitlijning",
   quote: "Groot uitgelicht citaat",
   imageSlider: "Auto-roterende foto-carousel met dots & pijlen",
+  bookingWidget: "De volledige boek-widget — klanten reserveren direct op deze pagina",
   container: "Wrapper met achtergrond — andere blokken erin slepen",
 };
 
@@ -555,6 +567,8 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
           { url: "", caption: "", link: "" },
         ],
       };
+    case "bookingWidget":
+      return { id, type: "bookingWidget", heading: "Reserveer direct" };
     case "container":
       return {
         id,

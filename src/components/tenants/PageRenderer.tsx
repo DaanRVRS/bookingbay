@@ -6,6 +6,10 @@ import type {
 } from "@/lib/pages/blocks";
 import { getPublishedReviews, getReviewsByIds } from "@/lib/reviews/queries";
 import { getPriceListItems } from "@/lib/tenants/queries";
+import {
+  getInlineWidgetData,
+  type InlineWidgetData,
+} from "@/lib/tenants/inline-widget";
 import { HeroBlockView } from "./blocks/HeroBlockView";
 import { TextBlockView } from "./blocks/TextBlockView";
 import { CtaBlockView } from "./blocks/CtaBlockView";
@@ -30,6 +34,7 @@ import { ButtonBlockView } from "./blocks/ButtonBlockView";
 import { QuoteBlockView } from "./blocks/QuoteBlockView";
 import { ImageSliderBlockView } from "./blocks/ImageSliderBlockView";
 import { ContainerBlockView } from "./blocks/ContainerBlockView";
+import { BookingWidgetBlockView } from "./blocks/BookingWidgetBlockView";
 
 async function resolveTestimonialItems(
   block: TestimonialsBlock,
@@ -106,6 +111,7 @@ function renderNonContainer(
     testimonialItemsByBlockId: Map<string, TestimonialItem[]>;
     priceTableItemsByBlockId: Map<string, PriceTableItem[]>;
     contactBasePath: string;
+    widgetData: InlineWidgetData | null;
   },
 ) {
   const {
@@ -114,6 +120,7 @@ function renderNonContainer(
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,
     contactBasePath,
+    widgetData,
   } = ctx;
   switch (block.type) {
     case "hero":
@@ -169,6 +176,8 @@ function renderNonContainer(
       return <QuoteBlockView block={block} accent={accent} />;
     case "imageSlider":
       return <ImageSliderBlockView block={block} />;
+    case "bookingWidget":
+      return <BookingWidgetBlockView block={block} data={widgetData} />;
   }
 }
 
@@ -204,12 +213,25 @@ export async function PageRenderer({
     }),
   ]);
 
+  // Boek-widget-blok: laad de widget-data één keer (alleen als er zo'n blok
+  // op de pagina staat — top-level of in een container).
+  const hasBookingWidget = blocks.some(
+    (b) =>
+      b.type === "bookingWidget" ||
+      (b.type === "container" &&
+        b.children.some((c) => c.type === "bookingWidget")),
+  );
+  const widgetData = hasBookingWidget
+    ? await getInlineWidgetData(organizationId)
+    : null;
+
   const ctx = {
     organizationId,
     accent,
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,
     contactBasePath,
+    widgetData,
   };
 
   return (

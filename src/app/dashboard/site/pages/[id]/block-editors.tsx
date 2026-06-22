@@ -1328,6 +1328,25 @@ export function BlockEditor({
         </div>
       );
 
+    case "bookingWidget":
+      return (
+        <div className="flex flex-col gap-4">
+          <Field label="Kop boven de widget (optioneel)">
+            <Input
+              value={block.heading}
+              maxLength={160}
+              placeholder="Reserveer direct"
+              onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            De widget toont automatisch je boekbare items en gebruikt je
+            widget-instellingen (kleur, USP&apos;s, taal) — die pas je aan
+            onder Widgets.
+          </p>
+        </div>
+      );
+
     case "container":
       return (
         <ContainerEditor
