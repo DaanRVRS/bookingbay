@@ -40,7 +40,12 @@ export default async function OrgSettingsPage() {
   const isBilling = can(ctx.membership.role, "org:billing");
 
   return (
-    <div className="flex flex-col gap-6">
+    // key op de actieve org-id: de client-formulieren hieronder zetten hun
+    // `initial`-props alleen bij mount in hun eigen state (useForm/useState).
+    // Bij account-wisselen (router.refresh) remounten ze anders niet en
+    // blijven ze de vorige org tonen. De key forceert een remount met verse
+    // gegevens zodra je van organisatie wisselt.
+    <div key={org.id} className="flex flex-col gap-6">
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold">Algemeen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
