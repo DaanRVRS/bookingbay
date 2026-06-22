@@ -103,17 +103,21 @@ export async function checkAvailability(
   // één blok genoeg om dicht te zetten; bij quantity=3 trekken ze van
   // de capaciteit af. Conservatief: we behandelen elk overlappend blok
   // als één bezet exemplaar.
+  // Een item met quantity 0 ('n.v.t.'/data-fout) behandelen we als 1 boekbaar
+  // exemplaar — consistent met de widget, die ook minimaal 1 toont. Anders
+  // weigert de server élke boeking terwijl de UI het slot vrij toont.
+  const capacity = params.itemQuantity > 0 ? params.itemQuantity : 1;
   const usedSlots = overlapping.length + blocks.length;
-  const available = usedSlots < params.itemQuantity;
+  const available = usedSlots < capacity;
 
   let message: string | undefined;
   if (!available) {
     if (blocks.length > 0 && overlapping.length === 0) {
       message = "Deze tijd staat geblokkeerd in de gekoppelde agenda";
-    } else if (params.itemQuantity === 1) {
+    } else if (capacity === 1) {
       message = "Item is al geboekt in deze periode";
     } else {
-      message = `Alle ${params.itemQuantity} exemplaren zijn bezet in deze periode`;
+      message = `Alle ${capacity} exemplaren zijn bezet in deze periode`;
     }
   }
 

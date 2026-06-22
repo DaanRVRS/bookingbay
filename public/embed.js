@@ -175,6 +175,13 @@
     if (!h || h < 200 || h > 20000) return;
     iframes.forEach(function (entry) {
       if (entry.el.contentWindow !== e.source) return;
+      // Alleen berichten accepteren van de origin waar het iframe ook echt
+      // op staat (defense-in-depth bovenop de contentWindow-match).
+      try {
+        if (new URL(entry.el.src).origin !== e.origin) return;
+      } catch (_) {
+        return;
+      }
       entry.el.style.height = h + "px";
     });
   });

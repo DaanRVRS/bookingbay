@@ -232,7 +232,7 @@ export async function createPublicBooking(
             },
           }),
         ]);
-        if (overlap + blocked >= item.quantity) {
+        if (overlap + blocked >= Math.max(1, item.quantity)) {
           throw new Error(CONFLICT);
         }
         return tx.booking.create({
