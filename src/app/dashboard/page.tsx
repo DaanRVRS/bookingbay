@@ -261,15 +261,16 @@ function NewBookingsRow({ value, label }: { value: number; label: string }) {
   const hasNew = value > 0;
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span
-        className={cn(
-          "text-2xl font-semibold tabular-nums",
-          hasNew
-            ? "text-[oklch(0.55_0.15_150)] dark:text-[oklch(0.72_0.15_150)]"
-            : "text-foreground",
+      <span className="flex items-baseline gap-1.5">
+        {/* Het echte aantal groot; de "+N" klein in het groen als accent. */}
+        <span className="text-2xl font-semibold tabular-nums text-foreground">
+          {value}
+        </span>
+        {hasNew && (
+          <span className="text-xs font-semibold tabular-nums text-[oklch(0.55_0.15_150)] dark:text-[oklch(0.72_0.15_150)]">
+            +{value}
+          </span>
         )}
-      >
-        {hasNew ? `+${value}` : "0"}
       </span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
