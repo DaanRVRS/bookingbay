@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Globe, Layers, Package, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Globe, Inbox, Layers, Package, Users } from "lucide-react";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -24,6 +24,8 @@ export default async function DashboardOverviewPage() {
   const [
     bookingsToday,
     bookingsThisWeek,
+    newBookingsToday,
+    newBookingsThisWeek,
     itemCount,
     customerCount,
     categoryCount,
@@ -41,6 +43,22 @@ export default async function DashboardOverviewPage() {
       where: {
         organizationId: orgId,
         startAt: { gte: weekStart, lte: weekEnd },
+      },
+    }),
+    // "Nieuw binnen" = wanneer de boeking is geplaatst (createdAt), niet de
+    // reserveringsdatum. Geannuleerde tellen niet mee.
+    db.booking.count({
+      where: {
+        organizationId: orgId,
+        status: { not: "CANCELED" },
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+    }),
+    db.booking.count({
+      where: {
+        organizationId: orgId,
+        status: { not: "CANCELED" },
+        createdAt: { gte: weekStart, lte: weekEnd },
       },
     }),
     db.item.count({ where: { organizationId: orgId, isActive: true } }),
@@ -97,7 +115,7 @@ export default async function DashboardOverviewPage() {
           <EmptyState orgName={ctx.organization.name} />
         ) : (
           <>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Kpi
                 label="Vandaag"
                 value={bookingsToday}
@@ -111,6 +129,7 @@ export default async function DashboardOverviewPage() {
                 hint="totaal boekingen"
                 icon={CheckCircle2}
               />
+              <NewBookingsCard today={newBookingsToday} week={newBookingsThisWeek} />
               <Kpi label="Catalogus" value={itemCount} hint="actieve items" icon={Package} />
               <Kpi label="Klanten" value={customerCount} hint="totaal" icon={Users} />
             </div>
@@ -215,6 +234,44 @@ function Kpi({
         {value}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+/**
+ * "Nieuw binnen" — aantal nieuw geplaatste boekingen (op createdAt), dag +
+ * week. Is er ≥1 binnengekomen, dan tonen we 'm groen met een "+".
+ */
+function NewBookingsCard({ today, week }: { today: number; week: number }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-wide">Nieuw binnen</p>
+        <Inbox className="size-4" />
+      </div>
+      <div className="mt-2 flex flex-col gap-1.5">
+        <NewBookingsRow value={today} label="vandaag" />
+        <NewBookingsRow value={week} label="deze week" />
+      </div>
+    </div>
+  );
+}
+
+function NewBookingsRow({ value, label }: { value: number; label: string }) {
+  const hasNew = value > 0;
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span
+        className={cn(
+          "text-2xl font-semibold tabular-nums",
+          hasNew
+            ? "text-[oklch(0.55_0.15_150)] dark:text-[oklch(0.72_0.15_150)]"
+            : "text-foreground",
+        )}
+      >
+        {hasNew ? `+${value}` : "0"}
+      </span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   );
 }
