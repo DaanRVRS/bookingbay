@@ -255,10 +255,12 @@
 .rdp-bb .rdp-weekday {
   width: 14.2857%;
   max-width: none;
+  text-align: center;
 }
+/* Ronde dag-knop, gecentreerd in de bredere cel — vult de breedte zónder
+   tot ovalen uit te rekken (vaste, gelijke breedte = hoogte). */
 .rdp-bb .rdp-day_button {
-  width: 100%;
-  max-width: none;
+  margin-inline: auto;
 }
 .rdp-bb .rdp-day_button {
   font-weight: 500;
