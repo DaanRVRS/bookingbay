@@ -175,8 +175,8 @@ function TableLayout({
                   <Link
                     href={
                       contactBasePath
-                        ? `${contactBasePath}/contact?item=${it.id}`
-                        : `/contact?item=${it.id}`
+                        ? `${contactBasePath}/embed/book?item=${it.id}`
+                        : `/embed/book?item=${it.id}`
                     }
                     className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium text-white shadow-sm hover:opacity-90"
                     style={{ background: accent }}
@@ -213,8 +213,8 @@ function CardsLayout({
           ? `${contactBasePath}/item/${it.id}`
           : `/item/${it.id}`;
         const reserveHref = contactBasePath
-          ? `${contactBasePath}/contact?item=${it.id}`
-          : `/contact?item=${it.id}`;
+          ? `${contactBasePath}/embed/book?item=${it.id}`
+          : `/embed/book?item=${it.id}`;
         return (
           <div
             key={it.id}

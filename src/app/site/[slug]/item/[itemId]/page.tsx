@@ -73,14 +73,14 @@ export default async function ItemDetailPage({ params }: PageProps) {
           </div>
 
           <Link
-            href={tenantHref(base, `/contact?item=${item.id}`)}
+            href={tenantHref(base, `/embed/book?item=${item.id}`)}
             className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:w-auto"
             style={{ background: accent }}
           >
-            Aanvragen
+            Reserveer
           </Link>
           <p className="mt-2 text-xs text-muted-foreground">
-            Je krijgt binnen één werkdag een bevestiging.
+            Kies direct je datum en tijd.
           </p>
         </div>
       </div>

@@ -106,6 +106,7 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
         usps={design.usps}
         tagline={design.tagline}
         defaultLocale={design.defaultLocale}
+        initialItemId={sp.item ?? null}
       />
     </div>
   );

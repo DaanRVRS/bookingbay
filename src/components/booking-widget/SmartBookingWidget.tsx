@@ -58,6 +58,8 @@ interface Props {
   usps?: WidgetUsp[];
   tagline?: string | null;
   defaultLocale?: string;
+  /** Item meteen voorselecteren en direct naar de tijd-keuze springen. */
+  initialItemId?: string | null;
 }
 
 type Step = "category" | "item" | "form";
@@ -72,6 +74,7 @@ export function SmartBookingWidget({
   usps = [],
   tagline = null,
   defaultLocale = "nl",
+  initialItemId = null,
 }: Props) {
   return (
     <WidgetI18nProvider defaultLocale={defaultLocale}>
@@ -84,6 +87,7 @@ export function SmartBookingWidget({
         addons={addons}
         usps={usps}
         tagline={tagline}
+        initialItemId={initialItemId}
       />
     </WidgetI18nProvider>
   );
@@ -180,6 +184,7 @@ function WidgetInner({
   addons,
   usps,
   tagline,
+  initialItemId,
 }: {
   slug: string;
   orgName: string;
@@ -189,6 +194,7 @@ function WidgetInner({
   addons: AddonOption[];
   usps: WidgetUsp[];
   tagline: string | null;
+  initialItemId: string | null;
 }) {
   const { t } = useWidgetI18n();
   const onlyCategory = categories.length === 1 ? categories[0] : null;
@@ -207,6 +213,22 @@ function WidgetInner({
       setStep("item");
     }
   }, [categories, categoryId]);
+
+  // Voorgeselecteerd item (vanuit een "Reserveer"-link) → meteen naar de
+  // tijd-keuze springen. Eén keer bij mount.
+  useEffect(() => {
+    if (!initialItemId) return;
+    const bucket = categories.find((c) =>
+      c.items.some((i) => i.id === initialItemId),
+    );
+    if (bucket) {
+      setCategoryId(bucket.id);
+      setItemId(initialItemId);
+      setStep("form");
+      setFormPhase("when");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
   const selectedItem =
