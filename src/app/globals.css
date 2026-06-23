@@ -280,6 +280,10 @@
   font-weight: 600;
   font-size: 0.9rem;
 }
+/* Maand + jaartal gecentreerd (de nav-pijlen zweven absoluut rechtsboven). */
+.rdp-bb .rdp-month_caption {
+  justify-content: center;
+}
 .rdp-bb .rdp-weekday {
   font-size: 0.7rem;
   font-weight: 600;
