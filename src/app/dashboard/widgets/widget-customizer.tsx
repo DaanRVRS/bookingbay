@@ -38,6 +38,13 @@ import {
   type WidgetUsp,
 } from "@/lib/widget/theme";
 import { UspIcon } from "@/components/booking-widget/usp-icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface InitialDesign {
   accent: string;
@@ -423,22 +430,28 @@ export function WidgetCustomizer({
             )}
             {usps.map((u, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="relative shrink-0">
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
-                    <UspIcon icon={u.icon} className="size-4 text-foreground" />
-                  </span>
-                  <select
-                    aria-label="Icoon"
+                <div className="shrink-0">
+                  <Select
+                    items={USP_ICON_KEYS.map((k) => ({ value: k, label: k }))}
                     value={u.icon}
-                    onChange={(e) => updateUspIcon(i, e.target.value)}
-                    className="h-9 w-16 appearance-none rounded-md border border-border bg-background pl-7 pr-1 text-xs"
+                    onValueChange={(v) => v && updateUspIcon(i, v)}
                   >
-                    {USP_ICON_KEYS.map((k) => (
-                      <option key={k} value={k}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-9 w-36" aria-label="Icoon">
+                      <UspIcon icon={u.icon} className="size-4 shrink-0" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {USP_ICON_KEYS.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          <UspIcon
+                            icon={k}
+                            className="size-4 shrink-0 text-muted-foreground"
+                          />
+                          {k}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <input
                   type="text"
