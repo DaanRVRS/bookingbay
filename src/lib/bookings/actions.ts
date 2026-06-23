@@ -7,7 +7,12 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import { checkAvailability } from "./conflicts";
-import { sumAddons, addonAppliesToCategory, type BookingAddonLine } from "./price";
+import {
+  sumAddons,
+  sumFlatFees,
+  addonAppliesToCategory,
+  type BookingAddonLine,
+} from "./price";
 import {
   bookingCreateSchema,
   bookingUpdateSchema,
@@ -100,6 +105,8 @@ export async function createBookingAction(
         categoryId: true,
         category: { select: { parentId: true } },
         cleaningFee: true,
+      captainFee: true,
+      fuelFee: true,
       },
     }),
     db.customer.findFirst({
@@ -135,8 +142,8 @@ export async function createBookingAction(
     itemCategoryIds,
   );
   // Schoonmaakkosten server-side bijtellen — consistent met de publieke flow.
-  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
-  const grandTotal = parsed.data.totalPrice + cleaningFee + sumAddons(addonLines);
+  const grandTotal =
+    parsed.data.totalPrice + sumFlatFees(item) + sumAddons(addonLines);
 
   const created = await db.booking.create({
     data: {
@@ -206,6 +213,8 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
       categoryId: true,
       category: { select: { parentId: true } },
       cleaningFee: true,
+      captainFee: true,
+      fuelFee: true,
     },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -229,8 +238,8 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     parsed.data.addons,
     [item.categoryId, item.category.parentId].filter((v): v is string => Boolean(v)),
   );
-  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
-  const grandTotal = parsed.data.totalPrice + cleaningFee + sumAddons(addonLines);
+  const grandTotal =
+    parsed.data.totalPrice + sumFlatFees(item) + sumAddons(addonLines);
 
   await db.booking.update({
     where: { id: parsed.data.id },

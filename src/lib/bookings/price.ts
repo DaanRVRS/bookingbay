@@ -114,3 +114,40 @@ export function perUnitLabel(intervalMinutes: number): string {
 export function isWholeDayUnit(intervalMinutes: number): boolean {
   return intervalMinutes === 1440 || intervalMinutes === 10080;
 }
+
+// ── Vaste fees per boeking (schoonmaak / kapitein / brandstof) ─────────────
+
+/** Item-velden met de vaste fees. Prisma Decimal of number — beide werken
+ *  (Number() converteert allebei). Vandaar `unknown`. */
+export interface ItemFlatFees {
+  cleaningFee?: unknown;
+  captainFee?: unknown;
+  fuelFee?: unknown;
+}
+
+export interface FlatFeeLine {
+  label: string;
+  amount: number;
+}
+
+/**
+ * De niet-nul vaste fees van een item als losse regels (voor de prijsopgave).
+ * Labels zijn Nederlands — net als de bestaande schoonmaak-regel.
+ */
+export function flatFeeLines(item: ItemFlatFees): FlatFeeLine[] {
+  const out: FlatFeeLine[] = [];
+  const add = (label: string, v: unknown) => {
+    const n = v ? Number(v) : 0;
+    if (n > 0) out.push({ label, amount: n });
+  };
+  add("Schoonmaak", item.cleaningFee);
+  add("Kapitein", item.captainFee);
+  add("Brandstof", item.fuelFee);
+  return out;
+}
+
+/** Som van alle vaste fees van een item, op 2 decimalen. */
+export function sumFlatFees(item: ItemFlatFees): number {
+  const total = flatFeeLines(item).reduce((s, l) => s + l.amount, 0);
+  return Math.round(total * 100) / 100;
+}

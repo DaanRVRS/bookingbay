@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { flatFeeLines, sumFlatFees } from "@/lib/bookings/price";
 import { CancelButton } from "./cancel-button";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,15 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
       totalPrice: true,
       notes: true,
       portalToken: true,
-      item: { select: { name: true, description: true, cleaningFee: true } },
+      item: {
+        select: {
+          name: true,
+          description: true,
+          cleaningFee: true,
+          captainFee: true,
+          fuelFee: true,
+        },
+      },
       customer: { select: { name: true, email: true, phone: true } },
       organization: {
         select: {
@@ -84,9 +93,9 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
     isUpcoming && hoursUntil >= booking.organization.customerPortalCancelHoursMin;
   const totalEur = Number(booking.totalPrice);
   const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
-  const cleaningEur = booking.item.cleaningFee ? Number(booking.item.cleaningFee) : 0;
-  const showCleaningSplit = cleaningEur > 0;
-  const subtotalEur = Math.max(0, totalEur - cleaningEur);
+  const feeLines = flatFeeLines(booking.item);
+  const feesTotal = sumFlatFees(booking.item);
+  const subtotalEur = Math.max(0, totalEur - feesTotal);
 
   return (
     <main className="relative min-h-dvh">
@@ -145,10 +154,15 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
             </Row>
           </dl>
 
-          {showCleaningSplit && (
+          {feesTotal > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Subtotaal: €{subtotalEur.toFixed(2).replace(".", ",")} +
-              schoonmaakkosten €{cleaningEur.toFixed(2).replace(".", ",")}
+              Subtotaal: €{subtotalEur.toFixed(2).replace(".", ",")}
+              {feeLines.map((l) => (
+                <span key={l.label}>
+                  {" "}+ {l.label.toLowerCase()} €
+                  {l.amount.toFixed(2).replace(".", ",")}
+                </span>
+              ))}
             </p>
           )}
 

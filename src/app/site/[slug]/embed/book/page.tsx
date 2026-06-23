@@ -31,6 +31,8 @@ function buildBuckets(
       pricePerUnit: number | null;
       bookingIntervalMinutes: number;
       cleaningFee: number | null;
+      captainFee: number | null;
+      fuelFee: number | null;
     }[];
   }[] = [];
   for (const cat of categories) {
@@ -47,6 +49,8 @@ function buildBuckets(
           pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
           bookingIntervalMinutes: i.bookingIntervalMinutes,
           cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
+          captainFee: i.captainFee ? Number(i.captainFee) : null,
+          fuelFee: i.fuelFee ? Number(i.fuelFee) : null,
         })),
       });
     }
@@ -64,6 +68,8 @@ function buildBuckets(
             pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
             bookingIntervalMinutes: i.bookingIntervalMinutes,
             cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
+            captainFee: i.captainFee ? Number(i.captainFee) : null,
+            fuelFee: i.fuelFee ? Number(i.fuelFee) : null,
           })),
         });
       }

@@ -87,6 +87,8 @@ interface Existing {
   pricePerUnit: number | null;
   deposit: number | null;
   cleaningFee: number | null;
+  captainFee: number | null;
+  fuelFee: number | null;
   quantity: number;
   isActive: boolean;
   isAddon: boolean;
@@ -127,6 +129,8 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
       pricePerUnit: existing?.pricePerUnit ?? null,
       deposit: existing?.deposit ?? null,
       cleaningFee: existing?.cleaningFee ?? null,
+      captainFee: existing?.captainFee ?? null,
+      fuelFee: existing?.fuelFee ?? null,
       quantity: existing?.quantity ?? 1,
       isActive: existing?.isActive ?? true,
       isAddon: existing?.isAddon ?? false,
@@ -456,6 +460,22 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
                 setValue={setValue}
                 toggleable
               />
+              <PriceField
+                label="Kapitein (optioneel)"
+                name="captainFee"
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                toggleable
+              />
+              <PriceField
+                label="Brandstof (optioneel)"
+                name="fuelFee"
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                toggleable
+              />
             </div>
           </div>
         )}
@@ -749,7 +769,13 @@ function PriceField({
   toggleable = false,
 }: {
   label: string;
-  name: "pricePerUnit" | "deposit" | "cleaningFee" | "addonPrice";
+  name:
+    | "pricePerUnit"
+    | "deposit"
+    | "cleaningFee"
+    | "captainFee"
+    | "fuelFee"
+    | "addonPrice";
   register: ReturnType<typeof useForm<ItemFormValues>>["register"];
   watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
   setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];

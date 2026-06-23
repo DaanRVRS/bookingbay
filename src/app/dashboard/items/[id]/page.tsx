@@ -53,6 +53,8 @@ export default async function EditItemPage({ params }: PageProps) {
               pricePerUnit: item.pricePerUnit ? Number(item.pricePerUnit) : null,
               deposit: item.deposit ? Number(item.deposit) : null,
               cleaningFee: item.cleaningFee ? Number(item.cleaningFee) : null,
+              captainFee: item.captainFee ? Number(item.captainFee) : null,
+              fuelFee: item.fuelFee ? Number(item.fuelFee) : null,
               quantity: item.quantity,
               isActive: item.isActive,
               isAddon: item.isAddon,

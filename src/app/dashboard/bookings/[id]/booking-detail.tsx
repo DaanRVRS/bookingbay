@@ -38,6 +38,8 @@ interface ItemOpt {
   pricePerUnit: number | null;
   bookingIntervalMinutes: number;
   cleaningFee: number | null;
+  captainFee: number | null;
+  fuelFee: number | null;
 }
 interface CustomerOpt {
   id: string;

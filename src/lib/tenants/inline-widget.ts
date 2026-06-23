@@ -22,6 +22,8 @@ export interface InlineWidgetBucket {
     pricePerUnit: number | null;
     bookingIntervalMinutes: number;
     cleaningFee: number | null;
+    captainFee: number | null;
+    fuelFee: number | null;
   }[];
 }
 
@@ -50,6 +52,8 @@ function buildBuckets(
     pricePerUnit: unknown;
     bookingIntervalMinutes: number;
     cleaningFee: unknown;
+    captainFee: unknown;
+    fuelFee: unknown;
   }) => ({
     id: i.id,
     name: i.name,
@@ -58,6 +62,8 @@ function buildBuckets(
     pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
     bookingIntervalMinutes: i.bookingIntervalMinutes,
     cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
+    captainFee: i.captainFee ? Number(i.captainFee) : null,
+    fuelFee: i.fuelFee ? Number(i.fuelFee) : null,
   });
   for (const cat of categories) {
     if (cat.items.length > 0) {

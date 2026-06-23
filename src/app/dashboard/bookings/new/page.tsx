@@ -35,6 +35,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         pricePerUnit: true,
         bookingIntervalMinutes: true,
         cleaningFee: true,
+        captainFee: true,
+        fuelFee: true,
       },
     }),
     db.customer.findMany({
@@ -98,6 +100,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
               bookingIntervalMinutes: i.bookingIntervalMinutes,
               cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
+              captainFee: i.captainFee ? Number(i.captainFee) : null,
+              fuelFee: i.fuelFee ? Number(i.fuelFee) : null,
             }))}
             customers={customerList.map((c) => ({ id: c.id, name: c.name, email: c.email }))}
             addons={addons}

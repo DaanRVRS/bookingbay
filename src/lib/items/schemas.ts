@@ -22,6 +22,8 @@ const itemBaseShape = {
   pricePerUnit: decimal,
   deposit: decimal,
   cleaningFee: decimal,
+  captainFee: decimal,
+  fuelFee: decimal,
   // 0 is alleen toegestaan voor add-ons en betekent "voorraad n.v.t." —
   // de refine hieronder dwingt min 1 af voor normale items.
   quantity: z.coerce.number().int().min(0).max(9999).default(1),

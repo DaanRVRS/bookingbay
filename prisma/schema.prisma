@@ -359,10 +359,11 @@ model Item {
   // uur/dag/week/15 min). Totaal = ceil(duur / interval) × pricePerUnit.
   pricePerUnit Decimal? @db.Decimal(10, 2)
   deposit      Decimal? @db.Decimal(10, 2)
-  // Vaste schoonmaak-fee per boeking. Null/0 = uit; >0 = bedrag wordt
-  // bovenop de tijd-tariefs opgeteld in createPublicBooking en als
-  // losse regel in de widget en bevestigingsmail getoond.
+  // Vaste fees per boeking (null/0 = uit). Worden bovenop het tijd-tarief
+  // opgeteld en als losse regels in de prijsopgave getoond.
   cleaningFee  Decimal? @db.Decimal(10, 2)
+  captainFee   Decimal? @db.Decimal(10, 2)
+  fuelFee      Decimal? @db.Decimal(10, 2)
 
   quantity Int     @default(1)
   isActive Boolean @default(true)

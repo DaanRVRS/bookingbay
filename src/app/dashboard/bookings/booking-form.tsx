@@ -31,6 +31,7 @@ import {
 } from "@/lib/bookings/schemas";
 import {
   sumAddons,
+  flatFeeLines,
   addonAppliesToCategory,
   estimateRentalSubtotal,
   type BookingAddonLine,
@@ -53,6 +54,8 @@ interface ItemOpt {
   pricePerUnit: number | null;
   bookingIntervalMinutes: number;
   cleaningFee: number | null;
+  captainFee: number | null;
+  fuelFee: number | null;
 }
 
 interface CustomerOpt {
@@ -246,9 +249,13 @@ export function BookingForm({
     [applicableAddons, addonQty],
   );
   const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
-  // Schoonmaakkosten van het gekozen item — server telt ze bovenop het
-  // item-subtotaal (net als de extra's), dus tonen we ze hier ook apart.
-  const cleaningFee = selectedItem?.cleaningFee ?? 0;
+  // Vaste fees (schoonmaak/kapitein/brandstof) van het gekozen item — server
+  // telt ze bovenop het item-subtotaal, dus tonen we ze hier ook apart.
+  const feeLines = useMemo(
+    () => (selectedItem ? flatFeeLines(selectedItem) : []),
+    [selectedItem],
+  );
+  const feesTotal = feeLines.reduce((s, l) => s + l.amount, 0);
 
   // Prijs-suggestie op basis van duur — zelfde gedeelde formule als de
   // publieke widget en de server, zodat de bedragen exact matchen.
@@ -489,7 +496,7 @@ export function BookingForm({
 
         <div className="mt-4 flex flex-col gap-1.5">
           <Label htmlFor="totalPrice">
-            {addonsTotal > 0 || cleaningFee > 0 ? "Item-bedrag" : "Totaalbedrag"}
+            {addonsTotal > 0 || feesTotal > 0 ? "Item-bedrag" : "Totaalbedrag"}
           </Label>
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
@@ -515,7 +522,7 @@ export function BookingForm({
               {errors.totalPrice.message}
             </p>
           )}
-          {(addonsTotal > 0 || cleaningFee > 0) && (
+          {(addonsTotal > 0 || feesTotal > 0) && (
             <div className="mt-1 space-y-1 rounded-lg border border-border bg-muted/30 p-3 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Item</span>
@@ -523,12 +530,15 @@ export function BookingForm({
                   € {Number(watch("totalPrice") || 0).toFixed(2)}
                 </span>
               </div>
-              {cleaningFee > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Schoonmaak</span>
-                  <span className="tabular-nums">€ {cleaningFee.toFixed(2)}</span>
+              {feeLines.map((line) => (
+                <div
+                  key={line.label}
+                  className="flex justify-between text-muted-foreground"
+                >
+                  <span>{line.label}</span>
+                  <span className="tabular-nums">€ {line.amount.toFixed(2)}</span>
                 </div>
-              )}
+              ))}
               {addonsTotal > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Extra&apos;s</span>
@@ -538,7 +548,7 @@ export function BookingForm({
               <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <span>Totaal</span>
                 <span className="tabular-nums">
-                  € {(Number(watch("totalPrice") || 0) + cleaningFee + addonsTotal).toFixed(2)}
+                  € {(Number(watch("totalPrice") || 0) + feesTotal + addonsTotal).toFixed(2)}
                 </span>
               </div>
             </div>

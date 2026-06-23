@@ -5,7 +5,11 @@ import { db } from "@/lib/db";
 import { sendEmail, emailLayout, escapeHtml } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
-import type { BookingAddonLine } from "@/lib/bookings/price";
+import {
+  flatFeeLines,
+  sumFlatFees,
+  type BookingAddonLine,
+} from "@/lib/bookings/price";
 
 /**
  * Stuurt de klant een bevestiging met daarin de pre-authenticated
@@ -34,7 +38,14 @@ export async function sendBookingConfirmationMail(
       addons: true,
       portalToken: true,
       customer: { select: { name: true, email: true } },
-      item: { select: { name: true, cleaningFee: true } },
+      item: {
+        select: {
+          name: true,
+          cleaningFee: true,
+          captainFee: true,
+          fuelFee: true,
+        },
+      },
       organization: {
         select: {
           name: true,
@@ -68,14 +79,22 @@ export async function sendBookingConfirmationMail(
   const safeOrg = escapeHtml(booking.organization.name);
   const safeItem = escapeHtml(booking.item.name);
 
-  // Splitsing tonen als het item een cleaning fee heeft — anders wekt het
+  // Splitsing tonen als het item vaste fees heeft — anders wekt het
   // verwarring ("waarom is het meer dan de item-prijs?").
-  const cleaningEur = booking.item.cleaningFee ? Number(booking.item.cleaningFee) : 0;
-  const showCleaningSplit = cleaningEur > 0;
-  const subtotalEur = Math.max(0, totalEur - cleaningEur);
-  const cleaningLine = showCleaningSplit
-    ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur.toFixed(2).replace(".", ",")} + schoonmaakkosten €${cleaningEur.toFixed(2).replace(".", ",")}</p>`
-    : "";
+  const feeLines = flatFeeLines(booking.item);
+  const feesTotal = sumFlatFees(booking.item);
+  const subtotalEur = Math.max(0, totalEur - feesTotal);
+  const feesSplitLine =
+    feesTotal > 0
+      ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur
+          .toFixed(2)
+          .replace(".", ",")}${feeLines
+          .map(
+            (l) =>
+              ` + ${escapeHtml(l.label.toLowerCase())} €${l.amount.toFixed(2).replace(".", ",")}`,
+          )
+          .join("")}</p>`
+      : "";
 
   // Gekozen extra's tonen als losse regel zodat het totaal verklaarbaar is.
   const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
@@ -107,7 +126,7 @@ export async function sendBookingConfirmationMail(
       <p style="margin:0 0 4px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
       ${addonsLine}
       <p style="margin:0 0 4px 0"><strong>Totaal:</strong> ${amount}</p>
-      ${cleaningLine}
+      ${feesSplitLine}
       <div style="height:12px"></div>
       <p style="margin:0 0 24px 0">
         Bekijk of annuleer je boeking via de knop hieronder. Geen account

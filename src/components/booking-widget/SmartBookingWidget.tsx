@@ -27,6 +27,8 @@ interface ItemRow {
   pricePerUnit: number | null;
   bookingIntervalMinutes: number;
   cleaningFee: number | null;
+  captainFee: number | null;
+  fuelFee: number | null;
 }
 
 interface CategoryBucket {
@@ -608,6 +610,8 @@ function FormStep({
           pricePerUnit: item.pricePerUnit,
           bookingIntervalMinutes: item.bookingIntervalMinutes,
           cleaningFee: item.cleaningFee,
+          captainFee: item.captainFee,
+          fuelFee: item.fuelFee,
         }}
         addons={addons}
         onPhaseChange={onPhaseChange}

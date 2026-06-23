@@ -14,6 +14,7 @@ import { notifyOrgMembers } from "@/lib/notifications/send";
 import {
   estimateRentalSubtotal,
   sumAddons,
+  sumFlatFees,
   addonAppliesToCategory,
   isWholeDayUnit,
   type BookingAddonLine,
@@ -90,6 +91,8 @@ export async function createPublicBooking(
       bookingIntervalMinutes: true,
       followsOrgHours: true,
       cleaningFee: true,
+      captainFee: true,
+      fuelFee: true,
     },
   });
   if (!item) {
@@ -179,13 +182,12 @@ export async function createPublicBooking(
   });
   let estimate = rentalSubtotal ?? 0;
 
-  // Schoonmaakkosten — flat fee per item bovenop de huurprijs. Null/0 = uit.
-  // Alléén optellen als er een echte huurprijs is: een item zonder
-  // pricePerUnit (prijs op aanvraag) rekent niets, exact zoals de widget
-  // toont — anders zou de klant €0 zien maar tóch de schoonmaak betalen.
-  const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
-  if (rentalSubtotal != null && cleaningFee > 0) {
-    estimate = estimate + cleaningFee;
+  // Vaste fees (schoonmaak/kapitein/brandstof) — alléén bovenop een echte
+  // huurprijs: een item zonder pricePerUnit (prijs op aanvraag) rekent niets,
+  // exact zoals de widget toont — anders zou de klant €0 zien maar tóch
+  // betalen.
+  if (rentalSubtotal != null) {
+    estimate = estimate + sumFlatFees(item);
   }
 
   // Add-ons (extra's): prijs + naam ALTIJD server-side ophalen uit het

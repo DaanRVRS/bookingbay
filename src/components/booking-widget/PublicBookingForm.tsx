@@ -29,6 +29,8 @@ import {
 import {
   estimateRentalSubtotal,
   sumAddons,
+  flatFeeLines,
+  sumFlatFees,
   isWholeDayUnit,
   type BookingAddonLine,
 } from "@/lib/bookings/price";
@@ -44,8 +46,10 @@ interface ItemOption {
   /** Prijs per verhuur-eenheid (de eenheid = bookingIntervalMinutes). */
   pricePerUnit: number | null;
   bookingIntervalMinutes: number;
-  /** Vaste schoonmaak-fee per boeking. Null/0 = uit voor dit item. */
+  /** Vaste fees per boeking (schoonmaak/kapitein/brandstof). Null/0 = uit. */
   cleaningFee?: number | null;
+  captainFee?: number | null;
+  fuelFee?: number | null;
 }
 
 interface AddonOption {
@@ -356,8 +360,9 @@ export function PublicBookingForm({
       bookingIntervalMinutes: selectedItem.bookingIntervalMinutes,
     });
     if (subtotal == null) return null;
-    const cleaningFee = selectedItem.cleaningFee ? Number(selectedItem.cleaningFee) : 0;
-    return { subtotal, cleaningFee, total: subtotal + cleaningFee };
+    const feeLines = flatFeeLines(selectedItem);
+    const feesTotal = sumFlatFees(selectedItem);
+    return { subtotal, feeLines, feesTotal, total: subtotal + feesTotal };
   }, [selectedItem, watchedStart, watchedEnd]);
   // Gekozen add-ons als prijsregels (snapshot van naam + stuksprijs).
   const addonLines = useMemo<BookingAddonLine[]>(
@@ -635,7 +640,7 @@ export function PublicBookingForm({
           {/* Volledige prijsopgave: huurprijs → extra's → schoonmaak → totaal.
               De losse huurregel tonen we alleen als er íets bovenop komt,
               anders is 'ie identiek aan het totaal. */}
-          {pricing && (pricing.cleaningFee > 0 || addonLines.length > 0) && (
+          {pricing && (pricing.feesTotal > 0 || addonLines.length > 0) && (
             <ReviewRow
               label="Huurprijs"
               value={`€ ${pricing.subtotal.toFixed(2)}`}
@@ -650,13 +655,14 @@ export function PublicBookingForm({
               accent={accent}
             />
           ))}
-          {pricing && pricing.cleaningFee > 0 && (
+          {pricing?.feeLines.map((line) => (
             <ReviewRow
-              label="Schoonmaakkosten"
-              value={`€ ${pricing.cleaningFee.toFixed(2)}`}
+              key={line.label}
+              label={line.label}
+              value={`€ ${line.amount.toFixed(2)}`}
               accent={accent}
             />
-          )}
+          ))}
           {estimate !== null && (
             <ReviewRow
               label={t("review.estPrice")}
