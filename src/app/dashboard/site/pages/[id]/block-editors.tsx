@@ -1094,7 +1094,7 @@ export function BlockEditor({
               onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
             />
           </Field>
-          <Field label="Adres-tekst (zichtbaar)" className="sm:col-span-2">
+          <Field label="Adres of plaats" className="sm:col-span-2">
             <Textarea
               value={block.address}
               rows={2}
@@ -1102,14 +1102,10 @@ export function BlockEditor({
               placeholder="Hoofdstraat 1, 1234 AB Amsterdam"
               onChange={(e) => onChange({ address: e.target.value } as Partial<Block>)}
             />
-          </Field>
-          <Field label="Embed-URL (Google Maps embed src)" className="sm:col-span-2">
-            <Input
-              value={block.embedUrl}
-              maxLength={800}
-              placeholder="https://www.google.com/maps/embed?pb=..."
-              onChange={(e) => onChange({ embedUrl: e.target.value } as Partial<Block>)}
-            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              De kaart verschijnt automatisch op dit adres — een Google
+              Maps-link is niet nodig.
+            </p>
           </Field>
           <Field label="Hoogte" className="sm:col-span-2">
             <Toggle

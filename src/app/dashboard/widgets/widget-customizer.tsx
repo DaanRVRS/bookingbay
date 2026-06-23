@@ -1098,6 +1098,15 @@ function ColorRow({
           aria-label={label}
         />
       </label>
+      <input
+        type="text"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="#"
+        spellCheck={false}
+        aria-label={`${label} kleurcode`}
+        className="h-8 w-24 shrink-0 rounded-md border border-border bg-background px-2 text-xs font-mono uppercase"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{label}</p>
         <p className="truncate text-[11px] text-muted-foreground">{hint}</p>

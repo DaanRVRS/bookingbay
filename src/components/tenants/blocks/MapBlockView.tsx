@@ -28,29 +28,36 @@ export function MapBlockView({ block }: { block: MapBlock }) {
             </div>
           </div>
         )}
-        {block.embedUrl ? (
-          <div
-            className={`overflow-hidden rounded-2xl border border-border bg-muted ${HEIGHT_CLASS[block.height]}`}
-          >
-            <iframe
-              src={block.embedUrl}
-              title={block.heading || "Kaart"}
-              className="size-full"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
-          </div>
-        ) : (
-          <div
-            className={`grid place-items-center rounded-2xl border border-dashed border-border bg-card/40 text-center ${HEIGHT_CLASS[block.height]}`}
-          >
-            <p className="text-sm text-muted-foreground">
-              Plak een Google Maps embed-URL in de instellingen om de kaart te
-              tonen.
-            </p>
-          </div>
-        )}
+        {(() => {
+          // Adres → directe Google Maps embed (geen API-key nodig). Een eigen
+          // embed-URL blijft werken voor wie er al een ingevuld had.
+          const src = block.address?.trim()
+            ? `https://www.google.com/maps?q=${encodeURIComponent(block.address.trim())}&output=embed`
+            : block.embedUrl?.trim() || null;
+          return src ? (
+            <div
+              className={`overflow-hidden rounded-2xl border border-border bg-muted ${HEIGHT_CLASS[block.height]}`}
+            >
+              <iframe
+                src={src}
+                title={block.heading || "Kaart"}
+                className="size-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div
+              className={`grid place-items-center rounded-2xl border border-dashed border-border bg-card/40 text-center ${HEIGHT_CLASS[block.height]}`}
+            >
+              <p className="text-sm text-muted-foreground">
+                Vul een adres of plaats in de instellingen in om de kaart te
+                tonen.
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </section>
   );
