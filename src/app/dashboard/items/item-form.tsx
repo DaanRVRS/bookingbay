@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +37,7 @@ import {
   DAY_LABELS_NL,
   type BusinessHours,
 } from "@/lib/business-hours/schemas";
+import { BusinessHoursEditor } from "@/components/dashboard/BusinessHoursEditor";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
@@ -98,6 +99,7 @@ interface Existing {
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
   followsOrgHours: boolean;
+  itemHours: BusinessHours | null;
 }
 
 interface Props {
@@ -140,6 +142,7 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
       bookingWindowStartMin: existing?.bookingWindowStartMin ?? 540,
       bookingWindowEndMin: existing?.bookingWindowEndMin ?? 1080,
       followsOrgHours: existing?.followsOrgHours ?? true,
+      itemHours: existing?.itemHours ?? null,
     },
   });
 
@@ -157,6 +160,15 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
   const bookingIntervalMinutes = Number(watch("bookingIntervalMinutes") ?? 60);
   const bookingWindowStartMin = Number(watch("bookingWindowStartMin") ?? 540);
   const bookingWindowEndMin = Number(watch("bookingWindowEndMin") ?? 1080);
+  // Eigen per-weekdag tijden (bij niet-aanhouden). De editor start vanuit het
+  // vaste venster als er nog niets eigen is ingesteld.
+  const itemHours =
+    (watch("itemHours") as BusinessHours | null | undefined) ?? null;
+  const seededItemHours = useMemo<BusinessHours>(() => {
+    const open = minutesToHHMM(bookingWindowStartMin);
+    const close = minutesToHHMM(bookingWindowEndMin);
+    return Array.from({ length: 7 }, () => ({ closed: false, open, close }));
+  }, [bookingWindowStartMin, bookingWindowEndMin]);
   // Dag- of week-eenheid: geen tijdkeuze, klanten kiezen alleen datums.
   const isWholeDay = isWholeDayUnit(bookingIntervalMinutes);
 
@@ -571,49 +583,23 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
         )}
 
         {!followsOrgHours && (
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bookingWindowStart">Eerste slot</Label>
-              <Input
-                id="bookingWindowStart"
-                type="time"
-                step={60}
-                value={minutesToHHMM(bookingWindowStartMin)}
-                onChange={(e) => {
-                  const m = hhmmToMinutes(e.target.value);
-                  if (m != null) {
-                    setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
-                  }
-                }}
-              />
-              <input type="hidden" {...register("bookingWindowStartMin")} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
-              <Input
-                id="bookingWindowEnd"
-                type="time"
-                step={60}
-                value={minutesToHHMM(bookingWindowEndMin)}
-                onChange={(e) => {
-                  const m = hhmmToMinutes(e.target.value);
-                  if (m != null) {
-                    setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
-                  }
-                }}
-              />
-              <input type="hidden" {...register("bookingWindowEndMin")} />
-              {errors.bookingWindowEndMin?.message && (
-                <p className="text-xs font-medium text-destructive">
-                  {errors.bookingWindowEndMin.message}
-                </p>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground sm:col-span-3">
-              Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
-              {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Stel per dag in tussen welke tijden dit item geboekt kan worden —
+              een dag op &quot;Gesloten&quot; is niet boekbaar. Stapgrootte:{" "}
               {formatIntervalLabel(bookingIntervalMinutes)}.
             </p>
+            <BusinessHoursEditor
+              value={itemHours ?? seededItemHours}
+              onChange={(next) =>
+                setValue("itemHours", next as never, {
+                  shouldValidate: false,
+                  shouldDirty: true,
+                })
+              }
+              compact
+              hideToggle
+            />
           </div>
         )}
       </div>

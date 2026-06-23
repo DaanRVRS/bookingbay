@@ -8,14 +8,15 @@ import type { BusinessHours } from "@/lib/business-hours/schemas";
  *
  * - followsOrgHours = true  → het venster = de organisatie-openingstijden van
  *   die weekdag. Een gesloten dag levert null op (= niet boekbaar).
- * - followsOrgHours = false → het vaste eigen venster (windowStartMin..EndMin),
- *   elke dag gelijk.
+ * - followsOrgHours = false → de eigen per-weekdag tijden (itemHours) als die
+ *   gezet zijn, anders het vaste venster (windowStartMin..EndMin) als fallback.
  */
 export interface SlotWindowConfig {
   windowStartMin: number;
   windowEndMin: number;
   followsOrgHours: boolean;
   orgHours: BusinessHours | null;
+  itemHours: BusinessHours | null;
 }
 
 export function hhmmToMin(s: string): number {
@@ -32,12 +33,14 @@ export function windowForDay(
   day: Date,
   cfg: SlotWindowConfig,
 ): { startMin: number; endMin: number } | null {
-  if (!cfg.followsOrgHours || !cfg.orgHours) {
+  // Aanhouden → org-tijden; eigen tijden → itemHours. Geen schema → vast venster.
+  const schedule = cfg.followsOrgHours ? cfg.orgHours : cfg.itemHours;
+  if (!schedule) {
     return { startMin: cfg.windowStartMin, endMin: cfg.windowEndMin };
   }
   // BusinessHours loopt ma..zo (index 0 = maandag); Date.getDay() is zo..za.
   const idx = (day.getDay() + 6) % 7;
-  const d = cfg.orgHours[idx];
+  const d = schedule[idx];
   if (!d || d.closed) return null;
   const startMin = hhmmToMin(d.open || "09:00");
   const endMin = hhmmToMin(d.close || "17:00");

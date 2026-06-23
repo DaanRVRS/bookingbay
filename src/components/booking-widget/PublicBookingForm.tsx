@@ -79,6 +79,7 @@ interface SlotConfig {
   windowEndMin: number;
   followsOrgHours: boolean;
   orgHours: BusinessHours | null;
+  itemHours: BusinessHours | null;
 }
 
 const DEFAULT_SLOT_CONFIG: SlotConfig = {
@@ -87,6 +88,7 @@ const DEFAULT_SLOT_CONFIG: SlotConfig = {
   windowEndMin: 1080, // 18:00
   followsOrgHours: false,
   orgHours: null,
+  itemHours: null,
 };
 
 interface BookingInterval {
@@ -297,6 +299,7 @@ export function PublicBookingForm({
             windowEndMin: res.bookingWindowEndMin,
             followsOrgHours: Boolean(res.followsOrgHours),
             orgHours: (res.orgHours as BusinessHours | null) ?? null,
+            itemHours: (res.itemHours as BusinessHours | null) ?? null,
           });
           // Externe agenda-blokken (Google Calendar etc.) gelden voor de
           // slot-grid net zo zwaar als gewone boekingen — anders kan een

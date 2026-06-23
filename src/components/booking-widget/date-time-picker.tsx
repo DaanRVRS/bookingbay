@@ -35,6 +35,7 @@ interface SlotConfig {
   windowEndMin: number;
   followsOrgHours: boolean;
   orgHours: BusinessHours | null;
+  itemHours: BusinessHours | null;
 }
 
 const DEFAULT_SLOT_CONFIG: SlotConfig = {
@@ -43,6 +44,7 @@ const DEFAULT_SLOT_CONFIG: SlotConfig = {
   windowEndMin: 1080,
   followsOrgHours: false,
   orgHours: null,
+  itemHours: null,
 };
 
 export interface DateTimeValue {
@@ -138,6 +140,7 @@ export function DateTimePicker({
           windowEndMin: res.bookingWindowEndMin,
           followsOrgHours: Boolean(res.followsOrgHours),
           orgHours: (res.orgHours as BusinessHours | null) ?? null,
+          itemHours: (res.itemHours as BusinessHours | null) ?? null,
         });
         // Boekingen + externe agenda-blokken samengevoegd voor de
         // slot-grid (zonder de "exclude" boeking bij bewerken).

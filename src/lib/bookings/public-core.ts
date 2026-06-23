@@ -90,6 +90,7 @@ export async function createPublicBooking(
       pricePerUnit: true,
       bookingIntervalMinutes: true,
       followsOrgHours: true,
+      itemHours: true,
       cleaningFee: true,
       captainFee: true,
       fuelFee: true,
@@ -120,18 +121,18 @@ export async function createPublicBooking(
     };
   }
 
-  // Volgt het item de organisatie-openingstijden, dan mag er niet op een
-  // gesloten weekdag geboekt worden. De widget verbergt die dag al; dit
-  // blokkeert ook directe API-calls. Alleen voor tijd-eenheden — dag/week-
-  // items boeken hele dagen, los van openingstijden. We checken alleen of de
-  // dag open is (niet de exacte uren), zodat tijdzone-randgevallen geen
-  // geldige boeking weigeren.
-  if (!isWholeDayUnit(item.bookingIntervalMinutes) && item.followsOrgHours) {
+  // Een tijd-item mag niet op een gesloten weekdag geboekt worden (org-tijden
+  // bij aanhouden, anders de eigen itemHours). De widget verbergt die dag al;
+  // dit blokkeert ook directe API-calls. We checken alleen of de dag open is
+  // (niet de exacte uren), zodat tijdzone-randgevallen geen geldige boeking
+  // weigeren. Dag/week-items boeken hele dagen, los van openingstijden.
+  if (!isWholeDayUnit(item.bookingIntervalMinutes)) {
     const dayWindow = windowForDay(startAt, {
       windowStartMin: 0,
       windowEndMin: 1440,
-      followsOrgHours: true,
+      followsOrgHours: item.followsOrgHours,
       orgHours: safeParseBusinessHours(org.businessHours),
+      itemHours: safeParseBusinessHours(item.itemHours),
     });
     if (!dayWindow) {
       return {
@@ -426,6 +427,8 @@ export interface ItemAvailability {
   followsOrgHours: boolean;
   /** Org-openingstijden (ma..zo) als het item deze volgt — anders null. */
   orgHours: BusinessHours | null;
+  /** Eigen per-weekdag tijden van het item (bij niet-aanhouden) — anders null. */
+  itemHours: BusinessHours | null;
   bookings: { startMs: number; endMs: number }[];
   /** Externe agenda-blokken (Google Calendar etc.) — de slot-grid moet
    *  deze ook als bezet tonen, anders weigert de backend later. */
@@ -458,6 +461,7 @@ export async function getItemAvailability(
       bookingWindowStartMin: true,
       bookingWindowEndMin: true,
       followsOrgHours: true,
+      itemHours: true,
     },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -505,11 +509,13 @@ export async function getItemAvailability(
   // widget zodat de getoonde slots exact matchen met deze berekening.
   const isWholeDay = isWholeDayUnit(item.bookingIntervalMinutes);
   const orgHours = isWholeDay ? null : safeParseBusinessHours(org.businessHours);
+  const itemHours = isWholeDay ? null : safeParseBusinessHours(item.itemHours);
   const windowCfg = {
     windowStartMin: item.bookingWindowStartMin,
     windowEndMin: item.bookingWindowEndMin,
     followsOrgHours: item.followsOrgHours,
     orgHours,
+    itemHours,
   };
 
   while (cursor < toDate) {
@@ -580,6 +586,7 @@ export async function getItemAvailability(
     bookingWindowEndMin: item.bookingWindowEndMin,
     followsOrgHours: item.followsOrgHours,
     orgHours,
+    itemHours,
     bookings: bookings.map((b) => ({
       startMs: b.startAt.getTime(),
       endMs: b.endAt.getTime(),

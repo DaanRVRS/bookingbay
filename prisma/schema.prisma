@@ -389,10 +389,15 @@ model Item {
   bookingWindowEndMin    Int @default(1080) // 18:00
 
   // true  = volg de organisatie-openingstijden (per weekdag; gesloten dag =
-  //         niet boekbaar) en negeer het window hierboven.
-  // false = gebruik het eigen window (bookingWindowStartMin..EndMin).
+  //         niet boekbaar).
+  // false = eigen tijden. itemHours (per weekdag) als die gezet is, anders
+  //         het vaste window (bookingWindowStartMin..EndMin) als fallback.
   // Geldt voor tijd-eenheden; dag/week-items boeken altijd hele dagen.
   followsOrgHours Boolean @default(true)
+  // Eigen per-weekdag openingstijden voor dit item (zelfde shape als
+  // Organization.businessHours). Alleen gebruikt als followsOrgHours = false.
+  // Null = val terug op het vaste window hierboven.
+  itemHours Json?
 
   // Per-integratie configuratie voor dit specifieke item. Shape:
   //   { googleCalendar: { calendarId: "abc@group.calendar.google.com" } }

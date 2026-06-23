@@ -66,6 +66,7 @@ export default async function EditItemPage({ params }: PageProps) {
               bookingWindowStartMin: item.bookingWindowStartMin,
               bookingWindowEndMin: item.bookingWindowEndMin,
               followsOrgHours: item.followsOrgHours,
+              itemHours: safeParseBusinessHours(item.itemHours),
             }}
           />
         </div>

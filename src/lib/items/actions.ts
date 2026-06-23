@@ -103,6 +103,12 @@ export async function createItemAction(
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,
       followsOrgHours: parsed.data.followsOrgHours,
+      itemHours:
+        parsed.data.itemHours === undefined
+          ? undefined
+          : parsed.data.itemHours === null
+            ? Prisma.JsonNull
+            : (parsed.data.itemHours as Prisma.InputJsonValue),
     },
     select: { id: true },
   });
@@ -194,6 +200,12 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,
       followsOrgHours: parsed.data.followsOrgHours,
+      itemHours:
+        parsed.data.itemHours === undefined
+          ? undefined
+          : parsed.data.itemHours === null
+            ? Prisma.JsonNull
+            : (parsed.data.itemHours as Prisma.InputJsonValue),
     },
   });
 

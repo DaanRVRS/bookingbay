@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessHoursSchema } from "@/lib/business-hours/schemas";
 
 const decimal = z
   .union([z.string(), z.number()])
@@ -46,8 +47,10 @@ const itemBaseShape = {
   // Window-grenzen in minuten vanaf middernacht. 540 = 09:00, 1080 = 18:00.
   bookingWindowStartMin: z.coerce.number().int().min(0).max(1440).default(540),
   bookingWindowEndMin: z.coerce.number().int().min(0).max(1440).default(1080),
-  // true = volg de organisatie-openingstijden i.p.v. het eigen window.
+  // true = volg de organisatie-openingstijden i.p.v. de eigen tijden.
   followsOrgHours: z.coerce.boolean().default(true),
+  // Eigen per-weekdag tijden (bij niet-aanhouden). Null = vast window.
+  itemHours: businessHoursSchema.nullable().optional(),
 };
 
 const windowOrderRefine = (d: { bookingWindowStartMin: number; bookingWindowEndMin: number }) =>
