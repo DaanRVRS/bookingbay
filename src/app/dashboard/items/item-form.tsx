@@ -4,7 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Eye, EyeOff, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,10 @@ import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/item
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
 import { unitLabel, isWholeDayUnit } from "@/lib/bookings/price";
+import {
+  DAY_LABELS_NL,
+  type BusinessHours,
+} from "@/lib/business-hours/schemas";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
@@ -95,10 +100,12 @@ interface Existing {
 
 interface Props {
   categories: { id: string; name: string; parentId: string | null }[];
+  /** Organisatie-openingstijden — read-only getoond wanneer een item ze volgt. */
+  orgBusinessHours: BusinessHours | null;
   existing?: Existing;
 }
 
-export function ItemForm({ categories, existing }: Props) {
+export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -499,6 +506,50 @@ export function ItemForm({ categories, existing }: Props) {
           value={followsOrgHours ? "true" : "false"}
         />
 
+        {followsOrgHours && (
+          <div className="mt-4">
+            {orgBusinessHours ? (
+              <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-background/50">
+                {orgBusinessHours.map((dayHours, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between px-3 py-2"
+                  >
+                    <span className="text-xs font-medium">{DAY_LABELS_NL[i]}</span>
+                    <span
+                      className={`text-xs tabular-nums ${
+                        dayHours.closed
+                          ? "text-muted-foreground"
+                          : "font-medium text-foreground"
+                      }`}
+                    >
+                      {dayHours.closed
+                        ? "Gesloten"
+                        : `${dayHours.open || "09:00"} – ${dayHours.close || "17:00"}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border bg-background/50 px-3 py-3 text-[11px] text-muted-foreground">
+                Je organisatie heeft nog geen openingstijden ingesteld — stel ze in
+                onder{" "}
+                <Link
+                  href="/dashboard/settings/organization"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Instellingen → Organisatie
+                </Link>
+                . Tot die tijd geldt 09:00–18:00 op elke dag.
+              </p>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Deze tijden komen uit je organisatie-instellingen. Wil je voor dit
+              item afwijken? Zet de schakelaar uit.
+            </p>
+          </div>
+        )}
+
         {!followsOrgHours && (
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
@@ -601,19 +652,32 @@ export function ItemForm({ categories, existing }: Props) {
             <button
               type="button"
               onClick={() => setValue("isActive", !isActive)}
-              className={`flex h-10 w-full items-center justify-between rounded-md border px-3 text-sm transition-colors ${
+              aria-pressed={Boolean(isActive)}
+              title={isActive ? "Zichtbaar voor klanten" : "Verborgen voor klanten"}
+              className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 transition-colors ${
                 isActive
                   ? "border-primary/40 bg-primary/5 text-foreground"
                   : "border-border text-muted-foreground"
               }`}
             >
-              <span>{isActive ? "Actief — zichtbaar voor klanten" : "Inactief — verborgen"}</span>
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                {isActive ? (
+                  <Eye className="size-4 text-primary" />
+                ) : (
+                  <EyeOff className="size-4" />
+                )}
+                {isActive ? "Actief" : "Verborgen"}
+              </span>
               <span
-                className={`grid size-4 place-items-center rounded-full ${
-                  isActive ? "bg-primary" : "bg-muted-foreground/30"
+                className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  isActive ? "bg-primary" : "bg-muted"
                 }`}
               >
-                <span className="size-1.5 rounded-full bg-background" />
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                    isActive ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
               </span>
             </button>
             <input type="hidden" {...register("isActive")} value={isActive ? "true" : "false"} />

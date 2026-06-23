@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
+import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { ItemForm } from "../item-form";
 
 export const metadata = { title: "Item bewerken" };
@@ -14,7 +15,7 @@ export default async function EditItemPage({ params }: PageProps) {
   const { id } = await params;
   const ctx = await requireOrg();
 
-  const [item, categories] = await Promise.all([
+  const [item, categories, org] = await Promise.all([
     db.item.findFirst({
       where: { id, organizationId: ctx.organization.id },
     }),
@@ -22,6 +23,10 @@ export default async function EditItemPage({ params }: PageProps) {
       where: { organizationId: ctx.organization.id },
       orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
       select: { id: true, name: true, parentId: true },
+    }),
+    db.organization.findUnique({
+      where: { id: ctx.organization.id },
+      select: { businessHours: true },
     }),
   ]);
 
@@ -38,6 +43,7 @@ export default async function EditItemPage({ params }: PageProps) {
         <div className="mt-6">
           <ItemForm
             categories={categories}
+            orgBusinessHours={safeParseBusinessHours(org?.businessHours)}
             existing={{
               id: item.id,
               name: item.name,

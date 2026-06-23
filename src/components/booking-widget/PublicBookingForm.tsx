@@ -18,6 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "motion/react";
 import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -1300,6 +1301,66 @@ function DateChip({
   );
 }
 
+function SlotCell({
+  slot,
+  disabled,
+  selected,
+  accent,
+  fullTitle,
+  onClick,
+}: {
+  slot: string;
+  disabled: boolean;
+  selected: boolean;
+  accent: string;
+  fullTitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title={disabled ? fullTitle : undefined}
+      className={`h-9 rounded-md border text-xs font-semibold tabular-nums transition-all ${
+        selected
+          ? "border-transparent shadow-sm"
+          : disabled
+            ? "cursor-not-allowed border-dashed border-border/60 bg-muted/20 text-muted-foreground/40 line-through"
+            : "border-border bg-background hover:-translate-y-0.5 hover:shadow-sm"
+      }`}
+      style={
+        selected
+          ? {
+              background: accent,
+              color: ON_ACCENT,
+              boxShadow: `0 2px 8px -2px ${accent}80`,
+            }
+          : undefined
+      }
+      onMouseEnter={(e) => {
+        if (!selected && !disabled) {
+          e.currentTarget.style.borderColor = `${accent}66`;
+          e.currentTarget.style.color = accent;
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!selected && !disabled) {
+          e.currentTarget.style.borderColor = "";
+          e.currentTarget.style.color = "";
+        }
+      }}
+    >
+      {slot}
+    </button>
+  );
+}
+
+/**
+ * Twee-staps tijdkeuze: eerst de starttijd, daarna schuift het geanimeerd
+ * door naar de eindtijd. "Wijzig" gaat terug naar de start. De disabled-
+ * logica blijft gelijk aan de server (countOverlaps vs. quantity).
+ */
 function TimeRangeGrid({
   startTime,
   endTime,
@@ -1321,122 +1382,101 @@ function TimeRangeGrid({
   onPick: (next: { startTime: string; endTime: string }) => void;
   labels: { title: string; hint: string; fullTitle: string };
 }) {
-  const slots = useMemo(() => generateSlots(cfg, day), [cfg, day]);
-  const startMin = startTime ? hhmmToMin(startTime) : -1;
-  const endMin = endTime ? hhmmToMin(endTime) : -1;
+  const allSlots = useMemo(() => generateSlots(cfg, day), [cfg, day]);
+  const interval = cfg.intervalMinutes;
+  // Eind van het venster voor de gekozen dag — bepaalt welke slots nog als
+  // start kunnen dienen (er moet minstens één interval ná passen).
+  const winEndMin = useMemo(() => {
+    const w = day ? windowForDay(day, cfg) : null;
+    return w ? w.endMin : cfg.windowEndMin;
+  }, [day, cfg]);
 
-  const handleClick = (slot: string) => {
-    const slotMin = hhmmToMin(slot);
-    // 1e klik (of beide al gezet) → herstart vanaf hier.
-    if (!startTime || (startTime && endTime)) {
-      onPick({ startTime: slot, endTime: "" });
-      return;
-    }
-    // Start gezet, eind nog niet:
-    if (slotMin <= startMin) {
-      onPick({ startTime: slot, endTime: "" });
-    } else {
-      onPick({ startTime, endTime: slot });
-    }
+  const startMin = startTime ? hhmmToMin(startTime) : -1;
+  const phase: "start" | "end" = startTime ? "end" : "start";
+
+  // Slots die als START kunnen dienen: er moet ná de start nog ruimte zijn.
+  const startSlots = allSlots.filter((s) => hhmmToMin(s) + interval <= winEndMin);
+  // Slots die als EIND kunnen dienen: ná de gekozen start.
+  const endSlots = allSlots.filter((s) => hhmmToMin(s) > startMin);
+
+  const startDisabled = (slot: string) => {
+    if (!day) return false;
+    const a = atTimeMs(day, slot);
+    return countOverlaps(a, a + interval * 60_000, intervals) >= quantity;
+  };
+  const endDisabled = (slot: string) => {
+    if (!day) return false;
+    // Het hele bereik [start, slot] moet nog minstens één exemplaar vrij hebben.
+    return (
+      countOverlaps(atTimeMs(day, startTime), atTimeMs(day, slot), intervals) >=
+      quantity
+    );
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-          {labels.title}
+          {phase === "start" ? "Starttijd" : "Eindtijd"}
         </span>
-        <span
-          className="text-[10px] font-semibold tracking-wide tabular-nums"
-          style={{ color: accent }}
+        {phase === "end" ? (
+          <button
+            type="button"
+            onClick={() => onPick({ startTime: "", endTime: "" })}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wide tabular-nums hover:underline"
+            style={{ color: accent }}
+          >
+            Start {startTime} · wijzig
+          </button>
+        ) : (
+          <span
+            className="text-[10px] font-semibold tracking-wide tabular-nums"
+            style={{ color: accent }}
+          >
+            {endTime ? `${startTime} — ${endTime}` : "—"}
+          </span>
+        )}
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        {phase === "start"
+          ? "Kies je starttijd."
+          : "Kies je eindtijd — of wijzig de start."}
+      </p>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={phase}
+          initial={{ opacity: 0, x: phase === "end" ? 28 : -28 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: phase === "end" ? -28 : 28 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6"
         >
-          {startTime && endTime
-            ? `${startTime} — ${endTime}`
-            : startTime || "—"}
-        </span>
-      </div>
-      <p className="text-[10px] text-muted-foreground">{labels.hint}</p>
-      <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-        {slots.map((slot) => {
-          const slotMin = hhmmToMin(slot);
-
-          // 1) Slot-zelf: pas "vol" als álle exemplaren bezet zijn.
-          let overlap = false;
-          if (day) {
-            const a = atTimeMs(day, slot);
-            overlap =
-              countOverlaps(a, a + cfg.intervalMinutes * 60_000, intervals) >=
-              quantity;
-          }
-          // 2) Start al gezet en deze slot komt erna: het hele bereik moet
-          //    nog minstens één exemplaar vrij hebben — anders kun je 'm
-          //    niet als eind kiezen.
-          let crossDisabled = false;
-          if (!overlap && day && startTime && !endTime && slotMin > startMin) {
-            crossDisabled =
-              countOverlaps(
-                atTimeMs(day, startTime),
-                atTimeMs(day, slot),
-                intervals,
-              ) >= quantity;
-          }
-          const disabled = overlap || crossDisabled;
-
-          const isStart = startTime === slot;
-          const isEnd = endTime === slot;
-          const inBetween =
-            startMin >= 0 &&
-            endMin > 0 &&
-            slotMin > startMin &&
-            slotMin < endMin;
-
-          return (
-            <button
-              key={slot}
-              type="button"
-              disabled={disabled}
-              onClick={() => handleClick(slot)}
-              title={overlap ? labels.fullTitle : undefined}
-              className={`h-9 rounded-md border text-xs font-semibold tabular-nums transition-all ${
-                isStart || isEnd
-                  ? "border-transparent shadow-sm"
-                  : disabled
-                    ? "cursor-not-allowed border-dashed border-border/60 bg-muted/20 text-muted-foreground/40 line-through"
-                    : "border-border bg-background hover:-translate-y-0.5 hover:shadow-sm"
-              }`}
-              style={
-                isStart || isEnd
-                  ? {
-                      background: accent,
-                      color: ON_ACCENT,
-                      boxShadow: `0 2px 8px -2px ${accent}80`,
-                    }
-                  : inBetween
-                    ? {
-                        background: `color-mix(in oklch, ${accent} 14%, transparent)`,
-                        borderColor: `color-mix(in oklch, ${accent} 30%, transparent)`,
-                        color: accent,
-                      }
-                    : undefined
-              }
-              onMouseEnter={(e) => {
-                if (!isStart && !isEnd && !inBetween && !disabled) {
-                  e.currentTarget.style.borderColor = `${accent}66`;
-                  e.currentTarget.style.color = accent;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isStart && !isEnd && !inBetween && !disabled) {
-                  e.currentTarget.style.borderColor = "";
-                  e.currentTarget.style.color = "";
-                }
-              }}
-            >
-              {slot}
-            </button>
-          );
-        })}
-      </div>
+          {phase === "start"
+            ? startSlots.map((slot) => (
+                <SlotCell
+                  key={slot}
+                  slot={slot}
+                  disabled={startDisabled(slot)}
+                  selected={false}
+                  accent={accent}
+                  fullTitle={labels.fullTitle}
+                  onClick={() => onPick({ startTime: slot, endTime: "" })}
+                />
+              ))
+            : endSlots.map((slot) => (
+                <SlotCell
+                  key={slot}
+                  slot={slot}
+                  disabled={endDisabled(slot)}
+                  selected={endTime === slot}
+                  accent={accent}
+                  fullTitle={labels.fullTitle}
+                  onClick={() => onPick({ startTime, endTime: slot })}
+                />
+              ))}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
