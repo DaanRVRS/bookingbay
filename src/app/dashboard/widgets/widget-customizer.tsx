@@ -459,7 +459,7 @@ export function WidgetCustomizer({
                   maxLength={60}
                   onChange={(e) => updateUspText(i, e.target.value)}
                   placeholder={`USP ${i + 1}`}
-                  className="h-9 flex-1 rounded-md border border-border bg-background px-2.5 text-sm"
+                  className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-sm"
                 />
                 <button
                   type="button"

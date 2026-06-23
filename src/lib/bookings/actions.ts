@@ -10,6 +10,7 @@ import { checkAvailability } from "./conflicts";
 import {
   sumAddons,
   sumFlatFees,
+  rentalUnitCount,
   addonAppliesToCategory,
   type BookingAddonLine,
 } from "./price";
@@ -104,9 +105,10 @@ export async function createBookingAction(
         isActive: true,
         categoryId: true,
         category: { select: { parentId: true } },
+        bookingIntervalMinutes: true,
         cleaningFee: true,
-      captainFee: true,
-      fuelFee: true,
+        captainFee: true,
+        fuelFee: true,
       },
     }),
     db.customer.findFirst({
@@ -141,9 +143,19 @@ export async function createBookingAction(
     parsed.data.addons,
     itemCategoryIds,
   );
-  // Schoonmaakkosten server-side bijtellen — consistent met de publieke flow.
+  // Fees server-side bijtellen — consistent met de publieke flow. Kapitein/
+  // brandstof schalen mee met het aantal verhuur-eenheden.
   const grandTotal =
-    parsed.data.totalPrice + sumFlatFees(item) + sumAddons(addonLines);
+    parsed.data.totalPrice +
+    sumFlatFees(
+      item,
+      rentalUnitCount(
+        parsed.data.startAt.getTime(),
+        parsed.data.endAt.getTime(),
+        item.bookingIntervalMinutes,
+      ),
+    ) +
+    sumAddons(addonLines);
 
   const created = await db.booking.create({
     data: {
@@ -212,6 +224,7 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
       quantity: true,
       categoryId: true,
       category: { select: { parentId: true } },
+      bookingIntervalMinutes: true,
       cleaningFee: true,
       captainFee: true,
       fuelFee: true,
@@ -239,7 +252,16 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     [item.categoryId, item.category.parentId].filter((v): v is string => Boolean(v)),
   );
   const grandTotal =
-    parsed.data.totalPrice + sumFlatFees(item) + sumAddons(addonLines);
+    parsed.data.totalPrice +
+    sumFlatFees(
+      item,
+      rentalUnitCount(
+        parsed.data.startAt.getTime(),
+        parsed.data.endAt.getTime(),
+        item.bookingIntervalMinutes,
+      ),
+    ) +
+    sumAddons(addonLines);
 
   await db.booking.update({
     where: { id: parsed.data.id },

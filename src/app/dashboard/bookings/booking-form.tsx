@@ -32,6 +32,7 @@ import {
 import {
   sumAddons,
   flatFeeLines,
+  rentalUnitCount,
   addonAppliesToCategory,
   estimateRentalSubtotal,
   type BookingAddonLine,
@@ -251,10 +252,24 @@ export function BookingForm({
   const addonsTotal = useMemo(() => sumAddons(addonLines), [addonLines]);
   // Vaste fees (schoonmaak/kapitein/brandstof) van het gekozen item — server
   // telt ze bovenop het item-subtotaal, dus tonen we ze hier ook apart.
-  const feeLines = useMemo(
-    () => (selectedItem ? flatFeeLines(selectedItem) : []),
-    [selectedItem],
-  );
+  const feeLines = useMemo(() => {
+    if (!selectedItem) return [];
+    const start = startAt ? new Date(String(startAt)) : null;
+    const end = endAt ? new Date(String(endAt)) : null;
+    const units =
+      start &&
+      end &&
+      !Number.isNaN(start.getTime()) &&
+      !Number.isNaN(end.getTime()) &&
+      end > start
+        ? rentalUnitCount(
+            start.getTime(),
+            end.getTime(),
+            selectedItem.bookingIntervalMinutes,
+          )
+        : 1;
+    return flatFeeLines(selectedItem, units);
+  }, [selectedItem, startAt, endAt]);
   const feesTotal = feeLines.reduce((s, l) => s + l.amount, 0);
 
   // Prijs-suggestie op basis van duur — zelfde gedeelde formule als de

@@ -12,7 +12,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { flatFeeLines, sumFlatFees } from "@/lib/bookings/price";
+import {
+  flatFeeLines,
+  sumFlatFees,
+  sumAddons,
+  rentalUnitCount,
+  type BookingAddonLine,
+} from "@/lib/bookings/price";
 import { CancelButton } from "./cancel-button";
 
 export const dynamic = "force-dynamic";
@@ -42,12 +48,14 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
       status: true,
       paymentStatus: true,
       totalPrice: true,
+      addons: true,
       notes: true,
       portalToken: true,
       item: {
         select: {
           name: true,
           description: true,
+          bookingIntervalMinutes: true,
           cleaningFee: true,
           captainFee: true,
           fuelFee: true,
@@ -93,9 +101,18 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
     isUpcoming && hoursUntil >= booking.organization.customerPortalCancelHoursMin;
   const totalEur = Number(booking.totalPrice);
   const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
-  const feeLines = flatFeeLines(booking.item);
-  const feesTotal = sumFlatFees(booking.item);
-  const subtotalEur = Math.max(0, totalEur - feesTotal);
+  const units = rentalUnitCount(
+    booking.startAt.getTime(),
+    booking.endAt.getTime(),
+    booking.item.bookingIntervalMinutes,
+  );
+  const feeLines = flatFeeLines(booking.item, units);
+  const feesTotal = sumFlatFees(booking.item, units);
+  // Add-ons (extra's) zitten ook in totalPrice — apart aftrekken zodat het
+  // "Subtotaal" zuiver de huurprijs is en het totaal verklaarbaar blijft.
+  const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
+  const addonsTotal = sumAddons(addonList);
+  const subtotalEur = Math.max(0, totalEur - feesTotal - addonsTotal);
 
   return (
     <main className="relative min-h-dvh">
@@ -154,7 +171,7 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
             </Row>
           </dl>
 
-          {feesTotal > 0 && (
+          {(feesTotal > 0 || addonsTotal > 0) && (
             <p className="mt-3 text-xs text-muted-foreground">
               Subtotaal: €{subtotalEur.toFixed(2).replace(".", ",")}
               {feeLines.map((l) => (
@@ -163,6 +180,19 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
                   {l.amount.toFixed(2).replace(".", ",")}
                 </span>
               ))}
+              {addonsTotal > 0 && (
+                <span>
+                  {" "}+ extra&apos;s €{addonsTotal.toFixed(2).replace(".", ",")}
+                </span>
+              )}
+            </p>
+          )}
+          {addonList.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Extra&apos;s:{" "}
+              {addonList
+                .map((a) => `${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`)
+                .join(", ")}
             </p>
           )}
 

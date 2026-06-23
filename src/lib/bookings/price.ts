@@ -115,9 +115,9 @@ export function isWholeDayUnit(intervalMinutes: number): boolean {
   return intervalMinutes === 1440 || intervalMinutes === 10080;
 }
 
-// ── Vaste fees per boeking (schoonmaak / kapitein / brandstof) ─────────────
+// ── Fees per boeking (schoonmaak / kapitein / brandstof) ───────────────────
 
-/** Item-velden met de vaste fees. Prisma Decimal of number — beide werken
+/** Item-velden met de fees. Prisma Decimal of number — beide werken
  *  (Number() converteert allebei). Vandaar `unknown`. */
 export interface ItemFlatFees {
   cleaningFee?: unknown;
@@ -131,23 +131,50 @@ export interface FlatFeeLine {
 }
 
 /**
- * De niet-nul vaste fees van een item als losse regels (voor de prijsopgave).
+ * Aantal verhuur-eenheden voor een tijdsduur: ceil(duur / interval), minimaal 1.
+ * Gelijk aan de eenheid-telling in estimateRentalSubtotal.
+ */
+export function rentalUnitCount(
+  startMs: number,
+  endMs: number,
+  bookingIntervalMinutes: number,
+): number {
+  const ms = endMs - startMs;
+  if (!(ms > 0)) return 1;
+  const interval = bookingIntervalMinutes > 0 ? bookingIntervalMinutes : 60;
+  return Math.max(1, Math.ceil(ms / (1000 * 60) / interval));
+}
+
+/**
+ * De niet-nul fees van een item als losse regels (voor de prijsopgave).
+ * Schoonmaak is een vaste fee per boeking; kapitein en brandstof schalen mee
+ * met het aantal verhuur-eenheden (units), net als de huurprijs zelf.
  * Labels zijn Nederlands — net als de bestaande schoonmaak-regel.
  */
-export function flatFeeLines(item: ItemFlatFees): FlatFeeLine[] {
+export function flatFeeLines(item: ItemFlatFees, units = 1): FlatFeeLine[] {
+  const u = units > 0 ? Math.floor(units) : 1;
   const out: FlatFeeLine[] = [];
-  const add = (label: string, v: unknown) => {
-    const n = v ? Number(v) : 0;
-    if (n > 0) out.push({ label, amount: n });
+  const num = (v: unknown) => (v ? Number(v) : 0);
+  // Vaste fee (1×): schoonmaak.
+  const cleaning = num(item.cleaningFee);
+  if (cleaning > 0) out.push({ label: "Schoonmaak", amount: cleaning });
+  // Per-eenheid fees (× units): kapitein en brandstof.
+  const perUnit = (label: string, v: unknown) => {
+    const n = num(v);
+    if (n > 0) {
+      out.push({
+        label: u > 1 ? `${label} (${u}×)` : label,
+        amount: Math.round(n * u * 100) / 100,
+      });
+    }
   };
-  add("Schoonmaak", item.cleaningFee);
-  add("Kapitein", item.captainFee);
-  add("Brandstof", item.fuelFee);
+  perUnit("Kapitein", item.captainFee);
+  perUnit("Brandstof", item.fuelFee);
   return out;
 }
 
-/** Som van alle vaste fees van een item, op 2 decimalen. */
-export function sumFlatFees(item: ItemFlatFees): number {
-  const total = flatFeeLines(item).reduce((s, l) => s + l.amount, 0);
+/** Som van alle fees van een item, op 2 decimalen. */
+export function sumFlatFees(item: ItemFlatFees, units = 1): number {
+  const total = flatFeeLines(item, units).reduce((s, l) => s + l.amount, 0);
   return Math.round(total * 100) / 100;
 }

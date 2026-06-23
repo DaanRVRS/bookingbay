@@ -28,6 +28,7 @@ import {
 } from "@/lib/bookings/public-schemas";
 import {
   estimateRentalSubtotal,
+  rentalUnitCount,
   sumAddons,
   flatFeeLines,
   sumFlatFees,
@@ -363,8 +364,13 @@ export function PublicBookingForm({
       bookingIntervalMinutes: selectedItem.bookingIntervalMinutes,
     });
     if (subtotal == null) return null;
-    const feeLines = flatFeeLines(selectedItem);
-    const feesTotal = sumFlatFees(selectedItem);
+    const units = rentalUnitCount(
+      start.getTime(),
+      end.getTime(),
+      selectedItem.bookingIntervalMinutes,
+    );
+    const feeLines = flatFeeLines(selectedItem, units);
+    const feesTotal = sumFlatFees(selectedItem, units);
     return { subtotal, feeLines, feesTotal, total: subtotal + feesTotal };
   }, [selectedItem, watchedStart, watchedEnd]);
   // Gekozen add-ons als prijsregels (snapshot van naam + stuksprijs).

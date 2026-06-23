@@ -13,6 +13,7 @@ import { createStripeCheckoutForBooking } from "@/lib/payments/tenant-stripe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
 import {
   estimateRentalSubtotal,
+  rentalUnitCount,
   sumAddons,
   sumFlatFees,
   addonAppliesToCategory,
@@ -188,7 +189,12 @@ export async function createPublicBooking(
   // exact zoals de widget toont — anders zou de klant €0 zien maar tóch
   // betalen.
   if (rentalSubtotal != null) {
-    estimate = estimate + sumFlatFees(item);
+    const units = rentalUnitCount(
+      startAt.getTime(),
+      endAt.getTime(),
+      item.bookingIntervalMinutes,
+    );
+    estimate = estimate + sumFlatFees(item, units);
   }
 
   // Add-ons (extra's): prijs + naam ALTIJD server-side ophalen uit het

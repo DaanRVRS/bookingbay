@@ -353,7 +353,12 @@ model Item {
   categoryId     String
   name           String
   description    String?
+  // Hoofd-afbeelding (= imageUrls[0]); blijft voor alle plekken die één
+  // thumbnail tonen.
   imageUrl       String?
+  // Alle afbeeldingen (max 5), eerste = hoofd-afbeelding. Voor de galerij op
+  // de item-detailpagina en widget.
+  imageUrls      String[] @default([])
 
   // Prijs per verhuur-eenheid. De eenheid = bookingIntervalMinutes (per
   // uur/dag/week/15 min). Totaal = ceil(duur / interval) × pricePerUnit.

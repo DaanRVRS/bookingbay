@@ -76,13 +76,19 @@ export async function createItemAction(
     }
   }
 
+  // Hoofd-afbeelding = eerste van de galerij (val terug op het losse imageUrl
+  // voor compat). Zo blijven imageUrl en imageUrls altijd consistent.
+  const images = parsed.data.imageUrls ?? [];
+  const primaryImage = images[0] ?? parsed.data.imageUrl ?? null;
+
   const created = await db.item.create({
     data: {
       organizationId: ctx.organization.id,
       categoryId: parsed.data.categoryId,
       name: parsed.data.name,
       description: parsed.data.description || null,
-      imageUrl: parsed.data.imageUrl || null,
+      imageUrl: primaryImage || null,
+      imageUrls: images,
       pricePerUnit: parsed.data.pricePerUnit,
       deposit: parsed.data.deposit,
       cleaningFee: parsed.data.cleaningFee,
@@ -173,13 +179,17 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
     }
   }
 
+  const images = parsed.data.imageUrls ?? [];
+  const primaryImage = images[0] ?? parsed.data.imageUrl ?? null;
+
   await db.item.update({
     where: { id: parsed.data.id },
     data: {
       categoryId: parsed.data.categoryId,
       name: parsed.data.name,
       description: parsed.data.description || null,
-      imageUrl: parsed.data.imageUrl || null,
+      imageUrl: primaryImage || null,
+      imageUrls: images,
       pricePerUnit: parsed.data.pricePerUnit,
       deposit: parsed.data.deposit,
       cleaningFee: parsed.data.cleaningFee,

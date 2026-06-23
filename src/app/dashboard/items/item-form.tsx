@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Package, Puzzle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ import { z } from "zod";
 import { itemCreateSchema, type ItemCreateInput } from "@/lib/items/schemas";
 import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/items/actions";
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
-import { ImageUploader } from "@/components/dashboard/ImageUploader";
+import { MultiImageUploader } from "@/components/dashboard/MultiImageUploader";
 import { unitLabel, isWholeDayUnit } from "@/lib/bookings/price";
 import {
   DAY_LABELS_NL,
@@ -85,6 +85,7 @@ interface Existing {
   description: string;
   categoryId: string;
   imageUrl: string | null;
+  imageUrls: string[];
   pricePerUnit: number | null;
   deposit: number | null;
   cleaningFee: number | null;
@@ -128,6 +129,12 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
       description: existing?.description ?? "",
       categoryId: existing?.categoryId ?? categories[0]?.id ?? "",
       imageUrl: existing?.imageUrl ?? "",
+      imageUrls:
+        existing?.imageUrls && existing.imageUrls.length > 0
+          ? existing.imageUrls
+          : existing?.imageUrl
+            ? [existing.imageUrl]
+            : [],
       pricePerUnit: existing?.pricePerUnit ?? null,
       deposit: existing?.deposit ?? null,
       cleaningFee: existing?.cleaningFee ?? null,
@@ -154,7 +161,7 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
   const quantityRaw = Number(watch("quantity") ?? 1);
   // quantity 0 = voorraad n.v.t. (alleen voor add-ons).
   const stockNa = isAddon && quantityRaw === 0;
-  const imageUrl = watch("imageUrl") ?? null;
+  const imageUrls = (watch("imageUrls") as string[] | undefined) ?? [];
   // Standaard volgt een item de organisatie-openingstijden; uit = eigen venster.
   const followsOrgHours = Boolean(watch("followsOrgHours") ?? true);
   const bookingIntervalMinutes = Number(watch("bookingIntervalMinutes") ?? 60);
@@ -285,7 +292,10 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
                 : "border-border hover:bg-accent"
             }`}
           >
-            <span className="block text-sm font-medium">Normaal item</span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Package className="size-4 shrink-0 text-muted-foreground" />
+              Normaal item
+            </span>
             <span className="mt-0.5 block text-[11px] text-muted-foreground">
               Zelfstandig te boeken (boot, fiets, …)
             </span>
@@ -299,7 +309,10 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
                 : "border-border hover:bg-accent"
             }`}
           >
-            <span className="block text-sm font-medium">Add-on (extra)</span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Puzzle className="size-4 shrink-0 text-muted-foreground" />
+              Add-on (extra)
+            </span>
             <span className="mt-0.5 block text-[11px] text-muted-foreground">
               Optioneel bij te boeken, vaste prijs per stuk
             </span>
@@ -385,14 +398,20 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Afbeelding</h2>
+        <h2 className="text-sm font-semibold">Afbeeldingen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Wordt op de klantsite gebruikt en in je catalogus-overzicht.
+          Worden op de klantsite gebruikt en in je catalogus-overzicht. De
+          hoofd-afbeelding is de thumbnail; de rest verschijnt in de galerij.
         </p>
         <div className="mt-4">
-          <ImageUploader
-            value={typeof imageUrl === "string" && imageUrl ? imageUrl : null}
-            onChange={(url) => setValue("imageUrl", url ?? "", { shouldValidate: false })}
+          <MultiImageUploader
+            value={imageUrls}
+            onChange={(urls) => {
+              setValue("imageUrls", urls, { shouldValidate: false, shouldDirty: true });
+              // Hoofd-afbeelding mee-synchroniseren zodat alle plekken die
+              // imageUrl tonen de juiste thumbnail krijgen.
+              setValue("imageUrl", urls[0] ?? "", { shouldValidate: false });
+            }}
           />
         </div>
       </div>
@@ -479,6 +498,7 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
                 watch={watch}
                 setValue={setValue}
                 toggleable
+                hint="Per verhuur-eenheid (× duur)"
               />
               <PriceField
                 label="Brandstof (optioneel)"
@@ -487,6 +507,7 @@ export function ItemForm({ categories, orgBusinessHours, existing }: Props) {
                 watch={watch}
                 setValue={setValue}
                 toggleable
+                hint="Per verhuur-eenheid (× duur)"
               />
             </div>
           </div>
@@ -753,6 +774,7 @@ function PriceField({
   watch,
   setValue,
   toggleable = false,
+  hint,
 }: {
   label: string;
   name:
@@ -766,6 +788,7 @@ function PriceField({
   watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
   setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];
   toggleable?: boolean;
+  hint?: string;
 }) {
   const raw = watch(name);
   // null/undefined = uitgeschakeld. Een lege string telt als INGESCHAKELD:
@@ -834,6 +857,7 @@ function PriceField({
           {...register(name)}
         />
       </div>
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ImageIcon } from "lucide-react";
 import { getOrgBySlug, getTenantItem } from "@/lib/tenants/queries";
 import { unitLabel } from "@/lib/bookings/price";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
+import { ItemGallery } from "@/components/tenants/ItemGallery";
 
 interface PageProps {
   params: Promise<{ slug: string; itemId: string }>;
@@ -28,6 +28,13 @@ export default async function ItemDetailPage({ params }: PageProps) {
   const accent = org.primaryColor ?? "#ef5934";
   const base = await getTenantBasePath(slug);
 
+  const galleryImages =
+    item.imageUrls && item.imageUrls.length > 0
+      ? item.imageUrls
+      : item.imageUrl
+        ? [item.imageUrl]
+        : [];
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
       <Link
@@ -38,16 +45,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
       </Link>
 
       <div className="mt-6 grid gap-8 md:grid-cols-[1.1fr_1fr]">
-        <div className="aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted">
-          {item.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt={item.name} className="size-full object-cover" />
-          ) : (
-            <div className="grid size-full place-items-center text-muted-foreground">
-              <ImageIcon className="size-12 opacity-40" />
-            </div>
-          )}
-        </div>
+        <ItemGallery images={galleryImages} alt={item.name} />
 
         <div>
           <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">

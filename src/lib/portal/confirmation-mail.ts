@@ -8,6 +8,8 @@ import { audit } from "@/lib/audit/log";
 import {
   flatFeeLines,
   sumFlatFees,
+  sumAddons,
+  rentalUnitCount,
   type BookingAddonLine,
 } from "@/lib/bookings/price";
 
@@ -41,6 +43,7 @@ export async function sendBookingConfirmationMail(
       item: {
         select: {
           name: true,
+          bookingIntervalMinutes: true,
           cleaningFee: true,
           captainFee: true,
           fuelFee: true,
@@ -81,11 +84,20 @@ export async function sendBookingConfirmationMail(
 
   // Splitsing tonen als het item vaste fees heeft — anders wekt het
   // verwarring ("waarom is het meer dan de item-prijs?").
-  const feeLines = flatFeeLines(booking.item);
-  const feesTotal = sumFlatFees(booking.item);
-  const subtotalEur = Math.max(0, totalEur - feesTotal);
+  const units = rentalUnitCount(
+    booking.startAt.getTime(),
+    booking.endAt.getTime(),
+    booking.item.bookingIntervalMinutes,
+  );
+  const feeLines = flatFeeLines(booking.item, units);
+  const feesTotal = sumFlatFees(booking.item, units);
+  // Add-ons (extra's) zitten ook in totalPrice — apart aftrekken zodat het
+  // "Subtotaal" zuiver de huurprijs is en het totaal verklaarbaar blijft.
+  const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
+  const addonsTotal = sumAddons(addonList);
+  const subtotalEur = Math.max(0, totalEur - feesTotal - addonsTotal);
   const feesSplitLine =
-    feesTotal > 0
+    feesTotal > 0 || addonsTotal > 0
       ? `<p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">Subtotaal: €${subtotalEur
           .toFixed(2)
           .replace(".", ",")}${feeLines
@@ -93,11 +105,14 @@ export async function sendBookingConfirmationMail(
             (l) =>
               ` + ${escapeHtml(l.label.toLowerCase())} €${l.amount.toFixed(2).replace(".", ",")}`,
           )
-          .join("")}</p>`
+          .join("")}${
+          addonsTotal > 0
+            ? ` + extra's €${addonsTotal.toFixed(2).replace(".", ",")}`
+            : ""
+        }</p>`
       : "";
 
   // Gekozen extra's tonen als losse regel zodat het totaal verklaarbaar is.
-  const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
   const addonsLine =
     addonList.length > 0
       ? `<p style="margin:0 0 4px 0"><strong>Extra's:</strong> ${addonList

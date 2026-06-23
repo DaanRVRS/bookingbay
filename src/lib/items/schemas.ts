@@ -18,7 +18,16 @@ const itemBaseShape = {
   categoryId: z.string().min(1, "Kies een categorie"),
   // Accepts both absolute URLs (https://…) and relative server paths
   // like /api/uploads/<orgId>/<file>.webp returned by uploadItemImageAction.
+  // imageUrl = hoofd-afbeelding (= imageUrls[0]); blijft voor alle plekken die
+  // één thumbnail tonen.
   imageUrl: z.string().max(2048).optional().or(z.literal("")).nullable(),
+  // Meerdere afbeeldingen (max 5), eerste = hoofd-afbeelding. De server leidt
+  // imageUrl hieruit af zodat beide consistent blijven.
+  imageUrls: z
+    .array(z.string().min(1).max(2048))
+    .max(5, "Maximaal 5 afbeeldingen")
+    .optional()
+    .default([]),
   // Eén prijs per verhuur-eenheid (de eenheid = bookingIntervalMinutes).
   pricePerUnit: decimal,
   deposit: decimal,
