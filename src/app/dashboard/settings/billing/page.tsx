@@ -19,7 +19,7 @@ import {
   describeLimit,
   formatEuroNL,
 } from "@/lib/plans";
-import type { Plan } from "@prisma/client";
+import type { Plan, OrgIntegration, PaymentEvent } from "@prisma/client";
 import { isMollieConfigured } from "@/lib/billing/mollie";
 import { getIntegration } from "@/lib/integrations/catalog";
 import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
@@ -60,21 +60,37 @@ export default async function BillingPage({ searchParams }: PageProps) {
   });
   if (!org) throw new Error("Organization missing");
 
-  const [itemCount, memberCount, pageCount, activeIntegrations, recentPayments] =
-    await Promise.all([
-      db.item.count({ where: { organizationId: org.id, isActive: true } }),
-      db.membership.count({ where: { organizationId: org.id } }),
-      db.page.count({ where: { organizationId: org.id } }),
-      db.orgIntegration.findMany({
-        where: { organizationId: org.id, status: "ACTIVE" },
-        orderBy: { activatedAt: "asc" },
-      }),
-      db.paymentEvent.findMany({
-        where: { organizationId: org.id, eventType: "payment.paid" },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
-    ]);
+  // Secundaire data — nooit de pagina laten crashen. Faalt één van deze
+  // queries (bv. een Prisma-client die de PaymentEvent-tabel nog niet kent
+  // na een halve deploy), dan rendert de pagina gewoon zonder dat blokje
+  // i.p.v. een harde 500.
+  let itemCount = 0;
+  let memberCount = 0;
+  let pageCount = 0;
+  let activeIntegrations: OrgIntegration[] = [];
+  let recentPayments: PaymentEvent[] = [];
+  try {
+    [itemCount, memberCount, pageCount, activeIntegrations, recentPayments] =
+      await Promise.all([
+        db.item.count({ where: { organizationId: org.id, isActive: true } }),
+        db.membership.count({ where: { organizationId: org.id } }),
+        db.page.count({ where: { organizationId: org.id } }),
+        db.orgIntegration.findMany({
+          where: { organizationId: org.id, status: "ACTIVE" },
+          orderBy: { activatedAt: "asc" },
+        }),
+        db.paymentEvent.findMany({
+          where: { organizationId: org.id, eventType: "payment.paid" },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        }),
+      ]);
+  } catch (err) {
+    console.warn(
+      "[billing] secundaire data ophalen mislukt — pagina rendert zonder:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   const current = planLimits(org.plan);
   const integrationsTotal = activeIntegrations.reduce(
