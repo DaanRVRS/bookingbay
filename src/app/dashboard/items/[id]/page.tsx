@@ -3,7 +3,6 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { ItemForm } from "../item-form";
-import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 
 export const metadata = { title: "Item bewerken" };
 
@@ -58,7 +57,7 @@ export default async function EditItemPage({ params }: PageProps) {
               bookingIntervalMinutes: item.bookingIntervalMinutes,
               bookingWindowStartMin: item.bookingWindowStartMin,
               bookingWindowEndMin: item.bookingWindowEndMin,
-              businessHoursOverride: safeParseBusinessHours(item.businessHoursOverride),
+              followsOrgHours: item.followsOrgHours,
             }}
           />
         </div>

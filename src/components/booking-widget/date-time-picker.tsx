@@ -7,6 +7,8 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { CalendarDays, Loader2 } from "lucide-react";
 import { isWholeDayUnit } from "@/lib/bookings/price";
+import { windowForDay } from "@/lib/bookings/slot-window";
+import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 /**
  * Eén bron van waarheid voor datum + tijdvak-keuze. Wordt zowel in de
@@ -31,12 +33,16 @@ interface SlotConfig {
   intervalMinutes: number;
   windowStartMin: number;
   windowEndMin: number;
+  followsOrgHours: boolean;
+  orgHours: BusinessHours | null;
 }
 
 const DEFAULT_SLOT_CONFIG: SlotConfig = {
   intervalMinutes: 60,
   windowStartMin: 540,
   windowEndMin: 1080,
+  followsOrgHours: false,
+  orgHours: null,
 };
 
 export interface DateTimeValue {
@@ -81,13 +87,12 @@ function rangeOverlaps(
   return list.some((b) => b.startMs < endMs && b.endMs > startMs);
 }
 
-function generateSlots(cfg: SlotConfig): string[] {
+function generateSlots(cfg: SlotConfig, day: Date | null): string[] {
+  if (!day) return [];
+  const w = windowForDay(day, cfg);
+  if (!w) return [];
   const out: string[] = [];
-  for (
-    let m = cfg.windowStartMin;
-    m <= cfg.windowEndMin;
-    m += cfg.intervalMinutes
-  ) {
+  for (let m = w.startMin; m <= w.endMin; m += cfg.intervalMinutes) {
     out.push(minToHHMM(m));
   }
   return out;
@@ -131,6 +136,8 @@ export function DateTimePicker({
           intervalMinutes: res.bookingIntervalMinutes,
           windowStartMin: res.bookingWindowStartMin,
           windowEndMin: res.bookingWindowEndMin,
+          followsOrgHours: Boolean(res.followsOrgHours),
+          orgHours: (res.orgHours as BusinessHours | null) ?? null,
         });
         // Boekingen + externe agenda-blokken samengevoegd voor de
         // slot-grid (zonder de "exclude" boeking bij bewerken).
@@ -297,7 +304,7 @@ function TimeRangeGrid({
   onPick: (next: { startTime: string; endTime: string }) => void;
   labels?: { title: string; hint: string; fullTitle: string };
 }) {
-  const slots = useMemo(() => generateSlots(cfg), [cfg]);
+  const slots = useMemo(() => generateSlots(cfg, day), [cfg, day]);
   const startMin = startTime ? hhmmToMin(startTime) : -1;
   const endMin = endTime ? hhmmToMin(endTime) : -1;
 

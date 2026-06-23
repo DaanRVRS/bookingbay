@@ -31,6 +31,8 @@ import {
   isWholeDayUnit,
   type BookingAddonLine,
 } from "@/lib/bookings/price";
+import { windowForDay } from "@/lib/bookings/slot-window";
+import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 // CSS-vars gezet door themeStyle() op een ouder; nette fallbacks.
 const ON_ACCENT = "var(--bb-on-accent, #fff)";
@@ -70,12 +72,16 @@ interface SlotConfig {
   intervalMinutes: number;
   windowStartMin: number;
   windowEndMin: number;
+  followsOrgHours: boolean;
+  orgHours: BusinessHours | null;
 }
 
 const DEFAULT_SLOT_CONFIG: SlotConfig = {
   intervalMinutes: 60,
   windowStartMin: 540, // 09:00
   windowEndMin: 1080, // 18:00
+  followsOrgHours: false,
+  orgHours: null,
 };
 
 interface BookingInterval {
@@ -89,9 +95,12 @@ function minToHHMM(min: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function generateSlots(cfg: SlotConfig): string[] {
+function generateSlots(cfg: SlotConfig, day: Date | null): string[] {
+  if (!day) return [];
+  const w = windowForDay(day, cfg);
+  if (!w) return [];
   const out: string[] = [];
-  for (let m = cfg.windowStartMin; m <= cfg.windowEndMin; m += cfg.intervalMinutes) {
+  for (let m = w.startMin; m <= w.endMin; m += cfg.intervalMinutes) {
     out.push(minToHHMM(m));
   }
   return out;
@@ -141,7 +150,9 @@ function dayHasFreeSlot(
   intervals: BookingInterval[],
   quantity: number,
 ): boolean {
-  for (let m = cfg.windowStartMin; m + cfg.intervalMinutes <= cfg.windowEndMin; m += cfg.intervalMinutes) {
+  const w = windowForDay(day, cfg);
+  if (!w) return false;
+  for (let m = w.startMin; m + cfg.intervalMinutes <= w.endMin; m += cfg.intervalMinutes) {
     const hhmm = minToHHMM(m);
     const a = atTimeMs(day, hhmm);
     if (countOverlaps(a, a + cfg.intervalMinutes * 60_000, intervals) < quantity) {
@@ -279,6 +290,8 @@ export function PublicBookingForm({
             intervalMinutes: res.bookingIntervalMinutes,
             windowStartMin: res.bookingWindowStartMin,
             windowEndMin: res.bookingWindowEndMin,
+            followsOrgHours: Boolean(res.followsOrgHours),
+            orgHours: (res.orgHours as BusinessHours | null) ?? null,
           });
           // Externe agenda-blokken (Google Calendar etc.) gelden voor de
           // slot-grid net zo zwaar als gewone boekingen — anders kan een
@@ -1308,7 +1321,7 @@ function TimeRangeGrid({
   onPick: (next: { startTime: string; endTime: string }) => void;
   labels: { title: string; hint: string; fullTitle: string };
 }) {
-  const slots = useMemo(() => generateSlots(cfg), [cfg]);
+  const slots = useMemo(() => generateSlots(cfg, day), [cfg, day]);
   const startMin = startTime ? hhmmToMin(startTime) : -1;
   const endMin = endTime ? hhmmToMin(endTime) : -1;
 

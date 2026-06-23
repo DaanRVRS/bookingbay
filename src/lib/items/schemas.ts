@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { businessHoursSchema } from "@/lib/business-hours/schemas";
 
 const decimal = z
   .union([z.string(), z.number()])
@@ -45,8 +44,8 @@ const itemBaseShape = {
   // Window-grenzen in minuten vanaf middernacht. 540 = 09:00, 1080 = 18:00.
   bookingWindowStartMin: z.coerce.number().int().min(0).max(1440).default(540),
   bookingWindowEndMin: z.coerce.number().int().min(0).max(1440).default(1080),
-  // Per-item override op de openingstijden. Null = volg organisatie.
-  businessHoursOverride: businessHoursSchema.nullable().optional(),
+  // true = volg de organisatie-openingstijden i.p.v. het eigen window.
+  followsOrgHours: z.coerce.boolean().default(true),
 };
 
 const windowOrderRefine = (d: { bookingWindowStartMin: number; bookingWindowEndMin: number }) =>

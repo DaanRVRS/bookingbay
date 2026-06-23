@@ -31,11 +31,6 @@ import { itemCreateSchema, type ItemCreateInput } from "@/lib/items/schemas";
 import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/items/actions";
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
-import { BusinessHoursEditor } from "@/components/dashboard/BusinessHoursEditor";
-import {
-  type BusinessHours,
-  defaultBusinessHours,
-} from "@/lib/business-hours/schemas";
 import { unitLabel, isWholeDayUnit } from "@/lib/bookings/price";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
@@ -95,7 +90,7 @@ interface Existing {
   bookingIntervalMinutes: number;
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
-  businessHoursOverride: BusinessHours | null;
+  followsOrgHours: boolean;
 }
 
 interface Props {
@@ -133,7 +128,7 @@ export function ItemForm({ categories, existing }: Props) {
       bookingIntervalMinutes: existing?.bookingIntervalMinutes ?? 60,
       bookingWindowStartMin: existing?.bookingWindowStartMin ?? 540,
       bookingWindowEndMin: existing?.bookingWindowEndMin ?? 1080,
-      businessHoursOverride: existing?.businessHoursOverride ?? null,
+      followsOrgHours: existing?.followsOrgHours ?? true,
     },
   });
 
@@ -146,8 +141,8 @@ export function ItemForm({ categories, existing }: Props) {
   // quantity 0 = voorraad n.v.t. (alleen voor add-ons).
   const stockNa = isAddon && quantityRaw === 0;
   const imageUrl = watch("imageUrl") ?? null;
-  const businessHoursOverride =
-    (watch("businessHoursOverride") as BusinessHours | null | undefined) ?? null;
+  // Standaard volgt een item de organisatie-openingstijden; uit = eigen venster.
+  const followsOrgHours = Boolean(watch("followsOrgHours") ?? true);
   const bookingIntervalMinutes = Number(watch("bookingIntervalMinutes") ?? 60);
   const bookingWindowStartMin = Number(watch("bookingWindowStartMin") ?? 540);
   const bookingWindowEndMin = Number(watch("bookingWindowEndMin") ?? 1080);
@@ -463,117 +458,91 @@ export function ItemForm({ categories, existing }: Props) {
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Reserveer-tijden</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Tussen welke tijden kunnen klanten dit item boeken? Ze kiezen start-
-          en eindtijd met stapgrootte {formatIntervalLabel(bookingIntervalMinutes)}.
+          Wanneer kunnen klanten dit item boeken? Ze kiezen start- en eindtijd
+          met stapgrootte {formatIntervalLabel(bookingIntervalMinutes)}.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bookingWindowStart">Eerste slot</Label>
-            <Input
-              id="bookingWindowStart"
-              type="time"
-              step={60}
-              value={minutesToHHMM(bookingWindowStartMin)}
-              onChange={(e) => {
-                const m = hhmmToMinutes(e.target.value);
-                if (m != null) {
-                  setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
-                }
-              }}
-            />
-            <input type="hidden" {...register("bookingWindowStartMin")} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
-            <Input
-              id="bookingWindowEnd"
-              type="time"
-              step={60}
-              value={minutesToHHMM(bookingWindowEndMin)}
-              onChange={(e) => {
-                const m = hhmmToMinutes(e.target.value);
-                if (m != null) {
-                  setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
-                }
-              }}
-            />
-            <input type="hidden" {...register("bookingWindowEndMin")} />
-            {errors.bookingWindowEndMin?.message && (
-              <p className="text-xs font-medium text-destructive">
-                {errors.bookingWindowEndMin.message}
-              </p>
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground sm:col-span-3">
-            Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
-            {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
-            {formatIntervalLabel(bookingIntervalMinutes)}.
-          </p>
-        </div>
-      </div>
-      )}
 
-      {!isAddon && (
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Openingstijden</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Wanneer kan dit item geboekt worden?
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {/* Volg de organisatie-openingstijden, of zet een eigen tijdvenster. */}
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Algemene openingstijden aanhouden</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {followsOrgHours
+                ? "Volgt de tijden uit Instellingen → Organisatie; gesloten dagen zijn niet boekbaar."
+                : "Een eigen tijdvenster voor dit item."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() =>
-              setValue("businessHoursOverride", null as never, {
+              setValue("followsOrgHours", !followsOrgHours, {
                 shouldValidate: false,
                 shouldDirty: true,
               })
             }
-            className={`rounded-lg border p-3 text-left transition-colors ${
-              businessHoursOverride === null
-                ? "border-primary/40 bg-primary/5"
-                : "border-border hover:bg-accent"
+            className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+              followsOrgHours ? "bg-primary" : "bg-muted"
             }`}
+            aria-pressed={followsOrgHours}
+            aria-label="Algemene openingstijden aanhouden"
           >
-            <span className="block text-sm font-medium">Algemene openingstijden</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-              Volg de tijden uit Instellingen → Organisatie
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (businessHoursOverride === null) {
-                setValue("businessHoursOverride", defaultBusinessHours() as never, {
-                  shouldValidate: false,
-                  shouldDirty: true,
-                });
-              }
-            }}
-            className={`rounded-lg border p-3 text-left transition-colors ${
-              businessHoursOverride !== null
-                ? "border-primary/40 bg-primary/5"
-                : "border-border hover:bg-accent"
-            }`}
-          >
-            <span className="block text-sm font-medium">Eigen openingstijden</span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-              Een apart schema voor dit item (bijv. alleen overdag)
-            </span>
+            <span
+              className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                followsOrgHours ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
           </button>
         </div>
-        {businessHoursOverride !== null && (
-          <div className="mt-4 border-t border-border pt-4">
-            <BusinessHoursEditor
-              value={businessHoursOverride}
-              onChange={(next) =>
-                setValue("businessHoursOverride", next as never, {
-                  shouldValidate: false,
-                  shouldDirty: true,
-                })
-              }
-              compact
-              hideToggle
-            />
+        <input
+          type="hidden"
+          {...register("followsOrgHours")}
+          value={followsOrgHours ? "true" : "false"}
+        />
+
+        {!followsOrgHours && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bookingWindowStart">Eerste slot</Label>
+              <Input
+                id="bookingWindowStart"
+                type="time"
+                step={60}
+                value={minutesToHHMM(bookingWindowStartMin)}
+                onChange={(e) => {
+                  const m = hhmmToMinutes(e.target.value);
+                  if (m != null) {
+                    setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
+                  }
+                }}
+              />
+              <input type="hidden" {...register("bookingWindowStartMin")} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
+              <Input
+                id="bookingWindowEnd"
+                type="time"
+                step={60}
+                value={minutesToHHMM(bookingWindowEndMin)}
+                onChange={(e) => {
+                  const m = hhmmToMinutes(e.target.value);
+                  if (m != null) {
+                    setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
+                  }
+                }}
+              />
+              <input type="hidden" {...register("bookingWindowEndMin")} />
+              {errors.bookingWindowEndMin?.message && (
+                <p className="text-xs font-medium text-destructive">
+                  {errors.bookingWindowEndMin.message}
+                </p>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground sm:col-span-3">
+              Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
+              {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
+              {formatIntervalLabel(bookingIntervalMinutes)}.
+            </p>
           </div>
         )}
       </div>

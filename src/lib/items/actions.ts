@@ -100,12 +100,7 @@ export async function createItemAction(
       bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,
-      businessHoursOverride:
-        parsed.data.businessHoursOverride === undefined
-          ? undefined
-          : parsed.data.businessHoursOverride === null
-            ? Prisma.JsonNull
-            : (parsed.data.businessHoursOverride as Prisma.InputJsonValue),
+      followsOrgHours: parsed.data.followsOrgHours,
     },
     select: { id: true },
   });
@@ -194,12 +189,7 @@ export async function updateItemAction(input: ItemUpdateInput): Promise<ActionRe
       bookingIntervalMinutes: parsed.data.bookingIntervalMinutes,
       bookingWindowStartMin: parsed.data.bookingWindowStartMin,
       bookingWindowEndMin: parsed.data.bookingWindowEndMin,
-      businessHoursOverride:
-        parsed.data.businessHoursOverride === undefined
-          ? undefined
-          : parsed.data.businessHoursOverride === null
-            ? Prisma.JsonNull
-            : (parsed.data.businessHoursOverride as Prisma.InputJsonValue),
+      followsOrgHours: parsed.data.followsOrgHours,
     },
   });
 

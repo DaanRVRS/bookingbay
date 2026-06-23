@@ -387,9 +387,11 @@ model Item {
   bookingWindowStartMin  Int @default(540) // 09:00
   bookingWindowEndMin    Int @default(1080) // 18:00
 
-  // Optioneel per-item openingstijden-override. Null = gebruik org-default.
-  // Zelfde shape als Organization.businessHours.
-  businessHoursOverride Json?
+  // true  = volg de organisatie-openingstijden (per weekdag; gesloten dag =
+  //         niet boekbaar) en negeer het window hierboven.
+  // false = gebruik het eigen window (bookingWindowStartMin..EndMin).
+  // Geldt voor tijd-eenheden; dag/week-items boeken altijd hele dagen.
+  followsOrgHours Boolean @default(true)
 
   // Per-integratie configuratie voor dit specifieke item. Shape:
   //   { googleCalendar: { calendarId: "abc@group.calendar.google.com" } }

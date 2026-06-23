@@ -18,6 +18,11 @@ import {
   isWholeDayUnit,
   type BookingAddonLine,
 } from "./price";
+import { windowForDay } from "./slot-window";
+import {
+  safeParseBusinessHours,
+  type BusinessHours,
+} from "@/lib/business-hours/schemas";
 import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -392,6 +397,9 @@ export interface ItemAvailability {
   bookingIntervalMinutes: number;
   bookingWindowStartMin: number;
   bookingWindowEndMin: number;
+  followsOrgHours: boolean;
+  /** Org-openingstijden (ma..zo) als het item deze volgt — anders null. */
+  orgHours: BusinessHours | null;
   bookings: { startMs: number; endMs: number }[];
   /** Externe agenda-blokken (Google Calendar etc.) — de slot-grid moet
    *  deze ook als bezet tonen, anders weigert de backend later. */
@@ -412,7 +420,7 @@ export async function getItemAvailability(
 
   const org = await db.organization.findUnique({
     where: { slug },
-    select: { id: true },
+    select: { id: true, businessHours: true },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
 
@@ -423,6 +431,7 @@ export async function getItemAvailability(
       bookingIntervalMinutes: true,
       bookingWindowStartMin: true,
       bookingWindowEndMin: true,
+      followsOrgHours: true,
     },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
@@ -462,17 +471,44 @@ export async function getItemAvailability(
   const unavailable: string[] = [];
   const cursor = new Date(fromDate);
 
-  // Beschikbaarheid per dag wordt berekend BINNEN het boekvenster van
-  // het item (bookingWindowStartMin..EndMin), niet over de hele 24u.
-  // Anders telt vrije tijd buiten openingstijden mee en wordt een dag
-  // waarvan het hele venster vol zit nooit als "Vol" gemarkeerd.
-  // Dag- én week-eenheden gebruiken het volledige etmaal als venster.
+  // Beschikbaarheid per dag wordt berekend BINNEN het boekvenster van die dag,
+  // niet over de hele 24u — anders telt vrije tijd buiten openingstijden mee.
+  // Dag/week-eenheden gebruiken het hele etmaal. Voor tijd-eenheden komt het
+  // venster óf van de organisatie-openingstijden (per weekdag; gesloten =
+  // niet boekbaar) óf van het eigen venster. windowForDay is gedeeld met de
+  // widget zodat de getoonde slots exact matchen met deze berekening.
   const isWholeDay = isWholeDayUnit(item.bookingIntervalMinutes);
-  const winStartMin = isWholeDay ? 0 : item.bookingWindowStartMin;
-  const winEndMin = isWholeDay ? 1440 : item.bookingWindowEndMin;
+  const orgHours = isWholeDay ? null : safeParseBusinessHours(org.businessHours);
+  const windowCfg = {
+    windowStartMin: item.bookingWindowStartMin,
+    windowEndMin: item.bookingWindowEndMin,
+    followsOrgHours: item.followsOrgHours,
+    orgHours,
+  };
 
   while (cursor < toDate) {
+    const y = cursor.getFullYear();
+    const mo = String(cursor.getMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${mo}-${d}`;
     const dayStart = cursor.getTime();
+
+    let winStartMin: number;
+    let winEndMin: number;
+    if (isWholeDay) {
+      winStartMin = 0;
+      winEndMin = 1440;
+    } else {
+      const w = windowForDay(cursor, windowCfg);
+      if (!w) {
+        // Gesloten dag → niet boekbaar.
+        unavailable.push(dateStr);
+        cursor.setDate(cursor.getDate() + 1);
+        continue;
+      }
+      winStartMin = w.startMin;
+      winEndMin = w.endMin;
+    }
     const winStart = dayStart + winStartMin * 60_000;
     const winEnd = dayStart + winEndMin * 60_000;
 
@@ -499,10 +535,7 @@ export async function getItemAvailability(
       if (concurrent < item.quantity) availableMs += winEnd - lastTime;
 
       if (availableMs < 60_000) {
-        const y = cursor.getFullYear();
-        const m = String(cursor.getMonth() + 1).padStart(2, "0");
-        const d = String(cursor.getDate()).padStart(2, "0");
-        unavailable.push(`${y}-${m}-${d}`);
+        unavailable.push(dateStr);
       }
     }
     cursor.setDate(cursor.getDate() + 1);
@@ -516,6 +549,8 @@ export async function getItemAvailability(
     bookingIntervalMinutes: item.bookingIntervalMinutes,
     bookingWindowStartMin: item.bookingWindowStartMin,
     bookingWindowEndMin: item.bookingWindowEndMin,
+    followsOrgHours: item.followsOrgHours,
+    orgHours,
     bookings: bookings.map((b) => ({
       startMs: b.startAt.getTime(),
       endMs: b.endAt.getTime(),
