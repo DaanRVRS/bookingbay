@@ -32,6 +32,7 @@ const NON_CONTAINER_PALETTE: BlockType[] = [
   "video",
   "cta",
   "button",
+  "contact",
   "quote",
   "imageSlider",
   "spacer",
@@ -1342,6 +1343,33 @@ export function BlockEditor({
             De widget toont automatisch je boekbare items en gebruikt je
             widget-instellingen (kleur, USP&apos;s, taal) — die pas je aan
             onder Widgets.
+          </p>
+        </div>
+      );
+
+    case "contact":
+      return (
+        <div className="flex flex-col gap-4">
+          <Field label="Kop">
+            <Input
+              value={block.heading}
+              maxLength={160}
+              placeholder="Neem contact op"
+              onChange={(e) => onChange({ heading: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <Field label="Introtekst (optioneel)">
+            <Textarea
+              value={block.intro}
+              rows={2}
+              maxLength={400}
+              placeholder="Een vraag of opmerking? Stuur ons een bericht."
+              onChange={(e) => onChange({ intro: e.target.value } as Partial<Block>)}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Bezoekers vullen naam, e-mail en bericht in; de aanvraag komt als
+            lead binnen in je dashboard.
           </p>
         </div>
       );

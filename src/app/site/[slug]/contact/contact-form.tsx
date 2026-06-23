@@ -15,10 +15,9 @@ import { leadSchema, type LeadInput } from "@/lib/leads/schemas";
 interface Props {
   organizationId: string;
   accent: string;
-  preselectedItem: { id: string; name: string } | null;
 }
 
-export function ContactForm({ organizationId, accent, preselectedItem }: Props) {
+export function ContactForm({ organizationId, accent }: Props) {
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
 
@@ -31,13 +30,11 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
     resolver: zodResolver(leadSchema),
     defaultValues: {
       organizationId,
-      itemId: preselectedItem?.id ?? "",
+      itemId: "",
       name: "",
       email: "",
       phone: "",
-      message: preselectedItem
-        ? `Hoi, ik wil graag een aanvraag doen voor: ${preselectedItem.name}.`
-        : "",
+      message: "",
       startAt: "",
       endAt: "",
       website: "",
@@ -69,10 +66,10 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
         >
           <CheckCircle2 className="size-7" />
         </span>
-        <h3 className="text-xl font-semibold tracking-tight">Bedankt voor je aanvraag</h3>
+        <h3 className="text-xl font-semibold tracking-tight">Bedankt voor je bericht</h3>
         <p className="max-w-md text-sm text-muted-foreground">
-          We hebben je bericht ontvangen en nemen binnen één werkdag contact met je op. Check je
-          spamfolder voor de zekerheid.
+          We hebben je bericht ontvangen en nemen zo snel mogelijk contact met je op.
+          Check je spamfolder voor de zekerheid.
         </p>
       </div>
     );
@@ -81,16 +78,6 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <input type="hidden" {...register("organizationId")} />
-      {preselectedItem && (
-        <input type="hidden" {...register("itemId")} value={preselectedItem.id} />
-      )}
-
-      {preselectedItem && (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">Aanvraag voor</p>
-          <p className="font-medium">{preselectedItem.name}</p>
-        </div>
-      )}
 
       {/* Honeypot — visually hidden, off-screen, untabbable, autocomplete=off */}
       <div
@@ -142,27 +129,12 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          label="Gewenste startdatum"
-          type="datetime-local"
-          error={errors.startAt?.message}
-          {...register("startAt")}
-        />
-        <FormField
-          label="Gewenste einddatum"
-          type="datetime-local"
-          error={errors.endAt?.message}
-          {...register("endAt")}
-        />
-      </div>
-
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="message">Bericht</Label>
         <Textarea
           id="message"
           rows={5}
-          placeholder="Vertel iets over wat je zoekt of vraag een vrijblijvende offerte aan."
+          placeholder="Waar kunnen we je mee helpen?"
           aria-invalid={Boolean(errors.message)}
           {...register("message")}
         />
@@ -178,7 +150,7 @@ export function ContactForm({ organizationId, accent, preselectedItem }: Props) 
         style={{ background: accent }}
       >
         {pending && <Loader2 className="size-4 animate-spin" />}
-        Verstuur aanvraag
+        Verstuur bericht
       </Button>
     </form>
   );

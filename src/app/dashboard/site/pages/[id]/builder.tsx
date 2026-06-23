@@ -947,6 +947,19 @@ function BlockPreview({
           </p>
         </div>
       );
+    case "contact":
+      return (
+        <div className="px-6 py-12 text-center">
+          <p className="text-sm font-medium">{block.heading || "Contact"}</p>
+          {block.intro ? (
+            <p className="text-xs text-muted-foreground">{block.intro}</p>
+          ) : null}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Het contactformulier (naam, e-mail, bericht) verschijnt op je live
+            pagina.
+          </p>
+        </div>
+      );
     case "container":
       return (
         <ContainerBlockView block={block} accent={accent}>

@@ -80,19 +80,11 @@ export default async function TenantLayout({
                 {p.title}
               </Link>
             ))}
-            <Link
-              href={tenantHref(base, "/contact")}
-              className="rounded-md px-4 py-1.5 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-              style={{ background: accent }}
-            >
-              Contact
-            </Link>
           </nav>
 
           {/* Mobile hamburger */}
           <TenantMobileNav
             accent={accent}
-            contactHref={tenantHref(base, "/contact")}
             items={[
               ...navPages.map((p) => ({
                 href: tenantHref(base, `/${p.slug}`),

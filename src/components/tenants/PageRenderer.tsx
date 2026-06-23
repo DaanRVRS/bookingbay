@@ -35,6 +35,7 @@ import { QuoteBlockView } from "./blocks/QuoteBlockView";
 import { ImageSliderBlockView } from "./blocks/ImageSliderBlockView";
 import { ContainerBlockView } from "./blocks/ContainerBlockView";
 import { BookingWidgetBlockView } from "./blocks/BookingWidgetBlockView";
+import { ContactBlockView } from "./blocks/ContactBlockView";
 
 async function resolveTestimonialItems(
   block: TestimonialsBlock,
@@ -178,6 +179,14 @@ function renderNonContainer(
       return <ImageSliderBlockView block={block} />;
     case "bookingWidget":
       return <BookingWidgetBlockView block={block} data={widgetData} />;
+    case "contact":
+      return (
+        <ContactBlockView
+          block={block}
+          organizationId={organizationId}
+          accent={accent}
+        />
+      );
   }
 }
 

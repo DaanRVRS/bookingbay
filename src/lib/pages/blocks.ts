@@ -281,6 +281,13 @@ const bookingWidgetBlock = z.object({
   heading: z.string().max(160).default(""),
 });
 
+const contactBlock = z.object({
+  id: idField,
+  type: z.literal("contact"),
+  heading: z.string().max(160).default("Neem contact op"),
+  intro: z.string().max(400).default(""),
+});
+
 const containerBlock = z.object({
   id: idField,
   type: z.literal("container"),
@@ -318,6 +325,7 @@ const nonContainerBlock = z.discriminatedUnion("type", [
   quoteBlock,
   imageSliderBlock,
   bookingWidgetBlock,
+  contactBlock,
 ]);
 
 export const blockSchema = z.union([nonContainerBlock, containerBlock]);
@@ -344,6 +352,7 @@ export type ButtonBlock = z.infer<typeof buttonBlock>;
 export type QuoteBlock = z.infer<typeof quoteBlock>;
 export type ImageSliderBlock = z.infer<typeof imageSliderBlock>;
 export type BookingWidgetBlock = z.infer<typeof bookingWidgetBlock>;
+export type ContactBlock = z.infer<typeof contactBlock>;
 export type ContainerBlock = z.infer<typeof containerBlock>;
 
 export type BlockType = Block["type"];
@@ -367,6 +376,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   quote: "Citaat",
   imageSlider: "Foto-slider",
   bookingWidget: "Boek-widget",
+  contact: "Contact",
   container: "Container",
 };
 
@@ -389,6 +399,7 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   quote: "Groot uitgelicht citaat",
   imageSlider: "Auto-roterende foto-carousel met dots & pijlen",
   bookingWidget: "De volledige boek-widget — klanten reserveren direct op deze pagina",
+  contact: "Contactformulier — bezoekers sturen je een bericht",
   container: "Wrapper met achtergrond — andere blokken erin slepen",
 };
 
@@ -569,6 +580,13 @@ export function makeDefaultBlock(type: BlockType, id: string): Block {
       };
     case "bookingWidget":
       return { id, type: "bookingWidget", heading: "Reserveer direct" };
+    case "contact":
+      return {
+        id,
+        type: "contact",
+        heading: "Neem contact op",
+        intro: "Een vraag of opmerking? Stuur ons een bericht.",
+      };
     case "container":
       return {
         id,

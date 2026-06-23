@@ -15,7 +15,7 @@ export function TenantMobileNav({
   accent,
 }: {
   items: NavItem[];
-  contactHref: string;
+  contactHref?: string;
   accent: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -55,14 +55,16 @@ export function TenantMobileNav({
                 {item.label}
               </Link>
             ))}
-            <Link
-              href={contactHref}
-              onClick={() => setOpen(false)}
-              className="mt-4 inline-flex h-12 items-center justify-center rounded-lg px-5 text-base font-medium text-white shadow-sm"
-              style={{ background: accent }}
-            >
-              Contact
-            </Link>
+            {contactHref && (
+              <Link
+                href={contactHref}
+                onClick={() => setOpen(false)}
+                className="mt-4 inline-flex h-12 items-center justify-center rounded-lg px-5 text-base font-medium text-white shadow-sm"
+                style={{ background: accent }}
+              >
+                Contact
+              </Link>
+            )}
           </nav>
         </div>
       )}
