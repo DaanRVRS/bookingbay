@@ -1371,18 +1371,6 @@ function SlotCell({
             }
           : undefined
       }
-      onMouseEnter={(e) => {
-        if (!selected && !disabled) {
-          e.currentTarget.style.borderColor = `${accent}66`;
-          e.currentTarget.style.color = accent;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!selected && !disabled) {
-          e.currentTarget.style.borderColor = "";
-          e.currentTarget.style.color = "";
-        }
-      }}
     >
       {slot}
     </button>

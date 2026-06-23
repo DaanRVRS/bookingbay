@@ -403,18 +403,6 @@ function TimeRangeGrid({
                       }
                     : undefined
               }
-              onMouseEnter={(e) => {
-                if (!isStart && !isEnd && !inBetween && !disabled) {
-                  e.currentTarget.style.borderColor = accent;
-                  e.currentTarget.style.color = accent;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isStart && !isEnd && !inBetween && !disabled) {
-                  e.currentTarget.style.borderColor = "";
-                  e.currentTarget.style.color = "";
-                }
-              }}
             >
               {slot}
             </button>
