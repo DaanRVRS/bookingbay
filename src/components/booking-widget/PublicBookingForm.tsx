@@ -1330,7 +1330,7 @@ function TimeRangeGrid({
         </span>
       </div>
       <p className="text-[10px] text-muted-foreground">{labels.hint}</p>
-      <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+      <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-8">
         {slots.map((slot) => {
           const slotMin = hhmmToMin(slot);
 

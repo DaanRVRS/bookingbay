@@ -394,7 +394,7 @@ function CategoryStep({
       <p className="mt-1 text-sm text-muted-foreground">
         {t("cat.subtitle")}
       </p>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((cat) => {
           const previewImage =
             cat.items.find((i) => i.imageUrl)?.imageUrl ?? null;
@@ -489,7 +489,7 @@ function ItemStep({
         {t("item.title")}
       </h2>
 
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {category.items.map((item) => (
           <li key={item.id}>
             <button
