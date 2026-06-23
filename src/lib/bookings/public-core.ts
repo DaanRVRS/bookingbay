@@ -65,6 +65,7 @@ export async function createPublicBooking(
     select: {
       id: true,
       suspendedAt: true,
+      businessHours: true,
     },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
@@ -87,6 +88,7 @@ export async function createPublicBooking(
       category: { select: { parentId: true } },
       pricePerUnit: true,
       bookingIntervalMinutes: true,
+      followsOrgHours: true,
       cleaningFee: true,
     },
   });
@@ -113,6 +115,28 @@ export async function createPublicBooking(
       error: `Boekingen kunnen maximaal ${AVAILABILITY_LOOKAHEAD_DAYS} dagen vooruit`,
       fieldErrors: { startAt: "Te ver in de toekomst" },
     };
+  }
+
+  // Volgt het item de organisatie-openingstijden, dan mag er niet op een
+  // gesloten weekdag geboekt worden. De widget verbergt die dag al; dit
+  // blokkeert ook directe API-calls. Alleen voor tijd-eenheden — dag/week-
+  // items boeken hele dagen, los van openingstijden. We checken alleen of de
+  // dag open is (niet de exacte uren), zodat tijdzone-randgevallen geen
+  // geldige boeking weigeren.
+  if (!isWholeDayUnit(item.bookingIntervalMinutes) && item.followsOrgHours) {
+    const dayWindow = windowForDay(startAt, {
+      windowStartMin: 0,
+      windowEndMin: 1440,
+      followsOrgHours: true,
+      orgHours: safeParseBusinessHours(org.businessHours),
+    });
+    if (!dayWindow) {
+      return {
+        ok: false,
+        error: "Dit item is niet boekbaar op de gekozen dag.",
+        fieldErrors: { startAt: "Gesloten op deze dag" },
+      };
+    }
   }
 
   const availability = await checkAvailability({
@@ -500,8 +524,11 @@ export async function getItemAvailability(
       winEndMin = 1440;
     } else {
       const w = windowForDay(cursor, windowCfg);
-      if (!w) {
-        // Gesloten dag → niet boekbaar.
+      // Gesloten dag, óf venster te kort voor zelfs één slot → niet boekbaar.
+      // Dit moet de client-kant (dayHasFreeSlot: m+interval<=eind) spiegelen,
+      // anders toont het dashboard een dag als vrij die geen kiesbaar slot
+      // heeft.
+      if (!w || w.endMin - w.startMin < item.bookingIntervalMinutes) {
         unavailable.push(dateStr);
         cursor.setDate(cursor.getDate() + 1);
         continue;
