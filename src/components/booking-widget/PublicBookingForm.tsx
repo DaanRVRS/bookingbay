@@ -605,6 +605,16 @@ export function PublicBookingForm({
             value={getValues("customerEmail") || "—"}
             accent={accent}
           />
+          {/* Volledige prijsopgave: huurprijs → extra's → schoonmaak → totaal.
+              De losse huurregel tonen we alleen als er íets bovenop komt,
+              anders is 'ie identiek aan het totaal. */}
+          {pricing && (pricing.cleaningFee > 0 || addonLines.length > 0) && (
+            <ReviewRow
+              label="Huurprijs"
+              value={`€ ${pricing.subtotal.toFixed(2)}`}
+              accent={accent}
+            />
+          )}
           {addonLines.map((l) => (
             <ReviewRow
               key={l.itemId}
@@ -614,18 +624,11 @@ export function PublicBookingForm({
             />
           ))}
           {pricing && pricing.cleaningFee > 0 && (
-            <>
-              <ReviewRow
-                label="Subtotaal"
-                value={`€ ${pricing.subtotal.toFixed(2)}`}
-                accent={accent}
-              />
-              <ReviewRow
-                label="Schoonmaakkosten"
-                value={`€ ${pricing.cleaningFee.toFixed(2)}`}
-                accent={accent}
-              />
-            </>
+            <ReviewRow
+              label="Schoonmaakkosten"
+              value={`€ ${pricing.cleaningFee.toFixed(2)}`}
+              accent={accent}
+            />
           )}
           {estimate !== null && (
             <ReviewRow

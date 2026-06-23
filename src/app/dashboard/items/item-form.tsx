@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -702,12 +702,23 @@ function PriceField({
   // terug naar uit en kon je 'm nooit aanzetten.
   const enabled = raw !== null && raw !== undefined;
 
+  // Onthoud de laatste ingevulde waarde, zodat uit→aan zetten 'm terugzet
+  // i.p.v. het veld leeg te maken. Blijft binnen deze bewerksessie bewaard.
+  const lastValueRef = useRef<string>("");
+
   const onToggle = () => {
     if (enabled) {
+      // Bewaar de huidige waarde vóór we 'm wissen.
+      if (raw !== null && raw !== undefined && String(raw) !== "") {
+        lastValueRef.current = String(raw);
+      }
       setValue(name, null, { shouldValidate: true, shouldDirty: true });
     } else {
-      // Re-enable with empty string so the input renders empty rather than "0".
-      setValue(name, "" as unknown as null, { shouldValidate: false, shouldDirty: true });
+      // Zet de onthouden waarde terug; nog nooit iets ingevuld → leeg veld.
+      setValue(name, (lastValueRef.current || "") as unknown as null, {
+        shouldValidate: false,
+        shouldDirty: true,
+      });
     }
   };
 
