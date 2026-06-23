@@ -112,7 +112,7 @@ export default async function BookPage({ params, searchParams }: PageProps) {
         }}
       />
 
-      <div className="relative mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="relative mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         {/* bg-background = Widget-achtergrond token (kleur van het paneel
             zelf); inner kaarten gebruiken bg-card = Kaarten token. */}
         <div
