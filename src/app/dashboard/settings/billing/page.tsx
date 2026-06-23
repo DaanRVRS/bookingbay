@@ -42,6 +42,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const sp = await searchParams;
 
+  try {
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
     select: {
@@ -295,6 +296,24 @@ export default async function BillingPage({ searchParams }: PageProps) {
       </section>
     </div>
   );
+  } catch (err) {
+    // TIJDELIJK: render de echte serverfout op het scherm zodat we 'm
+    // kunnen zien (Next redact 'm anders in productie). Weghalen zodra
+    // de oorzaak bekend is.
+    return (
+      <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-sm">
+        <h2 className="font-semibold text-destructive">Billing-diagnostiek</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Tijdelijk zichtbaar gemaakt om de serverfout te achterhalen.
+        </p>
+        <pre className="mt-3 max-h-96 overflow-auto rounded bg-background p-3 text-[11px] whitespace-pre-wrap">
+          {err instanceof Error
+            ? `${err.name}: ${err.message}\n\n${err.stack ?? ""}`
+            : String(err)}
+        </pre>
+      </div>
+    );
+  }
 }
 
 // ── Status card ─────────────────────────────────────────────────────────
