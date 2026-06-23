@@ -696,8 +696,11 @@ function PriceField({
   toggleable?: boolean;
 }) {
   const raw = watch(name);
-  const enabled =
-    raw !== null && raw !== undefined && String(raw).trim() !== "";
+  // null/undefined = uitgeschakeld. Een lege string telt als INGESCHAKELD:
+  // dat is wat onToggle zet bij aanzetten, zodat het veld leeg rendert i.p.v.
+  // "0". Zou een lege string als "uit" gelden, dan sprong de toggle direct
+  // terug naar uit en kon je 'm nooit aanzetten.
+  const enabled = raw !== null && raw !== undefined;
 
   const onToggle = () => {
     if (enabled) {
