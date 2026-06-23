@@ -156,7 +156,10 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
         </>
       )}
 
-      {/* Catalog */}
+      {/* Catalog — alleen als er géén zelfgebouwde home-pagina is (dan is de
+          builder-pagina de hele site). Bij zoeken is useCustomHome=false, dus
+          dan landen de resultaten hier wél. */}
+      {!useCustomHome && (
       <section id="aanbod" className="py-14 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -240,6 +243,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
           )}
         </div>
       </section>
+      )}
     </>
   );
 }

@@ -71,12 +71,6 @@ export default async function TenantLayout({
           </Link>
           {/* Desktop nav */}
           <nav className="hidden items-center gap-1 text-sm sm:flex">
-            <Link
-              href={tenantHref(base, "/")}
-              className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground"
-            >
-              Aanbod
-            </Link>
             {navPages.map((p) => (
               <Link
                 key={p.slug}
@@ -100,7 +94,6 @@ export default async function TenantLayout({
             accent={accent}
             contactHref={tenantHref(base, "/contact")}
             items={[
-              { href: tenantHref(base, "/"), label: "Aanbod" },
               ...navPages.map((p) => ({
                 href: tenantHref(base, `/${p.slug}`),
                 label: p.title,
