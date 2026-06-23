@@ -142,19 +142,20 @@ export async function createPublicBooking(
 
   // Zelfde gedeelde functie als de widget (PublicBookingForm) zodat het
   // gecharchde bedrag exact matcht met wat de klant zag — incl. weektarief.
-  const subtotal =
-    estimateRentalSubtotal({
-      startMs: startAt.getTime(),
-      endMs: endAt.getTime(),
-      pricePerUnit: item.pricePerUnit ? Number(item.pricePerUnit) : null,
-      bookingIntervalMinutes: item.bookingIntervalMinutes,
-    }) ?? 0;
-  let estimate = subtotal;
+  const rentalSubtotal = estimateRentalSubtotal({
+    startMs: startAt.getTime(),
+    endMs: endAt.getTime(),
+    pricePerUnit: item.pricePerUnit ? Number(item.pricePerUnit) : null,
+    bookingIntervalMinutes: item.bookingIntervalMinutes,
+  });
+  let estimate = rentalSubtotal ?? 0;
 
-  // Schoonmaakkosten — flat fee per item bovenop de tijd-tariefs.
-  // Null/0 = uit. Decimal-kolom dus Number() conversie.
+  // Schoonmaakkosten — flat fee per item bovenop de huurprijs. Null/0 = uit.
+  // Alléén optellen als er een echte huurprijs is: een item zonder
+  // pricePerUnit (prijs op aanvraag) rekent niets, exact zoals de widget
+  // toont — anders zou de klant €0 zien maar tóch de schoonmaak betalen.
   const cleaningFee = item.cleaningFee ? Number(item.cleaningFee) : 0;
-  if (cleaningFee > 0) {
+  if (rentalSubtotal != null && cleaningFee > 0) {
     estimate = estimate + cleaningFee;
   }
 

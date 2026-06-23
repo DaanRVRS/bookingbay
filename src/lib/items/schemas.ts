@@ -33,13 +33,14 @@ const itemBaseShape = {
   addonPrice: decimal,
   // Categorieën waarbij deze add-on aangeboden wordt. Null/leeg = overal.
   addonCategoryIds: z.array(z.string().min(1)).nullable().optional(),
-  // Boek-slot configuratie én prijs-eenheid. 1440 = per-dag, 10080 = per-week
-  // (beide verbergen de tijdkeuze in de widget).
+  // Boek-slot configuratie én prijs-eenheid. 1440 = per-dag (verbergt de
+  // tijdkeuze). Max blijft 1440 tot de widget meerdaagse selectie heeft —
+  // pas dan komt de week-eenheid (10080) terug.
   bookingIntervalMinutes: z.coerce
     .number()
     .int()
     .min(5)
-    .max(10080)
+    .max(1440)
     .default(60),
   // Window-grenzen in minuten vanaf middernacht. 540 = 09:00, 1080 = 18:00.
   bookingWindowStartMin: z.coerce.number().int().min(0).max(1440).default(540),

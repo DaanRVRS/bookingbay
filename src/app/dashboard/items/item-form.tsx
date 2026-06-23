@@ -48,7 +48,9 @@ const INTERVAL_OPTIONS = [
   { value: 120, label: "Per 2 uur" },
   { value: 240, label: "Per 4 uur" },
   { value: 1440, label: "Per dag (geen tijdkeuze)" },
-  { value: 10080, label: "Per week (geen tijdkeuze)" },
+  // "Per week" (10080) komt terug zodra de widget meerdaagse selectie heeft —
+  // met de huidige één-dag-kalender zou een week-item een volle week rekenen
+  // voor één gekozen dag. De formule/isWholeDayUnit ondersteunen 10080 al.
 ];
 
 function minutesToHHMM(min: number): string {
