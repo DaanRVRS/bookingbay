@@ -90,24 +90,38 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
   ]);
   const buckets = buildBuckets(categories);
   const design = resolveWidgetDesign(org, sp);
+  const { radius, shadow } = design;
 
   return (
     <div
-      className="bg-background px-4 py-6 sm:px-6"
+      className="px-4 py-8 sm:px-6 sm:py-12"
       style={themeStyle(design.theme) as CSSProperties}
     >
-      <SmartBookingWidget
-        slug={slug}
-        orgName={org.name}
-        logoUrl={org.logoUrl}
-        accent={design.accent}
-        categories={buckets}
-        addons={addons}
-        usps={design.usps}
-        tagline={design.tagline}
-        defaultLocale={design.defaultLocale}
-        initialItemId={sp.item ?? null}
-      />
+      {/* Ingekaderd zoals de standalone-widget — niet full-width "mega". */}
+      <div className="mx-auto max-w-2xl">
+        <div
+          className="border border-border bg-background p-6 sm:p-8"
+          style={{
+            borderRadius: `${radius}px`,
+            boxShadow: shadow
+              ? "0 8px 30px -12px rgba(0,0,0,0.10)"
+              : undefined,
+          }}
+        >
+          <SmartBookingWidget
+            slug={slug}
+            orgName={org.name}
+            logoUrl={org.logoUrl}
+            accent={design.accent}
+            categories={buckets}
+            addons={addons}
+            usps={design.usps}
+            tagline={design.tagline}
+            defaultLocale={design.defaultLocale}
+            initialItemId={sp.item ?? null}
+          />
+        </div>
+      </div>
     </div>
   );
 }
