@@ -138,9 +138,8 @@ export type ItemRef = {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   deposit: number | null;
   categoryName: string;
 };

@@ -32,9 +32,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
         name: true,
         categoryId: true,
         category: { select: { name: true, parentId: true } },
-        pricePerHour: true,
-        pricePerDay: true,
-        pricePerWeek: true,
+        pricePerUnit: true,
+        bookingIntervalMinutes: true,
         cleaningFee: true,
       },
     }),
@@ -72,9 +71,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
               categoryIds: [i.categoryId, i.category.parentId].filter(
                 (v): v is string => Boolean(v),
               ),
-              pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
-              pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
-              pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
+              pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
+              bookingIntervalMinutes: i.bookingIntervalMinutes,
               cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
             }))}
             customers={customers.map((c) => ({

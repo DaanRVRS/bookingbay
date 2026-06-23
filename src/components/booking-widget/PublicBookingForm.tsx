@@ -28,6 +28,7 @@ import {
 import {
   estimateRentalSubtotal,
   sumAddons,
+  isWholeDayUnit,
   type BookingAddonLine,
 } from "@/lib/bookings/price";
 
@@ -37,9 +38,9 @@ const ON_ACCENT = "var(--bb-on-accent, #fff)";
 interface ItemOption {
   id: string;
   name: string;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek?: number | null;
+  /** Prijs per verhuur-eenheid (de eenheid = bookingIntervalMinutes). */
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   /** Vaste schoonmaak-fee per boeking. Null/0 = uit voor dit item. */
   cleaningFee?: number | null;
 }
@@ -299,7 +300,7 @@ export function PublicBookingForm({
           }
           // Per-dag items hebben geen tijdkeuze → impliciet de hele dag.
           // Voor uur-items NIETS voorselecteren: de klant kiest zelf.
-          if (res.bookingIntervalMinutes === 1440) {
+          if (isWholeDayUnit(res.bookingIntervalMinutes)) {
             setStartTime("00:00");
             setEndTime("23:59");
           } else {
@@ -337,9 +338,8 @@ export function PublicBookingForm({
     const subtotal = estimateRentalSubtotal({
       startMs: start.getTime(),
       endMs: end.getTime(),
-      pricePerHour: selectedItem.pricePerHour,
-      pricePerDay: selectedItem.pricePerDay,
-      pricePerWeek: selectedItem.pricePerWeek ?? null,
+      pricePerUnit: selectedItem.pricePerUnit,
+      bookingIntervalMinutes: selectedItem.bookingIntervalMinutes,
     });
     if (subtotal == null) return null;
     const cleaningFee = selectedItem.cleaningFee ? Number(selectedItem.cleaningFee) : 0;
@@ -387,7 +387,7 @@ export function PublicBookingForm({
   // tegenstrijdigheid die "dag beschikbaar maar geen slot kiesbaar" gaf.
   // Per-dag items (geen slot-grid) blijven de server-dagberekening volgen.
   const derivedUnavailable = useMemo(() => {
-    if (slotConfig.intervalMinutes === 1440) return unavailableDates;
+    if (isWholeDayUnit(slotConfig.intervalMinutes)) return unavailableDates;
     const out = new Set<string>();
     const start = new Date(today);
     for (let i = 0; i <= lookaheadDays; i++) {
@@ -409,7 +409,7 @@ export function PublicBookingForm({
       toast.error(t("when.pickDate"));
       return;
     }
-    if (slotConfig.intervalMinutes !== 1440 && (!startTime || !endTime)) {
+    if (!isWholeDayUnit(slotConfig.intervalMinutes) && (!startTime || !endTime)) {
       toast.error(t("when.pickTime"));
       return;
     }
@@ -554,7 +554,7 @@ export function PublicBookingForm({
   if (reviewing) {
     const reviewItemName =
       fixedItem?.name ?? selectedItem?.name ?? t("review.selectedItem");
-    const isPerDay = slotConfig.intervalMinutes === 1440;
+    const isPerDay = isWholeDayUnit(slotConfig.intervalMinutes);
     const whenLine = date
       ? isPerDay
         ? format(date, "EEEE d MMM yyyy", { locale: df })
@@ -802,7 +802,7 @@ export function PublicBookingForm({
         </div>
 
         {/* Tijdvak — één gecombineerde grid: 1e klik = start, 2e = eind. */}
-        {slotConfig.intervalMinutes !== 1440 && (
+        {!isWholeDayUnit(slotConfig.intervalMinutes) && (
           <div className="mt-4">
             <TimeRangeGrid
               startTime={startTime}

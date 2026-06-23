@@ -45,9 +45,7 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
           name: true,
           description: true,
           imageUrl: true,
-          pricePerHour: true,
-          pricePerDay: true,
-          pricePerWeek: true,
+          pricePerUnit: true,
           cleaningFee: true,
           bookingIntervalMinutes: true,
           bookingWindowStartMin: true,
@@ -65,10 +63,9 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
               name: true,
               description: true,
               imageUrl: true,
-              pricePerHour: true,
-              pricePerDay: true,
-              pricePerWeek: true,
+              pricePerUnit: true,
               cleaningFee: true,
+              bookingIntervalMinutes: true,
             },
           },
         },
@@ -154,9 +151,8 @@ export type PriceListItem = {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   deposit: number | null;
   categoryName: string;
 };
@@ -191,9 +187,8 @@ export async function getPriceListItems(
     name: r.name,
     description: r.description,
     imageUrl: r.imageUrl,
-    pricePerHour: r.pricePerHour ? Number(r.pricePerHour) : null,
-    pricePerDay: r.pricePerDay ? Number(r.pricePerDay) : null,
-    pricePerWeek: r.pricePerWeek ? Number(r.pricePerWeek) : null,
+    pricePerUnit: r.pricePerUnit ? Number(r.pricePerUnit) : null,
+    bookingIntervalMinutes: r.bookingIntervalMinutes,
     deposit: r.deposit ? Number(r.deposit) : null,
     categoryName: r.category.name,
   }));

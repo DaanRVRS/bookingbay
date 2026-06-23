@@ -32,18 +32,23 @@ import { createItemAction, updateItemAction, deleteItemAction } from "@/lib/item
 import { CategoryDialog } from "@/app/dashboard/categories/category-dialog";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
 import { BusinessHoursEditor } from "@/components/dashboard/BusinessHoursEditor";
-import type { BusinessHours } from "@/lib/business-hours/schemas";
+import {
+  type BusinessHours,
+  defaultBusinessHours,
+} from "@/lib/business-hours/schemas";
+import { unitLabel, isWholeDayUnit } from "@/lib/bookings/price";
 
 type ItemFormValues = z.input<typeof itemCreateSchema>;
 
 const INTERVAL_OPTIONS = [
-  { value: 15, label: "Elk kwartier (15 min)" },
-  { value: 30, label: "Elk half uur (30 min)" },
-  { value: 60, label: "Elk uur" },
-  { value: 90, label: "Elke 1u30" },
-  { value: 120, label: "Elke 2 uur" },
-  { value: 240, label: "Elke 4 uur" },
+  { value: 15, label: "Per 15 minuten" },
+  { value: 30, label: "Per 30 minuten" },
+  { value: 60, label: "Per uur" },
+  { value: 90, label: "Per 1u30" },
+  { value: 120, label: "Per 2 uur" },
+  { value: 240, label: "Per 4 uur" },
   { value: 1440, label: "Per dag (geen tijdkeuze)" },
+  { value: 10080, label: "Per week (geen tijdkeuze)" },
 ];
 
 function minutesToHHMM(min: number): string {
@@ -62,6 +67,7 @@ function hhmmToMinutes(s: string): number | null {
 }
 
 function formatIntervalLabel(min: number): string {
+  if (min === 10080) return "per week";
   if (min === 1440) return "per dag";
   if (min === 60) return "1 uur";
   if (min < 60) return `${min} min`;
@@ -76,9 +82,7 @@ interface Existing {
   description: string;
   categoryId: string;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
   deposit: number | null;
   cleaningFee: number | null;
   quantity: number;
@@ -116,9 +120,7 @@ export function ItemForm({ categories, existing }: Props) {
       description: existing?.description ?? "",
       categoryId: existing?.categoryId ?? categories[0]?.id ?? "",
       imageUrl: existing?.imageUrl ?? "",
-      pricePerHour: existing?.pricePerHour ?? null,
-      pricePerDay: existing?.pricePerDay ?? null,
-      pricePerWeek: existing?.pricePerWeek ?? null,
+      pricePerUnit: existing?.pricePerUnit ?? null,
       deposit: existing?.deposit ?? null,
       cleaningFee: existing?.cleaningFee ?? null,
       quantity: existing?.quantity ?? 1,
@@ -147,7 +149,8 @@ export function ItemForm({ categories, existing }: Props) {
   const bookingIntervalMinutes = Number(watch("bookingIntervalMinutes") ?? 60);
   const bookingWindowStartMin = Number(watch("bookingWindowStartMin") ?? 540);
   const bookingWindowEndMin = Number(watch("bookingWindowEndMin") ?? 1080);
-  const isPerDay = bookingIntervalMinutes === 1440;
+  // Dag- of week-eenheid: geen tijdkeuze, klanten kiezen alleen datums.
+  const isWholeDay = isWholeDayUnit(bookingIntervalMinutes);
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -379,7 +382,7 @@ export function ItemForm({ categories, existing }: Props) {
         <p className="mt-1 text-xs text-muted-foreground">
           {isAddon
             ? "Vaste prijs per stuk. Wordt per gekozen aantal bij de boeking opgeteld."
-            : "Zet aan welke tarieven dit item heeft. Uitgezette tarieven verschijnen niet op de klantsite of in de boeking-flow."}
+            : "Kies de verhuur-eenheid en zet daar één prijs voor. Het totaal is aantal eenheden × deze prijs. Borg en schoonmaak zijn optioneel."}
         </p>
         {isAddon ? (
           <div className="mt-4 sm:max-w-xs">
@@ -392,157 +395,185 @@ export function ItemForm({ categories, existing }: Props) {
             />
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <PriceField
-              label="Per uur"
-              name="pricePerHour"
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              toggleable
-            />
-            <PriceField
-              label="Per dag"
-              name="pricePerDay"
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              toggleable
-            />
-            <PriceField
-              label="Per week"
-              name="pricePerWeek"
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              toggleable
-            />
-            <PriceField
-              label="Borg"
-              name="deposit"
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              toggleable
-            />
-            <PriceField
-              label="Schoonmaak"
-              name="cleaningFee"
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              toggleable
-            />
+          <div className="mt-4 flex flex-col gap-5">
+            {/* Verhuur-eenheid bepaalt zowel de prijs-eenheid als de
+                boek-stapgrootte — één keuze, één prijs. */}
+            <div className="flex flex-col gap-1.5">
+              <Label>Verhuur-eenheid</Label>
+              <Select
+                items={INTERVAL_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+                value={String(bookingIntervalMinutes)}
+                onValueChange={(v) => {
+                  const n = Number(v);
+                  if (Number.isFinite(n)) {
+                    setValue("bookingIntervalMinutes", n, { shouldValidate: true, shouldDirty: true });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Kies een eenheid" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTERVAL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={String(o.value)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input type="hidden" {...register("bookingIntervalMinutes")} />
+              <p className="text-[11px] text-muted-foreground">
+                Klanten boeken per {unitLabel(bookingIntervalMinutes)} — de prijs
+                hieronder geldt per {unitLabel(bookingIntervalMinutes)}.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <PriceField
+                label={`Prijs per ${unitLabel(bookingIntervalMinutes)}`}
+                name="pricePerUnit"
+                register={register}
+                watch={watch}
+                setValue={setValue}
+              />
+              <PriceField
+                label="Borg (optioneel)"
+                name="deposit"
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                toggleable
+              />
+              <PriceField
+                label="Schoonmaak (optioneel)"
+                name="cleaningFee"
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                toggleable
+              />
+            </div>
           </div>
         )}
       </div>
 
-      {!isAddon && (
+      {!isAddon && !isWholeDay && (
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Reserveer-slots</h2>
+        <h2 className="text-sm font-semibold">Reserveer-tijden</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Bepaal hoe vaak en wanneer klanten dit item in de boekwidget kunnen
-          reserveren. &quot;Per dag&quot; zet de tijdkeuze uit — klanten kiezen
-          alleen datums.
+          Tussen welke tijden kunnen klanten dit item boeken? Ze kiezen start-
+          en eindtijd met stapgrootte {formatIntervalLabel(bookingIntervalMinutes)}.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5 sm:col-span-3">
-            <Label>Interval</Label>
-            <Select
-              items={INTERVAL_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
-              value={String(bookingIntervalMinutes)}
-              onValueChange={(v) => {
-                const n = Number(v);
-                if (Number.isFinite(n)) {
-                  setValue("bookingIntervalMinutes", n, { shouldValidate: true, shouldDirty: true });
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bookingWindowStart">Eerste slot</Label>
+            <Input
+              id="bookingWindowStart"
+              type="time"
+              step={60}
+              value={minutesToHHMM(bookingWindowStartMin)}
+              onChange={(e) => {
+                const m = hhmmToMinutes(e.target.value);
+                if (m != null) {
+                  setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
                 }
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Kies een interval" />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERVAL_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={String(o.value)}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <input type="hidden" {...register("bookingIntervalMinutes")} />
+            />
+            <input type="hidden" {...register("bookingWindowStartMin")} />
           </div>
-
-          {!isPerDay && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="bookingWindowStart">Eerste slot</Label>
-                <Input
-                  id="bookingWindowStart"
-                  type="time"
-                  step={60}
-                  value={minutesToHHMM(bookingWindowStartMin)}
-                  onChange={(e) => {
-                    const m = hhmmToMinutes(e.target.value);
-                    if (m != null) {
-                      setValue("bookingWindowStartMin", m, { shouldValidate: true, shouldDirty: true });
-                    }
-                  }}
-                />
-                <input type="hidden" {...register("bookingWindowStartMin")} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
-                <Input
-                  id="bookingWindowEnd"
-                  type="time"
-                  step={60}
-                  value={minutesToHHMM(bookingWindowEndMin)}
-                  onChange={(e) => {
-                    const m = hhmmToMinutes(e.target.value);
-                    if (m != null) {
-                      setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
-                    }
-                  }}
-                />
-                <input type="hidden" {...register("bookingWindowEndMin")} />
-                {errors.bookingWindowEndMin?.message && (
-                  <p className="text-xs font-medium text-destructive">
-                    {errors.bookingWindowEndMin.message}
-                  </p>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground sm:col-span-3">
-                Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
-                {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
-                {formatIntervalLabel(bookingIntervalMinutes)}.
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bookingWindowEnd">Laatste slot</Label>
+            <Input
+              id="bookingWindowEnd"
+              type="time"
+              step={60}
+              value={minutesToHHMM(bookingWindowEndMin)}
+              onChange={(e) => {
+                const m = hhmmToMinutes(e.target.value);
+                if (m != null) {
+                  setValue("bookingWindowEndMin", m, { shouldValidate: true, shouldDirty: true });
+                }
+              }}
+            />
+            <input type="hidden" {...register("bookingWindowEndMin")} />
+            {errors.bookingWindowEndMin?.message && (
+              <p className="text-xs font-medium text-destructive">
+                {errors.bookingWindowEndMin.message}
               </p>
-            </>
-          )}
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground sm:col-span-3">
+            Klanten zien tijdstippen tussen {minutesToHHMM(bookingWindowStartMin)} en{" "}
+            {minutesToHHMM(bookingWindowEndMin)} met stapgrootte{" "}
+            {formatIntervalLabel(bookingIntervalMinutes)}.
+          </p>
         </div>
       </div>
       )}
 
       {!isAddon && (
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Openingstijden override</h2>
+        <h2 className="text-sm font-semibold">Openingstijden</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Standaard volgt dit item de openingstijden van de organisatie. Zet
-          aan voor een eigen schema (bijv. een boot die alleen overdag mag).
+          Wanneer kan dit item geboekt worden?
         </p>
-        <div className="mt-4">
-          <BusinessHoursEditor
-            value={businessHoursOverride}
-            onChange={(next) =>
-              setValue(
-                "businessHoursOverride",
-                next as never,
-                { shouldValidate: false, shouldDirty: true },
-              )
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() =>
+              setValue("businessHoursOverride", null as never, {
+                shouldValidate: false,
+                shouldDirty: true,
+              })
             }
-            compact
-            toggleLabel="Eigen openingstijden"
-          />
+            className={`rounded-lg border p-3 text-left transition-colors ${
+              businessHoursOverride === null
+                ? "border-primary/40 bg-primary/5"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            <span className="block text-sm font-medium">Algemene openingstijden</span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              Volg de tijden uit Instellingen → Organisatie
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (businessHoursOverride === null) {
+                setValue("businessHoursOverride", defaultBusinessHours() as never, {
+                  shouldValidate: false,
+                  shouldDirty: true,
+                });
+              }
+            }}
+            className={`rounded-lg border p-3 text-left transition-colors ${
+              businessHoursOverride !== null
+                ? "border-primary/40 bg-primary/5"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            <span className="block text-sm font-medium">Eigen openingstijden</span>
+            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+              Een apart schema voor dit item (bijv. alleen overdag)
+            </span>
+          </button>
         </div>
+        {businessHoursOverride !== null && (
+          <div className="mt-4 border-t border-border pt-4">
+            <BusinessHoursEditor
+              value={businessHoursOverride}
+              onChange={(next) =>
+                setValue("businessHoursOverride", next as never, {
+                  shouldValidate: false,
+                  shouldDirty: true,
+                })
+              }
+              compact
+              hideToggle
+            />
+          </div>
+        )}
       </div>
       )}
 
@@ -683,13 +714,7 @@ function PriceField({
   toggleable = false,
 }: {
   label: string;
-  name:
-    | "pricePerHour"
-    | "pricePerDay"
-    | "pricePerWeek"
-    | "deposit"
-    | "cleaningFee"
-    | "addonPrice";
+  name: "pricePerUnit" | "deposit" | "cleaningFee" | "addonPrice";
   register: ReturnType<typeof useForm<ItemFormValues>>["register"];
   watch: ReturnType<typeof useForm<ItemFormValues>>["watch"];
   setValue: ReturnType<typeof useForm<ItemFormValues>>["setValue"];

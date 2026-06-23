@@ -9,6 +9,7 @@ import {
   useWidgetI18n,
 } from "./widget-i18n";
 import { UspIcon } from "./usp-icons";
+import { unitLabel } from "@/lib/bookings/price";
 import type { Translator } from "@/lib/widget/i18n";
 import type { WidgetUsp } from "@/lib/widget/theme";
 
@@ -23,9 +24,8 @@ interface ItemRow {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   cleaningFee: number | null;
 }
 
@@ -605,9 +605,8 @@ function FormStep({
         fixedItem={{
           id: item.id,
           name: item.name,
-          pricePerHour: item.pricePerHour,
-          pricePerDay: item.pricePerDay,
-          pricePerWeek: item.pricePerWeek,
+          pricePerUnit: item.pricePerUnit,
+          bookingIntervalMinutes: item.bookingIntervalMinutes,
           cleaningFee: item.cleaningFee,
         }}
         addons={addons}
@@ -618,9 +617,11 @@ function FormStep({
 }
 
 function priceLabelShort(item: ItemRow, t: Translator): string {
-  if (item.pricePerDay)
-    return t("price.perDay", { price: item.pricePerDay.toFixed(0) });
-  if (item.pricePerHour)
-    return t("price.perHour", { price: item.pricePerHour.toFixed(0) });
-  return t("price.onRequest");
+  if (item.pricePerUnit == null) return t("price.onRequest");
+  const price = item.pricePerUnit.toFixed(0);
+  // Dag en uur hebben gelokaliseerde labels; overige eenheden (week, 15 min,
+  // …) krijgen een generiek "/ <eenheid>".
+  if (item.bookingIntervalMinutes === 1440) return t("price.perDay", { price });
+  if (item.bookingIntervalMinutes === 60) return t("price.perHour", { price });
+  return `€ ${price} / ${unitLabel(item.bookingIntervalMinutes)}`;
 }

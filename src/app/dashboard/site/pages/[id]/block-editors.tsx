@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
+import { unitLabel } from "@/lib/bookings/price";
 // Plus and Trash2 are referenced by the new gallery + faq editors below
 import {
   BLOCK_DESCRIPTIONS,
@@ -53,9 +54,8 @@ type ItemRef = {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   deposit: number | null;
   categoryName: string;
 };
@@ -734,8 +734,11 @@ export function BlockEditor({
                         <p className="truncate text-xs font-medium">{it.name}</p>
                         <p className="truncate text-[10px] text-muted-foreground">
                           {it.categoryName}
-                          {it.pricePerDay !== null && (
-                            <> · €{it.pricePerDay.toFixed(2)} / dag</>
+                          {it.pricePerUnit !== null && (
+                            <>
+                              {" "}· €{it.pricePerUnit.toFixed(2)} /{" "}
+                              {unitLabel(it.bookingIntervalMinutes)}
+                            </>
                           )}
                         </p>
                       </div>

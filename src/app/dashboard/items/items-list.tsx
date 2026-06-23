@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { unitLabel } from "@/lib/bookings/price";
 
 interface Item {
   id: string;
@@ -19,8 +20,8 @@ interface Item {
   description: string | null;
   imageUrl: string | null;
   category: string;
-  pricePerDay: string | null;
-  pricePerHour: string | null;
+  pricePerUnit: string | null;
+  bookingIntervalMinutes: number;
   quantity: number;
   isActive: boolean;
   isAddon: boolean;
@@ -178,24 +179,18 @@ export function ItemsList({
                       <span className="text-muted-foreground">/ stuk</span>
                     </span>
                   )}
-                  {!item.isAddon && item.pricePerDay && (
+                  {!item.isAddon && item.pricePerUnit && (
                     <span>
                       <span className="font-semibold text-foreground tabular-nums">
-                        € {Number(item.pricePerDay).toFixed(2)}
+                        € {Number(item.pricePerUnit).toFixed(2)}
                       </span>{" "}
-                      <span className="text-muted-foreground">/ dag</span>
-                    </span>
-                  )}
-                  {!item.isAddon && !item.pricePerDay && item.pricePerHour && (
-                    <span>
-                      <span className="font-semibold text-foreground tabular-nums">
-                        € {Number(item.pricePerHour).toFixed(2)}
-                      </span>{" "}
-                      <span className="text-muted-foreground">/ uur</span>
+                      <span className="text-muted-foreground">
+                        / {unitLabel(item.bookingIntervalMinutes)}
+                      </span>
                     </span>
                   )}
                   {((item.isAddon && !item.addonPrice) ||
-                    (!item.isAddon && !item.pricePerDay && !item.pricePerHour)) && (
+                    (!item.isAddon && !item.pricePerUnit)) && (
                     <span className="text-muted-foreground">Geen prijs ingesteld</span>
                   )}
                 </div>

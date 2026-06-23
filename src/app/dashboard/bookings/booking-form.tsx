@@ -32,6 +32,7 @@ import {
 import {
   sumAddons,
   addonAppliesToCategory,
+  estimateRentalSubtotal,
   type BookingAddonLine,
 } from "@/lib/bookings/price";
 import type { AddonOption } from "@/lib/tenants/queries";
@@ -49,9 +50,8 @@ interface ItemOpt {
   categoryName: string;
   /** Categorie + evt. parent — voor add-on-matching. */
   categoryIds?: string[];
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   cleaningFee: number | null;
 }
 
@@ -250,30 +250,20 @@ export function BookingForm({
   // item-subtotaal (net als de extra's), dus tonen we ze hier ook apart.
   const cleaningFee = selectedItem?.cleaningFee ?? 0;
 
-  // Calculate suggested price from duration
+  // Prijs-suggestie op basis van duur — zelfde gedeelde formule als de
+  // publieke widget en de server, zodat de bedragen exact matchen.
   const computeSuggestion = () => {
     if (!selectedItem || !startAt || !endAt) return null;
     const start = new Date(String(startAt));
     const end = new Date(String(endAt));
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null;
 
-    const ms = end.getTime() - start.getTime();
-    const hours = ms / (1000 * 60 * 60);
-    const days = ms / (1000 * 60 * 60 * 24);
-
-    if (days >= 7 && selectedItem.pricePerWeek) {
-      return Math.round(Math.ceil(days / 7) * selectedItem.pricePerWeek * 100) / 100;
-    }
-    if (days >= 1 && selectedItem.pricePerDay) {
-      return Math.round(Math.ceil(days) * selectedItem.pricePerDay * 100) / 100;
-    }
-    if (selectedItem.pricePerHour) {
-      return Math.round(Math.ceil(hours) * selectedItem.pricePerHour * 100) / 100;
-    }
-    if (selectedItem.pricePerDay) {
-      return Math.round(Math.ceil(days) * selectedItem.pricePerDay * 100) / 100;
-    }
-    return null;
+    return estimateRentalSubtotal({
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+      pricePerUnit: selectedItem.pricePerUnit,
+      bookingIntervalMinutes: selectedItem.bookingIntervalMinutes,
+    });
   };
 
   // totalPrice = alleen het item-subtotaal (prijs × duur). Live herberekend

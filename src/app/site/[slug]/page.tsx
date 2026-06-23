@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog, searchTenantItems } from "@/lib/tenants/queries";
+import { unitLabel } from "@/lib/bookings/price";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { TenantSearch } from "@/components/tenants/TenantSearch";
 import { getPublishedPage } from "@/lib/pages/queries";
@@ -38,9 +39,8 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
     name: string;
     description: string | null;
     imageUrl: string | null;
-    pricePerHour: import("@prisma/client").Prisma.Decimal | null;
-    pricePerDay: import("@prisma/client").Prisma.Decimal | null;
-    pricePerWeek: import("@prisma/client").Prisma.Decimal | null;
+    pricePerUnit: import("@prisma/client").Prisma.Decimal | null;
+    bookingIntervalMinutes: number;
     categoryName: string;
   }[];
 
@@ -51,9 +51,8 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
       name: m.name,
       description: m.description,
       imageUrl: m.imageUrl,
-      pricePerHour: m.pricePerHour,
-      pricePerDay: m.pricePerDay,
-      pricePerWeek: m.pricePerWeek,
+      pricePerUnit: m.pricePerUnit,
+      bookingIntervalMinutes: m.bookingIntervalMinutes,
       categoryName: m.category.name,
     }));
   } else {
@@ -250,25 +249,21 @@ function PriceLabel({
   accent,
 }: {
   item: {
-    pricePerHour: import("@prisma/client").Prisma.Decimal | null;
-    pricePerDay: import("@prisma/client").Prisma.Decimal | null;
-    pricePerWeek: import("@prisma/client").Prisma.Decimal | null;
+    pricePerUnit: import("@prisma/client").Prisma.Decimal | null;
+    bookingIntervalMinutes: number;
   };
   accent: string;
 }) {
-  const candidates: { label: string; value: number | null }[] = [
-    { label: "/ dag", value: item.pricePerDay ? Number(item.pricePerDay) : null },
-    { label: "/ uur", value: item.pricePerHour ? Number(item.pricePerHour) : null },
-    { label: "/ week", value: item.pricePerWeek ? Number(item.pricePerWeek) : null },
-  ];
-  const best = candidates.find((c) => c.value !== null);
-  if (!best) {
+  const value = item.pricePerUnit ? Number(item.pricePerUnit) : null;
+  if (value == null) {
     return <span className="text-xs text-muted-foreground">Op aanvraag</span>;
   }
   return (
     <span className="text-sm font-semibold tabular-nums" style={{ color: accent }}>
-      vanaf € {best.value?.toFixed(2)}{" "}
-      <span className="text-xs font-normal text-muted-foreground">{best.label}</span>
+      € {value.toFixed(2)}{" "}
+      <span className="text-xs font-normal text-muted-foreground">
+        / {unitLabel(item.bookingIntervalMinutes)}
+      </span>
     </span>
   );
 }

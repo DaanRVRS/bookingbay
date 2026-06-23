@@ -19,9 +19,8 @@ const itemBaseShape = {
   // Accepts both absolute URLs (https://…) and relative server paths
   // like /api/uploads/<orgId>/<file>.webp returned by uploadItemImageAction.
   imageUrl: z.string().max(2048).optional().or(z.literal("")).nullable(),
-  pricePerHour: decimal,
-  pricePerDay: decimal,
-  pricePerWeek: decimal,
+  // Eén prijs per verhuur-eenheid (de eenheid = bookingIntervalMinutes).
+  pricePerUnit: decimal,
   deposit: decimal,
   cleaningFee: decimal,
   // 0 is alleen toegestaan voor add-ons en betekent "voorraad n.v.t." —
@@ -34,12 +33,13 @@ const itemBaseShape = {
   addonPrice: decimal,
   // Categorieën waarbij deze add-on aangeboden wordt. Null/leeg = overal.
   addonCategoryIds: z.array(z.string().min(1)).nullable().optional(),
-  // Boek-slot configuratie. 1440 = per-dag (verbergt tijdkeuze in widget).
+  // Boek-slot configuratie én prijs-eenheid. 1440 = per-dag, 10080 = per-week
+  // (beide verbergen de tijdkeuze in de widget).
   bookingIntervalMinutes: z.coerce
     .number()
     .int()
     .min(5)
-    .max(1440)
+    .max(10080)
     .default(60),
   // Window-grenzen in minuten vanaf middernacht. 540 = 09:00, 1080 = 18:00.
   bookingWindowStartMin: z.coerce.number().int().min(0).max(1440).default(540),

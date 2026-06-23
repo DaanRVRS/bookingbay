@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ImageIcon } from "lucide-react";
 import { getOrgBySlug, getTenantItem } from "@/lib/tenants/queries";
+import { unitLabel } from "@/lib/bookings/price";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 
 interface PageProps {
@@ -62,10 +63,12 @@ export default async function ItemDetailPage({ params }: PageProps) {
             </p>
           )}
 
-          <div className="mt-7 grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-4">
-            <PriceTile label="Per uur" value={item.pricePerHour ? Number(item.pricePerHour) : null} accent={accent} />
-            <PriceTile label="Per dag" value={item.pricePerDay ? Number(item.pricePerDay) : null} accent={accent} />
-            <PriceTile label="Per week" value={item.pricePerWeek ? Number(item.pricePerWeek) : null} accent={accent} />
+          <div className="mt-7 grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4">
+            <PriceTile
+              label={`Prijs per ${unitLabel(item.bookingIntervalMinutes)}`}
+              value={item.pricePerUnit ? Number(item.pricePerUnit) : null}
+              accent={accent}
+            />
             <PriceTile label="Borg" value={item.deposit ? Number(item.deposit) : null} accent={accent} />
           </div>
 

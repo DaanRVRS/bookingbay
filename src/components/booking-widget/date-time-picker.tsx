@@ -6,6 +6,7 @@ import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { CalendarDays, Loader2 } from "lucide-react";
+import { isWholeDayUnit } from "@/lib/bookings/price";
 
 /**
  * Eén bron van waarheid voor datum + tijdvak-keuze. Wordt zowel in de
@@ -140,7 +141,7 @@ export function DateTimePicker({
         setIntervals(merged);
         // Per-dag items: tijden impliciet de hele dag — anders niets
         // vooraf selecteren, klant kiest zelf.
-        if (res.bookingIntervalMinutes === 1440) {
+        if (isWholeDayUnit(res.bookingIntervalMinutes)) {
           if (value.startTime !== "00:00" || value.endTime !== "23:59") {
             onChange({ ...value, startTime: "00:00", endTime: "23:59" });
           }
@@ -250,7 +251,7 @@ export function DateTimePicker({
       </div>
 
       {/* Tijdvak-grid (één grid, klik = start, 2e klik = eind) */}
-      {slotConfig.intervalMinutes !== 1440 && (
+      {!isWholeDayUnit(slotConfig.intervalMinutes) && (
         <div className="mt-4">
           <TimeRangeGrid
             startTime={value.startTime}

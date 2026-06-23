@@ -1,15 +1,15 @@
 import { ImageIcon } from "lucide-react";
 import Link from "next/link";
 import type { PriceTableBlock } from "@/lib/pages/blocks";
+import { unitLabel } from "@/lib/bookings/price";
 
 export interface PriceTableItem {
   id: string;
   name: string;
   description: string | null;
   imageUrl: string | null;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
   deposit: number | null;
   categoryName: string;
 }
@@ -17,6 +17,12 @@ export interface PriceTableItem {
 function formatPrice(v: number | null) {
   if (v === null || Number.isNaN(v)) return "—";
   return `€${v.toFixed(2).replace(".", ",")}`;
+}
+
+/** "€12,50 / uur" — prijs met de eenheid van dit item. */
+function formatUnitPrice(it: PriceTableItem) {
+  if (it.pricePerUnit === null || Number.isNaN(it.pricePerUnit)) return "—";
+  return `${formatPrice(it.pricePerUnit)} / ${unitLabel(it.bookingIntervalMinutes)}`;
 }
 
 export function PriceTableBlockView({
@@ -32,14 +38,13 @@ export function PriceTableBlockView({
   contactBasePath?: string;
 }) {
   const items = resolvedItems ?? [];
+  // Eén prijs per item nu: de drie oude tarief-kolommen vouwen samen tot één
+  // "Prijs"-kolom (zichtbaar als de tenant minstens één tarief aan had staan).
   const showCols = {
-    hour: block.showHour,
-    day: block.showDay,
-    week: block.showWeek,
+    price: block.showHour || block.showDay || block.showWeek,
     deposit: block.showDeposit,
   };
-  const hasAnyCol =
-    showCols.hour || showCols.day || showCols.week || showCols.deposit;
+  const hasAnyCol = showCols.price || showCols.deposit;
 
   return (
     <section className="border-b border-border py-12 sm:py-16">
@@ -87,9 +92,7 @@ export function PriceTableBlockView({
 }
 
 interface ColFlags {
-  hour: boolean;
-  day: boolean;
-  week: boolean;
+  price: boolean;
   deposit: boolean;
 }
 
@@ -114,14 +117,8 @@ function TableLayout({
         <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left font-semibold">Item</th>
-            {showCols.hour && (
-              <th className="px-4 py-3 text-right font-semibold">Per uur</th>
-            )}
-            {showCols.day && (
-              <th className="px-4 py-3 text-right font-semibold">Per dag</th>
-            )}
-            {showCols.week && (
-              <th className="px-4 py-3 text-right font-semibold">Per week</th>
+            {showCols.price && (
+              <th className="px-4 py-3 text-right font-semibold">Prijs</th>
             )}
             {showCols.deposit && (
               <th className="px-4 py-3 text-right font-semibold">Borg</th>
@@ -163,19 +160,9 @@ function TableLayout({
                   </div>
                 </Link>
               </td>
-              {showCols.hour && (
+              {showCols.price && (
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {formatPrice(it.pricePerHour)}
-                </td>
-              )}
-              {showCols.day && (
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {formatPrice(it.pricePerDay)}
-                </td>
-              )}
-              {showCols.week && (
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {formatPrice(it.pricePerWeek)}
+                  {formatUnitPrice(it)}
                 </td>
               )}
               {showCols.deposit && (
@@ -261,24 +248,10 @@ function CardsLayout({
                 </Link>
               </div>
               <dl className="grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-2 text-xs">
-                {showCols.hour && (
+                {showCols.price && (
                   <PriceCell
-                    label="Per uur"
-                    value={formatPrice(it.pricePerHour)}
-                    accent={accent}
-                  />
-                )}
-                {showCols.day && (
-                  <PriceCell
-                    label="Per dag"
-                    value={formatPrice(it.pricePerDay)}
-                    accent={accent}
-                  />
-                )}
-                {showCols.week && (
-                  <PriceCell
-                    label="Per week"
-                    value={formatPrice(it.pricePerWeek)}
+                    label="Prijs"
+                    value={formatUnitPrice(it)}
                     accent={accent}
                   />
                 )}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { db } from "@/lib/db";
 import type { SliderBlock } from "@/lib/pages/blocks";
+import { unitLabel } from "@/lib/bookings/price";
 
 type CardItem = {
   href: string;
@@ -45,12 +46,14 @@ async function loadCards(
       name: true,
       description: true,
       imageUrl: true,
-      pricePerDay: true,
-      pricePerHour: true,
+      pricePerUnit: true,
+      bookingIntervalMinutes: true,
     },
   });
   return items.map((i) => {
-    const price = i.pricePerDay ? `€ ${Number(i.pricePerDay).toFixed(2)} / dag` : null;
+    const price = i.pricePerUnit
+      ? `€ ${Number(i.pricePerUnit).toFixed(2)} / ${unitLabel(i.bookingIntervalMinutes)}`
+      : null;
     return {
       href: `/item/${i.id}`,
       title: i.name,

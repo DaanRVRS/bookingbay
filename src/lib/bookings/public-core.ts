@@ -15,6 +15,7 @@ import {
   estimateRentalSubtotal,
   sumAddons,
   addonAppliesToCategory,
+  isWholeDayUnit,
   type BookingAddonLine,
 } from "./price";
 import { sendBookingConfirmationMail } from "@/lib/portal/confirmation-mail";
@@ -79,9 +80,8 @@ export async function createPublicBooking(
       quantity: true,
       categoryId: true,
       category: { select: { parentId: true } },
-      pricePerHour: true,
-      pricePerDay: true,
-      pricePerWeek: true,
+      pricePerUnit: true,
+      bookingIntervalMinutes: true,
       cleaningFee: true,
     },
   });
@@ -146,9 +146,8 @@ export async function createPublicBooking(
     estimateRentalSubtotal({
       startMs: startAt.getTime(),
       endMs: endAt.getTime(),
-      pricePerHour: item.pricePerHour ? Number(item.pricePerHour) : null,
-      pricePerDay: item.pricePerDay ? Number(item.pricePerDay) : null,
-      pricePerWeek: item.pricePerWeek ? Number(item.pricePerWeek) : null,
+      pricePerUnit: item.pricePerUnit ? Number(item.pricePerUnit) : null,
+      bookingIntervalMinutes: item.bookingIntervalMinutes,
     }) ?? 0;
   let estimate = subtotal;
 
@@ -466,9 +465,10 @@ export async function getItemAvailability(
   // het item (bookingWindowStartMin..EndMin), niet over de hele 24u.
   // Anders telt vrije tijd buiten openingstijden mee en wordt een dag
   // waarvan het hele venster vol zit nooit als "Vol" gemarkeerd.
-  const isPerDay = item.bookingIntervalMinutes === 1440;
-  const winStartMin = isPerDay ? 0 : item.bookingWindowStartMin;
-  const winEndMin = isPerDay ? 1440 : item.bookingWindowEndMin;
+  // Dag- én week-eenheden gebruiken het volledige etmaal als venster.
+  const isWholeDay = isWholeDayUnit(item.bookingIntervalMinutes);
+  const winStartMin = isWholeDay ? 0 : item.bookingWindowStartMin;
+  const winEndMin = isWholeDay ? 1440 : item.bookingWindowEndMin;
 
   while (cursor < toDate) {
     const dayStart = cursor.getTime();

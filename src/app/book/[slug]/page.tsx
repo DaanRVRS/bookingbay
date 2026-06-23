@@ -37,9 +37,8 @@ function buildBuckets(
       name: string;
       description: string | null;
       imageUrl: string | null;
-      pricePerHour: number | null;
-      pricePerDay: number | null;
-      pricePerWeek: number | null;
+      pricePerUnit: number | null;
+      bookingIntervalMinutes: number;
       cleaningFee: number | null;
     }[];
   }[] = [];
@@ -54,9 +53,8 @@ function buildBuckets(
           name: i.name,
           description: i.description,
           imageUrl: i.imageUrl,
-          pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
-          pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
-          pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
+          pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
+          bookingIntervalMinutes: i.bookingIntervalMinutes,
           cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
         })),
       });
@@ -72,9 +70,8 @@ function buildBuckets(
             name: i.name,
             description: i.description,
             imageUrl: i.imageUrl,
-            pricePerHour: i.pricePerHour ? Number(i.pricePerHour) : null,
-            pricePerDay: i.pricePerDay ? Number(i.pricePerDay) : null,
-            pricePerWeek: i.pricePerWeek ? Number(i.pricePerWeek) : null,
+            pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
+            bookingIntervalMinutes: i.bookingIntervalMinutes,
             cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
           })),
         });

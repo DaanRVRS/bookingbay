@@ -17,6 +17,12 @@ interface Props {
    * Wordt overschreven voor item-overrides.
    */
   toggleLabel?: string;
+  /**
+   * Verberg de ingebouwde aan/uit-toggle — de parent stuurt dan zelf of de
+   * editor getoond wordt (bijv. via een aparte keuze). Rijen worden getoond
+   * zolang `value` niet null is.
+   */
+  hideToggle?: boolean;
 }
 
 export function BusinessHoursEditor({
@@ -24,6 +30,7 @@ export function BusinessHoursEditor({
   onChange,
   compact = false,
   toggleLabel = "Openingstijden actief",
+  hideToggle = false,
 }: Props) {
   const [draft, setDraft] = useState<BusinessHours>(
     value ?? defaultBusinessHours(),
@@ -48,26 +55,28 @@ export function BusinessHoursEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className={compact ? "text-xs font-medium" : "text-sm font-medium"}>
-          {toggleLabel}
-        </span>
-        <button
-          type="button"
-          onClick={onToggle}
-          className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-            enabled ? "bg-primary" : "bg-muted"
-          }`}
-          aria-pressed={enabled}
-          aria-label={enabled ? "Uitzetten" : "Aanzetten"}
-        >
-          <span
-            className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0.5"
+      {!hideToggle && (
+        <div className="flex items-center justify-between">
+          <span className={compact ? "text-xs font-medium" : "text-sm font-medium"}>
+            {toggleLabel}
+          </span>
+          <button
+            type="button"
+            onClick={onToggle}
+            className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              enabled ? "bg-primary" : "bg-muted"
             }`}
-          />
-        </button>
-      </div>
+            aria-pressed={enabled}
+            aria-label={enabled ? "Uitzetten" : "Aanzetten"}
+          >
+            <span
+              className={`inline-block size-4 transform rounded-full bg-background shadow transition-transform ${
+                enabled ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      )}
 
       {enabled && (
         <ul className="flex flex-col divide-y divide-border rounded-md border border-border">

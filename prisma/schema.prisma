@@ -355,9 +355,9 @@ model Item {
   description    String?
   imageUrl       String?
 
-  pricePerHour Decimal? @db.Decimal(10, 2)
-  pricePerDay  Decimal? @db.Decimal(10, 2)
-  pricePerWeek Decimal? @db.Decimal(10, 2)
+  // Prijs per verhuur-eenheid. De eenheid = bookingIntervalMinutes (per
+  // uur/dag/week/15 min). Totaal = ceil(duur / interval) × pricePerUnit.
+  pricePerUnit Decimal? @db.Decimal(10, 2)
   deposit      Decimal? @db.Decimal(10, 2)
   // Vaste schoonmaak-fee per boeking. Null/0 = uit; >0 = bedrag wordt
   // bovenop de tijd-tariefs opgeteld in createPublicBooking en als
@@ -379,9 +379,10 @@ model Item {
   // voor subcategorie "Motorboten").
   addonCategoryIds Json?
 
-  // Boek-slot configuratie. Bezoekers in de publieke widget zien start-
-  // en eindtijden als dropdowns met deze stapgrootte, binnen het window.
-  // 1440 = per-dag (geen tijdkeuze in widget).
+  // Boek-slot configuratie én prijs-eenheid. Bezoekers in de publieke widget
+  // zien start- en eindtijden als dropdowns met deze stapgrootte, binnen het
+  // window. 1440 = per-dag, 10080 = per-week (beide: geen tijdkeuze, alleen
+  // datums). pricePerUnit is de prijs per één van deze eenheden.
   bookingIntervalMinutes Int @default(60)
   bookingWindowStartMin  Int @default(540) // 09:00
   bookingWindowEndMin    Int @default(1080) // 18:00

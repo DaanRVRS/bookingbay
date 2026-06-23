@@ -6,13 +6,13 @@
  * is precies wat we hiermee voorkomen.
  *
  * Logica (gelijk aan de dashboard-boekingsvorm):
- *  - ≥ 7 dagen + weektarief → per begonnen week
- *  - ≥ 1 dag + dagtarief    → per begonnen dag
- *  - anders uurtarief       → per begonnen uur
- *  - fallback dagtarief     → per begonnen dag (bv. < 1 dag maar alleen dag-prijs)
+ *  - Eén prijs per verhuur-eenheid (pricePerUnit). De eenheid is het
+ *    bookingIntervalMinutes (15 min … per dag … per week).
+ *  - Subtotaal = ceil(duur in minuten / interval) × pricePerUnit, dus een
+ *    interval van 15 min rekent ook écht per 15 min (geen afronding naar uur).
  *
  * Retourneert het subtotaal (excl. schoonmaakkosten) of null wanneer het
- * item geen enkel bruikbaar tarief heeft.
+ * item geen prijs heeft.
  */
 /**
  * Eén gekozen add-on op een boeking. Snapshot van naam + stuksprijs op het
@@ -57,30 +57,60 @@ export function sumAddons(
 export function estimateRentalSubtotal(opts: {
   startMs: number;
   endMs: number;
-  pricePerHour: number | null;
-  pricePerDay: number | null;
-  pricePerWeek: number | null;
+  pricePerUnit: number | null;
+  bookingIntervalMinutes: number;
 }): number | null {
-  const { startMs, endMs, pricePerHour, pricePerDay, pricePerWeek } = opts;
+  const { startMs, endMs, pricePerUnit, bookingIntervalMinutes } = opts;
+  if (pricePerUnit == null || !(pricePerUnit >= 0)) return null;
   const ms = endMs - startMs;
   if (!(ms > 0)) return null;
 
-  const hours = ms / (1000 * 60 * 60);
-  const days = ms / (1000 * 60 * 60 * 24);
+  const interval = bookingIntervalMinutes > 0 ? bookingIntervalMinutes : 60;
+  const durationMinutes = ms / (1000 * 60);
+  const units = Math.ceil(durationMinutes / interval);
+  return Math.round(units * pricePerUnit * 100) / 100;
+}
 
-  const round2 = (n: number) => Math.round(n * 100) / 100;
+// ── Eenheid-labels (gedeeld door dashboard, widget en publieke site) ───────
 
-  if (days >= 7 && pricePerWeek) {
-    return round2(Math.ceil(days / 7) * pricePerWeek);
+/**
+ * Korte eenheidslabel voor een verhuur-interval, voor prijsweergave.
+ * 15→"15 min", 60→"uur", 1440→"dag", 10080→"week".
+ */
+export function unitLabel(intervalMinutes: number): string {
+  switch (intervalMinutes) {
+    case 15:
+      return "15 min";
+    case 30:
+      return "30 min";
+    case 60:
+      return "uur";
+    case 90:
+      return "1u30";
+    case 120:
+      return "2 uur";
+    case 240:
+      return "4 uur";
+    case 1440:
+      return "dag";
+    case 10080:
+      return "week";
+    default:
+      if (intervalMinutes % 1440 === 0) return `${intervalMinutes / 1440} dagen`;
+      if (intervalMinutes % 60 === 0) return `${intervalMinutes / 60} uur`;
+      return `${intervalMinutes} min`;
   }
-  if (days >= 1 && pricePerDay) {
-    return round2(Math.ceil(days) * pricePerDay);
-  }
-  if (pricePerHour) {
-    return round2(Math.ceil(hours) * pricePerHour);
-  }
-  if (pricePerDay) {
-    return round2(Math.ceil(days) * pricePerDay);
-  }
-  return null;
+}
+
+/** "per uur" / "per dag" / "per week" / "per 15 min". */
+export function perUnitLabel(intervalMinutes: number): string {
+  return `per ${unitLabel(intervalMinutes)}`;
+}
+
+/**
+ * Hele-dag-eenheid (per dag of per week): de widget toont dan geen tijdkeuze,
+ * de klant kiest alleen datums. Dag = 1440 min, week = 10080 min.
+ */
+export function isWholeDayUnit(intervalMinutes: number): boolean {
+  return intervalMinutes === 1440 || intervalMinutes === 10080;
 }
