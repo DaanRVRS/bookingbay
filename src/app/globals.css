@@ -312,6 +312,16 @@
 .rdp-bb .rdp-bb-unavailable .rdp-day_button:hover {
   background: oklch(0.92 0.06 25 / 0.50);
 }
+/* Gesloten (organisatie dicht op deze weekdag) — neutraal grijs, geen
+   doorhaling: het is geen "vol" maar simpelweg niet open. */
+.rdp-bb .rdp-bb-closed .rdp-day_button {
+  background: oklch(0.92 0 0 / 0.6);
+  color: oklch(0.5 0 0);
+  cursor: not-allowed;
+}
+.rdp-bb .rdp-bb-closed .rdp-day_button:hover {
+  background: oklch(0.92 0 0 / 0.6);
+}
 
 /* ----------------------------------------------------------------------
  * Succes-vinkje animatie (boeking-bevestiging "Aanvraag verstuurd").

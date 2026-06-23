@@ -400,18 +400,31 @@ export function PublicBookingForm({
   // nooit een dag groen kan tonen terwijl alle tijdsloten dichtzitten — de
   // tegenstrijdigheid die "dag beschikbaar maar geen slot kiesbaar" gaf.
   // Per-dag items (geen slot-grid) blijven de server-dagberekening volgen.
-  const derivedUnavailable = useMemo(() => {
-    if (isWholeDayUnit(slotConfig.intervalMinutes)) return unavailableDates;
-    const out = new Set<string>();
+  // Splits "vol" (venster open maar alles bezet) van "gesloten" (org dicht op
+  // die weekdag, of geen bruikbaar venster). Beide niet boekbaar, maar de
+  // kalender toont ze met een eigen kleur/label. Per-dag items kennen geen
+  // openingstijden → volg de server, niets "gesloten".
+  const { closed: derivedClosed, unavailable: derivedUnavailable } = useMemo(() => {
+    if (isWholeDayUnit(slotConfig.intervalMinutes)) {
+      return { closed: new Set<string>(), unavailable: unavailableDates };
+    }
+    const closed = new Set<string>();
+    const unavailable = new Set<string>();
+    const interval = slotConfig.intervalMinutes;
     const start = new Date(today);
     for (let i = 0; i <= lookaheadDays; i++) {
       const day = new Date(start);
       day.setDate(day.getDate() + i);
-      if (!dayHasFreeSlot(day, slotConfig, bookings, itemQuantity)) {
-        out.add(dateKey(day));
+      const key = dateKey(day);
+      const w = windowForDay(day, slotConfig);
+      if (!w || w.endMin - w.startMin < interval) {
+        closed.add(key);
+        unavailable.add(key);
+      } else if (!dayHasFreeSlot(day, slotConfig, bookings, itemQuantity)) {
+        unavailable.add(key);
       }
     }
-    return out;
+    return { closed, unavailable };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotConfig, bookings, itemQuantity, today.getTime(), lookaheadDays, unavailableDates]);
 
@@ -703,6 +716,12 @@ export function PublicBookingForm({
   // gebruik die zodat kalender en grid altijd hetzelfde zeggen.
   const isUnavailable = (date: Date) =>
     derivedUnavailable.has(dateKey(date));
+  const isClosed = (date: Date) => derivedClosed.has(dateKey(date));
+  // "Vol" = wél onbeschikbaar, maar niet gesloten (venster open, alles bezet).
+  const isFull = (date: Date) => {
+    const k = dateKey(date);
+    return derivedUnavailable.has(k) && !derivedClosed.has(k);
+  };
 
   const isAvailable = (date: Date) => {
     if (date < today) return false;
@@ -787,11 +806,13 @@ export function PublicBookingForm({
               disabled={[{ before: today }, isUnavailable]}
               modifiers={{
                 bbAvailable: isAvailable,
-                bbUnavailable: isUnavailable,
+                bbUnavailable: isFull,
+                bbClosed: isClosed,
               }}
               modifiersClassNames={{
                 bbAvailable: "rdp-bb-available",
                 bbUnavailable: "rdp-bb-unavailable",
+                bbClosed: "rdp-bb-closed",
               }}
               showOutsideDays
               className="rdp-bb w-full"
@@ -806,6 +827,12 @@ export function PublicBookingForm({
               <span className="size-2 rounded-sm bg-[oklch(0.72_0.16_25)]" />
               {t("cal.full")}
             </span>
+            {derivedClosed.size > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-2 rounded-sm bg-[oklch(0.7_0_0)]" />
+                {t("cal.closed")}
+              </span>
+            )}
             {availabilityLoading && (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="size-2.5 animate-spin" />

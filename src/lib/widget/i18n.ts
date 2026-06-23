@@ -116,6 +116,7 @@ export type TKey =
   | "chip.pickDay"
   | "cal.available"
   | "cal.full"
+  | "cal.closed"
   | "cal.loading"
   | "slot.start"
   | "slot.end"
@@ -197,6 +198,7 @@ const NL: Dict = {
   "chip.pickDay": "Kies een dag",
   "cal.available": "Beschikbaar",
   "cal.full": "Vol",
+  "cal.closed": "Gesloten",
   "cal.loading": "laden",
   "slot.start": "Starttijd",
   "slot.end": "Eindtijd",
@@ -276,6 +278,7 @@ const EN: Dict = {
   "chip.pickDay": "Pick a day",
   "cal.available": "Available",
   "cal.full": "Full",
+  "cal.closed": "Closed",
   "cal.loading": "loading",
   "slot.start": "Start time",
   "slot.end": "End time",
@@ -355,6 +358,7 @@ const FR: Dict = {
   "chip.pickDay": "Choisir un jour",
   "cal.available": "Disponible",
   "cal.full": "Complet",
+  "cal.closed": "Fermé",
   "cal.loading": "chargement",
   "slot.start": "Heure de début",
   "slot.end": "Heure de fin",
@@ -435,6 +439,7 @@ const DE: Dict = {
   "chip.pickDay": "Tag wählen",
   "cal.available": "Verfügbar",
   "cal.full": "Belegt",
+  "cal.closed": "Geschlossen",
   "cal.loading": "lädt",
   "slot.start": "Startzeit",
   "slot.end": "Endzeit",
@@ -514,6 +519,7 @@ const ES: Dict = {
   "chip.pickDay": "Elige un día",
   "cal.available": "Disponible",
   "cal.full": "Completo",
+  "cal.closed": "Cerrado",
   "cal.loading": "cargando",
   "slot.start": "Hora de inicio",
   "slot.end": "Hora de fin",
@@ -593,6 +599,7 @@ const IT: Dict = {
   "chip.pickDay": "Scegli un giorno",
   "cal.available": "Disponibile",
   "cal.full": "Pieno",
+  "cal.closed": "Chiuso",
   "cal.loading": "caricamento",
   "slot.start": "Ora di inizio",
   "slot.end": "Ora di fine",
@@ -672,6 +679,7 @@ const RU: Dict = {
   "chip.pickDay": "Выберите день",
   "cal.available": "Свободно",
   "cal.full": "Занято",
+  "cal.closed": "Закрыто",
   "cal.loading": "загрузка",
   "slot.start": "Время начала",
   "slot.end": "Время окончания",
@@ -751,6 +759,7 @@ const UK: Dict = {
   "chip.pickDay": "Оберіть день",
   "cal.available": "Вільно",
   "cal.full": "Зайнято",
+  "cal.closed": "Зачинено",
   "cal.loading": "завантаження",
   "slot.start": "Час початку",
   "slot.end": "Час завершення",
@@ -830,6 +839,7 @@ const PL: Dict = {
   "chip.pickDay": "Wybierz dzień",
   "cal.available": "Dostępne",
   "cal.full": "Zajęte",
+  "cal.closed": "Zamknięte",
   "cal.loading": "ładowanie",
   "slot.start": "Godzina rozpoczęcia",
   "slot.end": "Godzina zakończenia",
@@ -909,6 +919,7 @@ const TR: Dict = {
   "chip.pickDay": "Bir gün seçin",
   "cal.available": "Müsait",
   "cal.full": "Dolu",
+  "cal.closed": "Kapalı",
   "cal.loading": "yükleniyor",
   "slot.start": "Başlangıç saati",
   "slot.end": "Bitiş saati",
