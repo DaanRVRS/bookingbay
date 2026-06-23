@@ -282,13 +282,13 @@ function ToggleSwitch({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${
+      className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors ${
         checked ? "bg-[oklch(0.7_0.16_60)]" : "bg-muted"
       }`}
     >
       <span
-        className={`absolute top-0.5 size-4 rounded-full bg-background shadow-sm transition-transform ${
-          checked ? "translate-x-[18px]" : "translate-x-0.5"
+        className={`size-4 rounded-full bg-background shadow-sm transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0"
         }`}
       />
     </button>

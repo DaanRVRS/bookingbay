@@ -312,3 +312,44 @@
 .rdp-bb .rdp-bb-unavailable .rdp-day_button:hover {
   background: oklch(0.92 0.06 25 / 0.50);
 }
+
+/* ----------------------------------------------------------------------
+ * Succes-vinkje animatie (boeking-bevestiging "Aanvraag verstuurd").
+ * De cirkel popt in met een spring, daarna tekent het vinkje zich in.
+ * ---------------------------------------------------------------------- */
+@keyframes bb-success-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes bb-success-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.bb-success-pop {
+  animation: bb-success-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.bb-success-check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bb-success-draw 0.4s 0.28s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-success-pop {
+    animation: none;
+  }
+  .bb-success-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

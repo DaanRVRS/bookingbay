@@ -10,7 +10,6 @@ import { useWidgetI18n } from "./widget-i18n";
 import {
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
   CreditCard,
   Loader2,
   MapPin,
@@ -519,14 +518,25 @@ export function PublicBookingForm({
         />
         <div className="relative">
           <span
-            className="mx-auto grid size-16 place-items-center rounded-full shadow-lg"
+            className="bb-success-pop mx-auto grid size-16 place-items-center rounded-full shadow-lg"
             style={{
               background: accent,
               color: ON_ACCENT,
               boxShadow: `0 8px 24px -6px ${accent}80`,
             }}
           >
-            <CheckCircle2 className="size-8" />
+            <svg
+              viewBox="0 0 24 24"
+              className="size-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M5 12.5l4.5 4.5L19 7" pathLength={1} className="bb-success-check" />
+            </svg>
           </span>
           <h3 className="mt-5 text-xl font-semibold tracking-tight">
             {t("done.title")}
