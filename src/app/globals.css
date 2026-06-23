@@ -226,10 +226,10 @@
  * the booking-widget aesthetic without fighting the default v9 layout.
  * ---------------------------------------------------------------------- */
 .rdp-bb {
-  --rdp-day-height: 2.25rem;
-  --rdp-day-width: 2.25rem;
-  --rdp-day_button-height: 2.25rem;
-  --rdp-day_button-width: 2.25rem;
+  --rdp-day-height: 2rem;
+  --rdp-day-width: 2rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-width: 2rem;
   --rdp-day_button-border-radius: 0.5rem;
   --rdp-selected-border: none;
   --rdp-range_middle-background-color: color-mix(

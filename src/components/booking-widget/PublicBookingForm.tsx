@@ -724,19 +724,23 @@ export function PublicBookingForm({
 
       {/* Wanneer — visible calendar */}
       <Section icon={CalendarDays} accent={accent} title={t("sec.when")}>
-        {/* Gekozen dag (één samenvatting-chip; één-dag boeking) */}
-        <div className="mb-3 rounded-lg border border-border bg-muted/30 p-2">
-          <DateChip
-            label={t("sec.when")}
-            date={displayDate}
-            time={
-              startTime && endTime ? `${startTime} — ${endTime}` : startTime
-            }
-            placeholder={t("chip.pickDay")}
-            accent={accent}
-            active={Boolean(displayDate)}
-          />
-        </div>
+        {/* Samenvatting van de gekozen dag/tijd — pas tonen ná een keuze. De
+            kalender hieronder is de eigenlijke input, dus een lege chip
+            bovenaan is enkel ruimte + verwarring (dubbelt met de kalender). */}
+        {displayDate && (
+          <div className="mb-3 rounded-lg border border-border bg-muted/30 p-2">
+            <DateChip
+              label={t("sec.when")}
+              date={displayDate}
+              time={
+                startTime && endTime ? `${startTime} — ${endTime}` : startTime
+              }
+              placeholder={t("chip.pickDay")}
+              accent={accent}
+              active={Boolean(displayDate)}
+            />
+          </div>
+        )}
 
         <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
           <div className="flex justify-center">
