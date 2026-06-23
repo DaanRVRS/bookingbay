@@ -240,6 +240,25 @@
   --rdp-range_middle-color: var(--foreground);
   --rdp-today-color: var(--rdp-accent-color, currentColor);
   font-size: 0.85rem;
+  width: 100%;
+}
+/* Volle breedte: maand-tabel + cellen rekken mee zodat de kalender de hele
+   kaart-breedte vult i.p.v. smal-gecentreerd (weg met de zij-witruimte; de
+   dag-knoppen vullen hun cel, dus minder hoog-ogend). */
+.rdp-bb .rdp-months,
+.rdp-bb .rdp-month,
+.rdp-bb .rdp-month_grid {
+  width: 100%;
+  max-width: none;
+}
+.rdp-bb .rdp-day,
+.rdp-bb .rdp-weekday {
+  width: 14.2857%;
+  max-width: none;
+}
+.rdp-bb .rdp-day_button {
+  width: 100%;
+  max-width: none;
 }
 .rdp-bb .rdp-day_button {
   font-weight: 500;

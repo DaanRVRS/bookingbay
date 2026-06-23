@@ -743,7 +743,7 @@ export function PublicBookingForm({
         )}
 
         <div className="rounded-xl border border-border bg-card p-2 sm:p-3">
-          <div className="flex justify-center">
+          <div className="w-full">
             <DayPicker
               mode="single"
               required={date !== undefined}
@@ -767,7 +767,7 @@ export function PublicBookingForm({
                 bbUnavailable: "rdp-bb-unavailable",
               }}
               showOutsideDays
-              className="rdp-bb"
+              className="rdp-bb w-full"
             />
           </div>
           <div className="mt-2 flex items-center justify-center gap-4 border-t border-border pt-2 text-[10px] font-medium text-muted-foreground">
