@@ -7,6 +7,8 @@ import {
   CalendarClock,
   CheckCircle2,
   CreditCard,
+  FileCode2,
+  FileText,
   Loader2,
   MapPin,
   Package,
@@ -242,14 +244,34 @@ export function BookingDetail({
             </span>
           )}
         </span>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
-        >
-          <Pencil className="size-4" />
-          Bewerken
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/exports/booking/${view.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open als PDF (print → opslaan als PDF)"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <FileText className="size-4" />
+            PDF
+          </a>
+          <a
+            href={`/api/dashboard/bookings/${view.id}/export?format=xml`}
+            title="Download als XML"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <FileCode2 className="size-4" />
+            XML
+          </a>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+          >
+            <Pencil className="size-4" />
+            Bewerken
+          </button>
+        </div>
       </div>
 
       {/* Wanneer — groot en duidelijk */}

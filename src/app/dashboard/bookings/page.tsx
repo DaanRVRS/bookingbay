@@ -4,8 +4,12 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/dashboard/PageHeader";
 import { EmptyState } from "@/components/dashboard/EmptyState";
-import { isDerivedKey } from "@/lib/bookings/status";
-import type { Prisma } from "@prisma/client";
+import {
+  buildBookingsWhere,
+  bookingSortOrder,
+  normalizeSort,
+  normalizeDir,
+} from "@/lib/bookings/list-query";
 import { BookingList } from "./booking-list";
 
 export const metadata = { title: "Boekingen" };
@@ -22,59 +26,19 @@ interface PageProps {
 
 const PAGE_SIZE = 20;
 
-/**
- * Twee velden × twee richtingen. "created" = reserveringsdatum (wanneer
- * geboekt) — standaard. "date" = boekingsdatum (de gereserveerde startdatum).
- * dir = "desc" (nieuwste eerst) of "asc" (oudste eerst).
- */
-function sortOrder(
-  sort: string | undefined,
-  dir: "asc" | "desc",
-): Prisma.BookingOrderByWithRelationInput {
-  return sort === "date" ? { startAt: dir } : { createdAt: dir };
-}
-
-/**
- * Vertaalt een afgeleide filter-key naar een Prisma-where op de DB-
- * status-enum (de eigenaar zet zelf "Op bezig" / "Op voltooid").
- */
-function derivedWhere(status: string | undefined): Prisma.BookingWhereInput {
-  if (!isDerivedKey(status)) return {};
-  switch (status) {
-    case "CANCELED":
-      return { status: "CANCELED" };
-    case "COMPLETED":
-      return { status: "COMPLETED" };
-    case "ACTIVE":
-      return { status: "IN_PROGRESS" };
-    case "RESERVED":
-      return { status: { in: ["PENDING", "CONFIRMED"] } };
-  }
-}
-
 export default async function BookingsPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const params = await searchParams;
   const status = params.status;
-  const sort = params.sort === "date" ? "date" : "created";
-  const dir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
+  const sort = normalizeSort(params.sort);
+  const dir = normalizeDir(params.dir);
   const search = (params.q ?? "").trim();
   const requestedPage = Math.max(
     1,
     Number.parseInt(params.page ?? "1", 10) || 1,
   );
 
-  const where: Prisma.BookingWhereInput = {
-    organizationId: ctx.organization.id,
-    ...derivedWhere(status),
-    ...(search && {
-      OR: [
-        { customer: { name: { contains: search, mode: "insensitive" } } },
-        { customer: { email: { contains: search, mode: "insensitive" } } },
-        { item: { name: { contains: search, mode: "insensitive" } } },
-      ],
-    }),
-  };
+  const where = buildBookingsWhere(ctx.organization.id, { status, q: search });
 
   const [filteredCount, totalCount, itemCount] = await Promise.all([
     db.booking.count({ where }),
@@ -93,7 +57,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       item: { select: { name: true } },
       customer: { select: { name: true } },
     },
-    orderBy: sortOrder(sort, dir),
+    orderBy: bookingSortOrder(sort, dir),
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });

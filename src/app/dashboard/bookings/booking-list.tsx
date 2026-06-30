@@ -18,6 +18,8 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  FileCode2,
+  FileText,
   Search,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -165,6 +167,21 @@ export function BookingList({
   const DirIcon =
     DIR_OPTIONS.find((o) => o.value === (currentDir ?? "desc"))?.icon;
 
+  // Export-links volgen exact de actieve filters (status/zoek/sortering),
+  // zodat de PDF/XML dezelfde selectie bevat als wat je op het scherm ziet.
+  const exportParams = new URLSearchParams();
+  if (currentStatus && currentStatus !== "__all__")
+    exportParams.set("status", currentStatus);
+  if (currentSearch) exportParams.set("q", currentSearch);
+  if (currentSort && currentSort !== "created")
+    exportParams.set("sort", currentSort);
+  if (currentDir && currentDir !== "desc") exportParams.set("dir", currentDir);
+  const exportQs = exportParams.toString();
+  const pdfHref = `/exports/bookings${exportQs ? `?${exportQs}` : ""}`;
+  const xmlHref = `/api/dashboard/bookings/export?${
+    exportQs ? `${exportQs}&` : ""
+  }format=xml`;
+
   return (
     <>
       <div className="relative mb-3 max-w-md">
@@ -242,6 +259,27 @@ export function BookingList({
             })}
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <a
+            href={pdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Exporteer deze selectie als PDF"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <FileText className="size-4" />
+            PDF
+          </a>
+          <a
+            href={xmlHref}
+            title="Exporteer deze selectie als XML"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <FileCode2 className="size-4" />
+            XML
+          </a>
+        </div>
       </div>
 
       <div className={`mt-5 overflow-hidden rounded-xl border border-border bg-card ${pending ? "opacity-60" : ""}`}>
