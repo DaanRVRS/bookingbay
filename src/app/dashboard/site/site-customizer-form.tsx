@@ -12,11 +12,20 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/auth/FormField";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { updateSiteAction } from "@/lib/orgs/site-actions";
 import {
   siteCustomizerSchema,
   EMPTY_SITE_THEME,
+  SITE_FONTS,
   type SiteCustomizerInput,
+  type SiteFontKey,
   type SiteTheme,
 } from "@/lib/orgs/site-schemas";
 
@@ -167,14 +176,43 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
         </div>
       </div>
 
-      {/* Kleuren per onderdeel */}
+      {/* Uiterlijk: lettertype + kleuren per onderdeel */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Kleuren per onderdeel</h2>
+        <h2 className="text-sm font-semibold">Uiterlijk</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Geef header, footer en pagina-achtergrond elk hun eigen kleur.
-          Leeg = het standaard thema. Losse blokken op je pagina&apos;s kleur
-          je in de page-builder (per blok een achtergrondkleur).
+          Kies een lettertype en geef header, footer en pagina-achtergrond elk
+          hun eigen kleur. Leeg = het standaard thema. Losse blokken op je
+          pagina&apos;s kleur je in de page-builder (per blok een
+          achtergrondkleur).
         </p>
+        <div className="mt-5">
+          <Label>Lettertype</Label>
+          <div className="mt-1.5">
+            <Select
+              items={SITE_FONTS.map((f) => ({ value: f.key, label: f.label }))}
+              value={theme.font}
+              onValueChange={(v) => {
+                if (v) {
+                  setValue("theme.font", v as SiteFontKey, {
+                    shouldValidate: false,
+                    shouldDirty: true,
+                  });
+                }
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-72">
+                <SelectValue placeholder="Kies een lettertype" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_FONTS.map((f) => (
+                  <SelectItem key={f.key} value={f.key}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <ThemeColorField
             label="Header-achtergrond"

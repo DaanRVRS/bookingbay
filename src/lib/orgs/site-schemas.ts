@@ -5,14 +5,37 @@ const hexOrEmpty = z
   .regex(/^#[0-9a-fA-F]{6}$/i, "Gebruik hex (bv. #ef5934)")
   .or(z.literal(""));
 
-// Kleuren per site-onderdeel. Leeg veld = standaard thema voor dat
-// onderdeel, dus tenants hoeven alleen in te vullen wat ze willen afwijken.
+// Lettertypes voor de klantsite. Keys matchen de next/font-instanties in
+// site/[slug]/layout.tsx — daar worden ze daadwerkelijk geladen.
+export const SITE_FONTS = [
+  { key: "jakarta", label: "Plus Jakarta Sans (standaard)" },
+  { key: "inter", label: "Inter" },
+  { key: "poppins", label: "Poppins" },
+  { key: "montserrat", label: "Montserrat" },
+  { key: "lora", label: "Lora (serif)" },
+  { key: "playfair", label: "Playfair Display (serif)" },
+] as const;
+
+export type SiteFontKey = (typeof SITE_FONTS)[number]["key"];
+
+const fontKeySchema = z.enum([
+  "jakarta",
+  "inter",
+  "poppins",
+  "montserrat",
+  "lora",
+  "playfair",
+]);
+
+// Kleuren + lettertype per site-onderdeel. Leeg veld = standaard thema voor
+// dat onderdeel, dus tenants hoeven alleen in te vullen wat ze willen afwijken.
 export const siteThemeSchema = z.object({
   headerBg: hexOrEmpty.default(""),
   headerText: hexOrEmpty.default(""),
   footerBg: hexOrEmpty.default(""),
   footerText: hexOrEmpty.default(""),
   pageBg: hexOrEmpty.default(""),
+  font: fontKeySchema.default("jakarta"),
 });
 
 export type SiteTheme = z.infer<typeof siteThemeSchema>;
@@ -23,7 +46,20 @@ export const EMPTY_SITE_THEME: SiteTheme = {
   footerBg: "",
   footerText: "",
   pageBg: "",
+  font: "jakarta",
 };
+
+/** Wijkt het thema ergens af van standaard? (bepaalt of we 'm opslaan) */
+export function siteThemeIsCustomized(theme: SiteTheme): boolean {
+  return (
+    theme.headerBg !== "" ||
+    theme.headerText !== "" ||
+    theme.footerBg !== "" ||
+    theme.footerText !== "" ||
+    theme.pageBg !== "" ||
+    theme.font !== "jakarta"
+  );
+}
 
 /** Onbekende/oude JSON-shapes veilig naar een SiteTheme — nooit throwen. */
 export function safeParseSiteTheme(value: unknown): SiteTheme {

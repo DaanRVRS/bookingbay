@@ -5,7 +5,11 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
-import { siteCustomizerSchema, type SiteCustomizerInput } from "./site-schemas";
+import {
+  siteCustomizerSchema,
+  siteThemeIsCustomized,
+  type SiteCustomizerInput,
+} from "./site-schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 
@@ -26,7 +30,7 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
   // Thema alleen opslaan als er echt iets afwijkt van standaard — anders
   // null, zodat "alles standaard" ook echt leeg in de DB staat.
   const theme = parsed.data.theme;
-  const themeHasValues = Object.values(theme).some((v) => v !== "");
+  const themeHasValues = siteThemeIsCustomized(theme);
 
   await db.organization.update({
     where: { id: ctx.organization.id },

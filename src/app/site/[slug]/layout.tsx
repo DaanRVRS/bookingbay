@@ -1,19 +1,60 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import {
+  Inter,
+  Lora,
+  Montserrat,
+  Playfair_Display,
+  Plus_Jakarta_Sans,
+  Poppins,
+} from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
-import { safeParseSiteTheme } from "@/lib/orgs/site-schemas";
+import { safeParseSiteTheme, type SiteFontKey } from "@/lib/orgs/site-schemas";
 import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
 import { TenantMobileNav } from "@/components/tenants/TenantMobileNav";
 
-const geist = Plus_Jakarta_Sans({
+// Alle kiesbare site-lettertypes. Ze zetten allemaal dezelfde CSS-var
+// (--font-geist-sans) waar font-sans/font-heading op draaien — welke er
+// werkelijk actief is bepaalt de tenant via siteTheme.font. next/font laadt
+// alleen het toegepaste font in de pagina.
+const fontJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-geist-sans",
   weight: ["400", "500", "600", "700", "800"],
 });
+const fontInter = Inter({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+const fontPoppins = Poppins({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+  weight: ["400", "500", "600", "700"],
+});
+const fontMontserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+const fontLora = Lora({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+const fontPlayfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
+
+const SITE_FONT_MAP: Record<SiteFontKey, { variable: string }> = {
+  jakarta: fontJakarta,
+  inter: fontInter,
+  poppins: fontPoppins,
+  montserrat: fontMontserrat,
+  lora: fontLora,
+  playfair: fontPlayfair,
+};
 
 export async function generateMetadata({
   params,
@@ -43,14 +84,15 @@ export default async function TenantLayout({
 
   // Per-org accent — fall back to BookingBay coral.
   const accent = org.primaryColor ?? "#ef5934";
-  // Eigen kleuren per onderdeel (header/footer/pagina). Leeg = standaard.
+  // Eigen kleuren + lettertype per onderdeel. Leeg = standaard.
   const theme = safeParseSiteTheme(org.siteTheme);
+  const siteFont = SITE_FONT_MAP[theme.font] ?? fontJakarta;
   const navPages = await getNavPages(org.id);
   const base = await getTenantBasePath(slug);
 
   return (
     <div
-      className={`${geist.variable} flex min-h-svh flex-col font-sans antialiased`}
+      className={`${siteFont.variable} flex min-h-svh flex-col font-sans antialiased`}
       style={{
         ["--tenant-accent" as string]: accent,
         ...(theme.pageBg ? { background: theme.pageBg } : {}),
@@ -186,15 +228,19 @@ export default async function TenantLayout({
                       </Link>
                     </li>
                   ))}
-                  <li>
-                    <Link
-                      href={tenantHref(base, "/contact")}
-                      className="hover:underline"
-                      style={theme.footerText ? { color: theme.footerText } : undefined}
-                    >
-                      Contact
-                    </Link>
-                  </li>
+                  {/* Alleen tonen als er geen éigen contact-pagina in de nav
+                      staat — anders staat "contact" er dubbel in. */}
+                  {!navPages.some((p) => p.slug === "contact") && (
+                    <li>
+                      <Link
+                        href={tenantHref(base, "/contact")}
+                        className="hover:underline"
+                        style={theme.footerText ? { color: theme.footerText } : undefined}
+                      >
+                        Contact
+                      </Link>
+                    </li>
+                  )}
                 </ul>
             </div>
 
