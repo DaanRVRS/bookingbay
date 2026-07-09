@@ -3,13 +3,21 @@ import { notFound } from "next/navigation";
 import { Mail, Phone } from "lucide-react";
 import { getOrgBySlug } from "@/lib/tenants/queries";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
+import { getPublishedPage } from "@/lib/pages/queries";
+import { PageRenderer } from "@/components/tenants/PageRenderer";
 import { ContactForm } from "./contact-form";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const metadata = { title: "Contact" };
+export async function generateMetadata({ params }: PageProps) {
+  const { slug } = await params;
+  const org = await getOrgBySlug(slug);
+  if (!org) return { title: "Contact" };
+  const custom = await getPublishedPage(org.id, "contact");
+  return { title: custom?.title ?? "Contact" };
+}
 
 export default async function ContactPage({ params }: PageProps) {
   const { slug } = await params;
@@ -18,6 +26,22 @@ export default async function ContactPage({ params }: PageProps) {
 
   const accent = org.primaryColor ?? "#ef5934";
   const base = await getTenantBasePath(slug);
+
+  // Deze statische route wint in Next altijd van de dynamische
+  // [pageSlug]-route — dus als de tenant een éigen "contact"-pagina in de
+  // site-builder heeft gepubliceerd, renderen we die hier. Geen eigen
+  // pagina = het standaard contactformulier hieronder.
+  const custom = await getPublishedPage(org.id, "contact");
+  if (custom && custom.blocks.length > 0) {
+    return (
+      <PageRenderer
+        blocks={custom.blocks}
+        organizationId={org.id}
+        accent={accent}
+        contactBasePath={base}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
