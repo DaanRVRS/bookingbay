@@ -2,8 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import type { Plan } from "@prisma/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   cancelSubscriptionAction,
   changePlanAction,
@@ -13,8 +22,8 @@ import {
 
 /**
  * Eén client-component voor alle billing-knoppen op de page (start checkout,
- * cancel, resume). Houdt UI-state lokaal en triggert server-actions met
- * useTransition zodat we 'n pending-spinner kunnen tonen.
+ * plan-wissel, cancel, resume). Bevestigingen via de eigen Dialog i.p.v. de
+ * kale browser-confirm().
  */
 export function StartCheckoutButton({
   label = "Start abonnement",
@@ -58,6 +67,86 @@ export function StartCheckoutButton({
 }
 
 /**
+ * Herbruikbare bevestigings-dialog voor billing-acties: nette titel,
+ * uitleg, optioneel prijsregel, en een expliciete bevestig-knop met
+ * pending-state. Fouten blijven ín de dialog staan zodat de gebruiker
+ * kan lezen wat er mis ging.
+ */
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  body,
+  priceLine,
+  confirmLabel,
+  destructive = false,
+  pending,
+  err,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  title: string;
+  body: string;
+  priceLine?: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  pending: boolean;
+  err: string | null;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{body}</DialogDescription>
+        </DialogHeader>
+        {priceLine && (
+          <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+            <span className="text-xs font-medium text-muted-foreground">
+              Nieuw maandbedrag
+            </span>
+            <span className="text-base font-semibold tabular-nums text-primary">
+              {priceLine}
+            </span>
+          </div>
+        )}
+        {err && (
+          <p className="flex items-start gap-1.5 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 size-3 shrink-0" />
+            {err}
+          </p>
+        )}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
+            Annuleren
+          </Button>
+          <Button
+            type="button"
+            variant={destructive ? "destructive" : "default"}
+            onClick={onConfirm}
+            disabled={pending}
+          >
+            {pending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <ArrowRight className="size-4" />
+            )}
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
  * Zelf wisselen van plan op de plan-kaarten. Upgrade werkt direct (bij een
  * actief abonnement met pro-rata verrekening van het verschil); downgrade
  * gaat in bij de volgende verlenging. Server-side geweigerd met uitleg als
@@ -79,21 +168,22 @@ export function ChangePlanButton({
   renewalLabel: string;
 }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
+  let body: string;
+  if (isUpgrade && hasActiveSub) {
+    body = `De nieuwe limieten en functies gelden direct. Het prijsverschil voor de rest van je huidige periode wordt automatisch via je betaalmethode verrekend; vanaf ${renewalLabel} betaal je het nieuwe maandbedrag.`;
+  } else if (!isUpgrade && hasActiveSub) {
+    body = `Je hebt al betaald voor je huidige periode, dus de wissel gaat in op ${renewalLabel}. Tot die tijd houd je je huidige plan, en je kunt de geplande wissel nog annuleren.`;
+  } else if (isUpgrade) {
+    body = "De nieuwe limieten en functies gelden direct.";
+  } else {
+    body = "Je houdt alles wat binnen dit plan past.";
+  }
+
   function go() {
-    let msg: string;
-    if (isUpgrade && hasActiveSub) {
-      msg = `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct. Het prijsverschil voor de rest van je huidige periode wordt automatisch via je betaalmethode verrekend; vanaf ${renewalLabel} betaal je het nieuwe maandbedrag.`;
-    } else if (!isUpgrade && hasActiveSub) {
-      msg = `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe hebt al betaald voor je huidige periode, dus de wissel gaat in op ${renewalLabel}. Tot die tijd houd je je huidige plan. Je kunt de geplande wissel tot dat moment annuleren.`;
-    } else if (isUpgrade) {
-      msg = `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct.`;
-    } else {
-      msg = `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe houdt alles wat binnen dit plan past.`;
-    }
-    if (!confirm(msg)) return;
     setErr(null);
     startTransition(async () => {
       const res = await changePlanAction(plan);
@@ -101,32 +191,43 @@ export function ChangePlanButton({
         setErr(res.error ?? "Wisselen mislukt");
         return;
       }
+      setOpen(false);
       router.refresh();
     });
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-2">
+    <>
       <button
         type="button"
-        onClick={go}
-        disabled={pending}
+        onClick={() => {
+          setErr(null);
+          setOpen(true);
+        }}
         className={
           isUpgrade
-            ? "inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            : "inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent disabled:opacity-50"
+            ? "mt-4 inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
+            : "mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent"
         }
       >
-        {pending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
         {isUpgrade ? `Upgrade naar ${planLabel}` : `Wissel naar ${planLabel}`}
       </button>
-      {err && (
-        <p className="flex items-start gap-1.5 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 size-3 shrink-0" />
-          {err}
-        </p>
-      )}
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={
+          isUpgrade
+            ? `Upgraden naar ${planLabel}`
+            : `Wisselen naar ${planLabel}`
+        }
+        body={body}
+        priceLine={priceLabel}
+        confirmLabel={isUpgrade ? "Upgrade bevestigen" : "Wissel bevestigen"}
+        pending={pending}
+        err={err}
+        onConfirm={go}
+      />
+    </>
   );
 }
 
@@ -142,11 +243,11 @@ export function CancelScheduledPlanButton({
   planLabel: string;
 }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
   function go() {
-    if (!confirm(`Geplande wissel naar ${planLabel} annuleren? Je blijft dan op je huidige plan.`)) return;
     setErr(null);
     startTransition(async () => {
       // Huidig plan "kiezen" = server-side de geplande downgrade annuleren.
@@ -155,38 +256,44 @@ export function CancelScheduledPlanButton({
         setErr(res.error ?? "Annuleren mislukt");
         return;
       }
+      setOpen(false);
       router.refresh();
     });
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-2">
+    <>
       <button
         type="button"
-        onClick={go}
-        disabled={pending}
-        className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent disabled:opacity-50"
+        onClick={() => {
+          setErr(null);
+          setOpen(true);
+        }}
+        className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent"
       >
-        {pending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
         Geplande wissel annuleren
       </button>
-      {err && (
-        <p className="flex items-start gap-1.5 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 size-3 shrink-0" />
-          {err}
-        </p>
-      )}
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Geplande wissel annuleren"
+        body={`De geplande wissel naar ${planLabel} wordt geannuleerd — je blijft gewoon op je huidige plan en het maandbedrag blijft ongewijzigd.`}
+        confirmLabel="Ja, annuleer de wissel"
+        pending={pending}
+        err={err}
+        onConfirm={go}
+      />
+    </>
   );
 }
 
 export function CancelSubscriptionButton() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
-  function confirmAndCancel() {
-    if (!confirm("Weet je zeker dat je je abonnement wil opzeggen? Service loopt door tot de huidige periode afloopt.")) return;
+  function go() {
     setErr(null);
     startTransition(async () => {
       const res = await cancelSubscriptionAction();
@@ -194,23 +301,35 @@ export function CancelSubscriptionButton() {
         setErr(res.error ?? "Opzeggen mislukt");
         return;
       }
+      setOpen(false);
       router.refresh();
     });
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <>
       <button
         type="button"
-        onClick={confirmAndCancel}
-        disabled={pending}
-        className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-xs font-medium text-muted-foreground hover:text-destructive disabled:opacity-50"
+        onClick={() => {
+          setErr(null);
+          setOpen(true);
+        }}
+        className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-xs font-medium text-muted-foreground hover:text-destructive"
       >
-        {pending && <Loader2 className="mr-2 size-3 animate-spin" />}
         Abonnement opzeggen
       </button>
-      {err && <p className="text-xs text-destructive">{err}</p>}
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Abonnement opzeggen"
+        body="Je abonnement stopt aan het einde van de huidige betaalperiode. Tot die tijd blijft alles gewoon werken, en je kunt tot dat moment nog van gedachten veranderen."
+        confirmLabel="Ja, zeg op"
+        destructive
+        pending={pending}
+        err={err}
+        onConfirm={go}
+      />
+    </>
   );
 }
 
