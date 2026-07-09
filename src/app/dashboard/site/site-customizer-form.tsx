@@ -29,6 +29,11 @@ interface Props {
     logoUrl: string | null;
     contactEmail: string;
     contactPhone: string;
+    businessAddress: string;
+    businessPostcode: string;
+    businessCity: string;
+    kvkNumber: string;
+    vatNumber: string;
     itemDisplayStyle: "GRID" | "LIST";
     theme: SiteTheme;
   };
@@ -62,6 +67,11 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
       logoUrl: initial.logoUrl ?? "",
       contactEmail: initial.contactEmail,
       contactPhone: initial.contactPhone,
+      businessAddress: initial.businessAddress,
+      businessPostcode: initial.businessPostcode,
+      businessCity: initial.businessCity,
+      kvkNumber: initial.kvkNumber,
+      vatNumber: initial.vatNumber,
       itemDisplayStyle: initial.itemDisplayStyle,
       theme: initial.theme ?? EMPTY_SITE_THEME,
     },
@@ -194,11 +204,13 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
         </div>
       </div>
 
-      {/* Contact */}
+      {/* Bedrijfsgegevens */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold">Contactgegevens</h2>
+        <h2 className="text-sm font-semibold">Bedrijfsgegevens</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Hier ontvang je meldingen van leads. E-mail is verplicht voor de notificaties.
+          E-mail is verplicht voor lead-notificaties. Adres, KvK en BTW zijn
+          optioneel — wat je invult verschijnt automatisch in de footer van
+          je klantsite.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <FormField
@@ -213,6 +225,38 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
             placeholder="020 12 34 56"
             error={errors.contactPhone?.message}
             {...register("contactPhone")}
+          />
+          <FormField
+            label="Adres"
+            placeholder="Havenkade 12"
+            error={errors.businessAddress?.message}
+            {...register("businessAddress")}
+          />
+          <div className="grid grid-cols-[110px_1fr] gap-3">
+            <FormField
+              label="Postcode"
+              placeholder="1234 AB"
+              error={errors.businessPostcode?.message}
+              {...register("businessPostcode")}
+            />
+            <FormField
+              label="Plaats"
+              placeholder="Amsterdam"
+              error={errors.businessCity?.message}
+              {...register("businessCity")}
+            />
+          </div>
+          <FormField
+            label="KvK-nummer"
+            placeholder="12345678"
+            error={errors.kvkNumber?.message}
+            {...register("kvkNumber")}
+          />
+          <FormField
+            label="BTW-nummer"
+            placeholder="NL123456789B01"
+            error={errors.vatNumber?.message}
+            {...register("vatNumber")}
           />
         </div>
       </div>

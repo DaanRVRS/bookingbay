@@ -137,6 +137,12 @@ model Organization {
   aboutText        String?
   contactEmail     String?
   contactPhone     String?
+  // Bedrijfsgegevens voor de klantsite-footer (en later facturen).
+  businessAddress  String? // straat + huisnummer
+  businessPostcode String?
+  businessCity     String?
+  kvkNumber        String?
+  vatNumber        String? // BTW-nummer
   itemDisplayStyle ItemDisplayStyle @default(GRID)
   // Standaard openingstijden voor de hele organisatie. Null = geen
   // openingstijden ingesteld (24/7 beschikbaar). Schema: array van 7

@@ -36,6 +36,11 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
       logoUrl: parsed.data.logoUrl || null,
       contactEmail: parsed.data.contactEmail || null,
       contactPhone: parsed.data.contactPhone || null,
+      businessAddress: parsed.data.businessAddress || null,
+      businessPostcode: parsed.data.businessPostcode || null,
+      businessCity: parsed.data.businessCity || null,
+      kvkNumber: parsed.data.kvkNumber || null,
+      vatNumber: parsed.data.vatNumber || null,
       itemDisplayStyle: parsed.data.itemDisplayStyle,
     },
   });

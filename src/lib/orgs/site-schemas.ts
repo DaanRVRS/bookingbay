@@ -43,6 +43,12 @@ export const siteCustomizerSchema = z.object({
   logoUrl: z.string().optional().or(z.literal("")).nullable(),
   contactEmail: z.email("Ongeldig e-mailadres").optional().or(z.literal("")),
   contactPhone: z.string().max(40).optional().or(z.literal("")),
+  // Bedrijfsgegevens — optioneel; wat ingevuld is verschijnt in de footer.
+  businessAddress: z.string().max(160).optional().or(z.literal("")),
+  businessPostcode: z.string().max(12).optional().or(z.literal("")),
+  businessCity: z.string().max(80).optional().or(z.literal("")),
+  kvkNumber: z.string().max(20).optional().or(z.literal("")),
+  vatNumber: z.string().max(24).optional().or(z.literal("")),
   itemDisplayStyle: z.enum(["GRID", "LIST"]).default("GRID"),
   theme: siteThemeSchema.default(EMPTY_SITE_THEME),
 });

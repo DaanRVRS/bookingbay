@@ -115,39 +115,145 @@ export default async function TenantLayout({
       <main className="flex-1">{children}</main>
 
       <footer
-        className="border-t border-border bg-muted/30 py-8"
+        className="border-t border-border bg-muted/30 py-10"
         style={{
           ...(theme.footerBg ? { background: theme.footerBg } : {}),
           ...(theme.footerText ? { color: theme.footerText } : {}),
         }}
       >
         <div
-          className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:px-6"
+          className="mx-auto max-w-6xl px-4 text-sm text-muted-foreground sm:px-6"
           style={theme.footerText ? { color: theme.footerText } : undefined}
         >
-          <div>
-            <p
-              className="font-medium text-foreground"
-              style={theme.footerText ? { color: theme.footerText } : undefined}
-            >
-              {org.name}
-            </p>
-            <p className="mt-1 text-xs">
-              {[org.contactEmail, org.contactPhone].filter(Boolean).join(" · ")}
-            </p>
-          </div>
-          {planLimits(org.plan).alwaysShowPoweredBy && (
-            <p className="text-xs">
-              Powered by{" "}
-              <a
-                href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
-                className="text-foreground hover:underline"
+          <div className="grid gap-8 sm:grid-cols-3">
+            {/* Bedrijf */}
+            <div>
+              <p
+                className="font-semibold text-foreground"
                 style={theme.footerText ? { color: theme.footerText } : undefined}
               >
-                BookingBay
-              </a>
+                {org.name}
+              </p>
+              {(org.businessAddress || org.businessCity) && (
+                <p className="mt-2 text-xs leading-relaxed">
+                  {org.businessAddress}
+                  {org.businessAddress && (org.businessPostcode || org.businessCity) && <br />}
+                  {[org.businessPostcode, org.businessCity].filter(Boolean).join(" ")}
+                </p>
+              )}
+              {(org.kvkNumber || org.vatNumber) && (
+                <p className="mt-2 text-xs">
+                  {[
+                    org.kvkNumber ? `KvK ${org.kvkNumber}` : null,
+                    org.vatNumber ? `BTW ${org.vatNumber}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+
+            {/* Pagina's — Home en Contact staan er altijd, eigen pagina's ertussen */}
+            <div>
+                <p
+                  className="text-xs font-semibold tracking-wider uppercase"
+                  style={
+                    theme.footerText
+                      ? { color: theme.footerText, opacity: 0.7 }
+                      : undefined
+                  }
+                >
+                  Pagina&apos;s
+                </p>
+                <ul className="mt-2 flex flex-col gap-1.5 text-xs">
+                  <li>
+                    <Link
+                      href={tenantHref(base, "/")}
+                      className="hover:underline"
+                      style={theme.footerText ? { color: theme.footerText } : undefined}
+                    >
+                      Home
+                    </Link>
+                  </li>
+                  {navPages.map((p) => (
+                    <li key={p.slug}>
+                      <Link
+                        href={tenantHref(base, `/${p.slug}`)}
+                        className="hover:underline"
+                        style={theme.footerText ? { color: theme.footerText } : undefined}
+                      >
+                        {p.title}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link
+                      href={tenantHref(base, "/contact")}
+                      className="hover:underline"
+                      style={theme.footerText ? { color: theme.footerText } : undefined}
+                    >
+                      Contact
+                    </Link>
+                  </li>
+                </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <p
+                className="text-xs font-semibold tracking-wider uppercase"
+                style={
+                  theme.footerText
+                    ? { color: theme.footerText, opacity: 0.7 }
+                    : undefined
+                }
+              >
+                Contact
+              </p>
+              <ul className="mt-2 flex flex-col gap-1.5 text-xs">
+                {org.contactEmail && (
+                  <li>
+                    <a
+                      href={`mailto:${org.contactEmail}`}
+                      className="hover:underline"
+                      style={theme.footerText ? { color: theme.footerText } : undefined}
+                    >
+                      {org.contactEmail}
+                    </a>
+                  </li>
+                )}
+                {org.contactPhone && (
+                  <li>
+                    <a
+                      href={`tel:${org.contactPhone.replace(/\s/g, "")}`}
+                      className="hover:underline"
+                      style={theme.footerText ? { color: theme.footerText } : undefined}
+                    >
+                      {org.contactPhone}
+                    </a>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col items-start justify-between gap-2 border-t border-border/60 pt-4 text-xs sm:flex-row sm:items-center">
+            <p>
+              © {new Date().getFullYear()} {org.name}
             </p>
-          )}
+            {planLimits(org.plan).alwaysShowPoweredBy && (
+              <p>
+                Powered by{" "}
+                <a
+                  href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
+                  className="text-foreground hover:underline"
+                  style={theme.footerText ? { color: theme.footerText } : undefined}
+                >
+                  BookingBay
+                </a>
+              </p>
+            )}
+          </div>
         </div>
       </footer>
     </div>
