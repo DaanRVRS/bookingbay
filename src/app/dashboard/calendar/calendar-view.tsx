@@ -609,11 +609,36 @@ function WeekTimeGrid({
     );
   }
 
+  // Per dag alvast positioneren zodat we weten hoeveel lanen elke dag
+  // nodig heeft. Drukke dagen krijgen een bredere kolom (het rooster
+  // scrollt horizontaal toch al) zodat parallelle boekingen leesbaar
+  // blijven i.p.v. tot sliertjes samengeknepen te worden.
+  const dayData = days.map((d) => {
+    const dayBookings = bookings.filter((b) => {
+      const s = parseISO(b.startAt);
+      const e = parseISO(b.endAt);
+      return s < addDays(startOfDay(d), 1) && e > startOfDay(d);
+    });
+    const { positioned, lanes } = positionDayBookings(dayBookings, d);
+    let maxLanes = 1;
+    for (const v of lanes.values()) maxLanes = Math.max(maxLanes, v.lanes);
+    return { d, positioned, lanes, maxLanes };
+  });
+  const gridTemplate = `60px ${dayData
+    .map(
+      ({ maxLanes }) =>
+        `minmax(${Math.max(110, maxLanes * 88)}px, ${maxLanes}fr)`,
+    )
+    .join(" ")}`;
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
       <div className="min-w-[840px]">
         {/* Header row */}
-        <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/30 text-xs">
+        <div
+          className="grid border-b border-border bg-muted/30 text-xs"
+          style={{ gridTemplateColumns: gridTemplate }}
+        >
           <div className="px-2 py-2 text-muted-foreground" />
           {days.map((d) => (
             <div
@@ -635,8 +660,11 @@ function WeekTimeGrid({
 
         {/* Time grid body */}
         <div
-          className="relative grid grid-cols-[60px_repeat(7,minmax(0,1fr))]"
-          style={{ height: HOURS.length * HOUR_HEIGHT }}
+          className="relative grid"
+          style={{
+            height: HOURS.length * HOUR_HEIGHT,
+            gridTemplateColumns: gridTemplate,
+          }}
         >
           {/* Hour labels */}
           <div className="relative border-r border-border">
@@ -652,12 +680,7 @@ function WeekTimeGrid({
           </div>
 
           {/* Day columns */}
-          {days.map((d) => {
-            const dayBookings = bookings.filter((b) => {
-              const s = parseISO(b.startAt);
-              const e = parseISO(b.endAt);
-              return s < addDays(startOfDay(d), 1) && e > startOfDay(d);
-            });
+          {dayData.map(({ d, positioned, lanes }) => {
             return (
               <div
                 key={d.toISOString()}
@@ -684,7 +707,6 @@ function WeekTimeGrid({
                 {/* Booking blocks — overlappende boekingen krijgen elk een
                     eigen laan; korte boekingen een compacte één-regel-look. */}
                 {(() => {
-                  const { positioned, lanes } = positionDayBookings(dayBookings, d);
                   return positioned.map(({ b, top, height }) => {
                     const li = lanes.get(b.id) ?? { lane: 0, lanes: 1 };
                     const compact = height < 40;
