@@ -163,6 +163,9 @@ function dayHasFreeSlot(
   for (let m = w.startMin; m + cfg.intervalMinutes <= w.endMin; m += cfg.intervalMinutes) {
     const hhmm = minToHHMM(m);
     const a = atTimeMs(day, hhmm);
+    // Verstreken starttijden (vandaag) zijn niet meer boekbaar — anders
+    // toont de kalender vandaag groen terwijl de grid niets kiesbaars heeft.
+    if (a <= Date.now()) continue;
     if (countOverlaps(a, a + cfg.intervalMinutes * 60_000, intervals) < quantity) {
       return true;
     }
@@ -457,6 +460,18 @@ export function PublicBookingForm({
     const s = getValues("startAt");
     const e = getValues("endAt");
     if (!s || !e || !(new Date(e).getTime() > new Date(s).getTime())) {
+      toast.error(t("when.pickTime"));
+      return;
+    }
+    // Vangnet: stond de pagina lang open, dan kan een eerder gekozen
+    // starttijd inmiddels verstreken zijn. Uur-items: start moet in de
+    // toekomst liggen. Dag-items boeken vanaf 00:00 en mogen vandaag.
+    if (
+      !isWholeDayUnit(slotConfig.intervalMinutes) &&
+      new Date(s).getTime() <= Date.now()
+    ) {
+      setStartTime("");
+      setEndTime("");
       toast.error(t("when.pickTime"));
       return;
     }
@@ -1432,6 +1447,9 @@ function TimeRangeGrid({
   const startDisabled = (slot: string) => {
     if (!day) return false;
     const a = atTimeMs(day, slot);
+    // Een starttijd die al geweest is (vandaag) kan niet meer gekozen
+    // worden — de server weigert 'm toch ("Deze tijd is al geweest").
+    if (a <= Date.now()) return true;
     return countOverlaps(a, a + interval * 60_000, intervals) >= quantity;
   };
   const endDisabled = (slot: string) => {

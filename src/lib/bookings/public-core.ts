@@ -106,8 +106,16 @@ export async function createPublicBooking(
 
   // Server-side guards. De widget dwingt deze client-side al af, maar een
   // directe API-call mag niet in het verleden of absurd ver vooruit boeken.
+  // Dag/week-items starten om 00:00 — die zijn op de dag zelf gewoon
+  // boekbaar (00:00 vandaag is niet "in het verleden" voor een dag-huur),
+  // dus daar vergelijken we tegen het begin van vandaag i.p.v. de klok.
   const nowMs = Date.now();
-  if (startAt.getTime() < nowMs) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const pastCutoffMs = isWholeDayUnit(item.bookingIntervalMinutes)
+    ? startOfToday.getTime()
+    : nowMs;
+  if (startAt.getTime() < pastCutoffMs) {
     return {
       ok: false,
       error: "Je kunt niet in het verleden boeken",
