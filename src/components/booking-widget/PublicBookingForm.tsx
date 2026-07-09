@@ -193,6 +193,9 @@ export function PublicBookingForm({
 
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
+  // Permanente overzicht-link (klant-portaal) — komt mee uit de booking-API
+  // en wordt op het "klaar"-scherm getoond.
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
   // Sub-stappen binnen het boekformulier: datum/tijd → (extra's, alleen
   // als de org add-ons heeft) → gegevens + betaalwijze.
   const hasExtras = addons.length > 0;
@@ -510,6 +513,7 @@ export function PublicBookingForm({
         error?: string;
         fieldErrors?: Record<string, string>;
         redirectUrl?: string;
+        portalUrl?: string;
       };
       try {
         const r = await fetch("/api/public/booking", {
@@ -550,6 +554,7 @@ export function PublicBookingForm({
             return;
           } catch {
             window.open(target, "_blank", "noopener");
+            setPortalUrl(res.portalUrl ?? null);
             setDone(true);
             return;
           }
@@ -558,6 +563,7 @@ export function PublicBookingForm({
         return;
       }
       // Op locatie → boeking bevestigd.
+      setPortalUrl(res.portalUrl ?? null);
       setDone(true);
     });
   };
@@ -600,6 +606,22 @@ export function PublicBookingForm({
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
             {t("done.body", { org: orgName })}
           </p>
+          {portalUrl && (
+            <a
+              href={portalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5"
+              style={{
+                background: accent,
+                color: ON_ACCENT,
+                boxShadow: `0 4px 14px -4px ${accent}80`,
+              }}
+            >
+              {t("done.viewBooking")}
+              <ArrowRight className="size-4" />
+            </a>
+          )}
         </div>
       </div>
     );

@@ -40,7 +40,14 @@ import { randomBytes } from "node:crypto";
  */
 
 export type PublicBookingResult =
-  | { ok: true; id: string; redirectUrl?: string }
+  | {
+      ok: true;
+      id: string;
+      redirectUrl?: string;
+      /** Permanente overzicht-link (klant-portaal) — zelfde link als in de
+       *  bevestigingsmail. Alleen gezet als de tenant het portaal aan heeft. */
+      portalUrl?: string;
+    }
   | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
@@ -68,6 +75,7 @@ export async function createPublicBooking(
       id: true,
       suspendedAt: true,
       businessHours: true,
+      customerPortalEnabled: true,
     },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
@@ -425,7 +433,13 @@ export async function createPublicBooking(
     console.error("[public-booking] confirmation mail mislukt:", err);
   }
 
-  return { ok: true, id: booking.id, redirectUrl };
+  // Zelfde permanente overzicht-link als in de bevestigingsmail, zodat de
+  // widget 'm op het "klaar"-scherm kan tonen.
+  const portalUrl = org.customerPortalEnabled
+    ? `/portal/${data.slug}/booking/${booking.id}?token=${encodeURIComponent(portalToken)}`
+    : undefined;
+
+  return { ok: true, id: booking.id, redirectUrl, portalUrl };
 }
 
 const AVAILABILITY_LOOKAHEAD_DAYS = 180;

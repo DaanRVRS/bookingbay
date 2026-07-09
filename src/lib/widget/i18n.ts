@@ -88,6 +88,7 @@ export type TKey =
   | "pay.chooseFirst"
   | "done.title"
   | "done.body"
+  | "done.viewBooking"
   | "review.edit"
   | "review.title"
   | "review.subtitle"
@@ -169,6 +170,7 @@ const NL: Dict = {
   "done.title": "Aanvraag verstuurd",
   "done.body":
     "{org} bevestigt je boeking zo snel mogelijk per e-mail. Houd je inbox (en spam) in de gaten — meestal binnen één werkdag.",
+  "done.viewBooking": "Bekijk je boeking",
   "review.edit": "Aanpassen",
   "review.title": "Klopt dit zo?",
   "review.subtitle": "Controleer je boeking en bevestig.",
@@ -250,6 +252,7 @@ const EN: Dict = {
   "done.title": "Request sent",
   "done.body":
     "{org} will confirm your booking by email as soon as possible. Keep an eye on your inbox (and spam) — usually within one business day.",
+  "done.viewBooking": "View your booking",
   "review.edit": "Edit",
   "review.title": "Does this look right?",
   "review.subtitle": "Check your booking and confirm.",
@@ -330,6 +333,7 @@ const FR: Dict = {
   "done.title": "Demande envoyée",
   "done.body":
     "{org} confirmera votre réservation par e-mail dès que possible. Surveillez votre boîte de réception (et les spams) — généralement sous un jour ouvré.",
+  "done.viewBooking": "Voir votre réservation",
   "review.edit": "Modifier",
   "review.title": "Est-ce correct ?",
   "review.subtitle": "Vérifiez votre réservation et confirmez.",
@@ -410,6 +414,7 @@ const DE: Dict = {
   "done.title": "Anfrage gesendet",
   "done.body":
     "{org} bestätigt Ihre Buchung so schnell wie möglich per E-Mail. Behalten Sie Ihren Posteingang (und Spam) im Auge — meist innerhalb eines Werktags.",
+  "done.viewBooking": "Buchung ansehen",
   "review.edit": "Ändern",
   "review.title": "Stimmt das so?",
   "review.subtitle": "Prüfen Sie Ihre Buchung und bestätigen Sie.",
@@ -491,6 +496,7 @@ const ES: Dict = {
   "done.title": "Solicitud enviada",
   "done.body":
     "{org} confirmará tu reserva por correo lo antes posible. Revisa tu bandeja (y el spam) — normalmente en un día laborable.",
+  "done.viewBooking": "Ver tu reserva",
   "review.edit": "Editar",
   "review.title": "¿Es correcto?",
   "review.subtitle": "Revisa tu reserva y confirma.",
@@ -571,6 +577,7 @@ const IT: Dict = {
   "done.title": "Richiesta inviata",
   "done.body":
     "{org} confermerà la prenotazione via e-mail al più presto. Controlla la posta (e lo spam) — di solito entro un giorno lavorativo.",
+  "done.viewBooking": "Vedi la tua prenotazione",
   "review.edit": "Modifica",
   "review.title": "È tutto corretto?",
   "review.subtitle": "Controlla la prenotazione e conferma.",
@@ -651,6 +658,7 @@ const RU: Dict = {
   "done.title": "Заявка отправлена",
   "done.body":
     "{org} подтвердит бронирование по e-mail как можно скорее. Проверяйте почту (и спам) — обычно в течение рабочего дня.",
+  "done.viewBooking": "Посмотреть бронирование",
   "review.edit": "Изменить",
   "review.title": "Всё верно?",
   "review.subtitle": "Проверьте бронь и подтвердите.",
@@ -731,6 +739,7 @@ const UK: Dict = {
   "done.title": "Заявку надіслано",
   "done.body":
     "{org} підтвердить бронювання електронною поштою якнайшвидше. Перевіряйте пошту (і спам) — зазвичай протягом робочого дня.",
+  "done.viewBooking": "Переглянути бронювання",
   "review.edit": "Змінити",
   "review.title": "Усе правильно?",
   "review.subtitle": "Перевірте бронювання та підтвердьте.",
@@ -811,6 +820,7 @@ const PL: Dict = {
   "done.title": "Zgłoszenie wysłane",
   "done.body":
     "{org} potwierdzi rezerwację e-mailem najszybciej jak to możliwe. Sprawdzaj skrzynkę (i spam) — zwykle w ciągu dnia roboczego.",
+  "done.viewBooking": "Zobacz swoją rezerwację",
   "review.edit": "Edytuj",
   "review.title": "Czy się zgadza?",
   "review.subtitle": "Sprawdź rezerwację i potwierdź.",
@@ -891,6 +901,7 @@ const TR: Dict = {
   "done.title": "Talep gönderildi",
   "done.body":
     "{org} rezervasyonunuzu en kısa sürede e-posta ile onaylayacak. Gelen kutunuzu (ve spam) takip edin — genellikle bir iş günü içinde.",
+  "done.viewBooking": "Rezervasyonunu görüntüle",
   "review.edit": "Düzenle",
   "review.title": "Doğru mu?",
   "review.subtitle": "Rezervasyonunuzu kontrol edip onaylayın.",

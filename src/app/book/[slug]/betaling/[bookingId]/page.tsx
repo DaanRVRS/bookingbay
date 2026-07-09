@@ -35,10 +35,18 @@ export default async function PaymentReturnPage({
       id: true,
       status: true,
       paymentStatus: true,
+      portalToken: true,
       item: { select: { name: true } },
+      organization: { select: { customerPortalEnabled: true } },
     },
   });
   if (!booking) notFound();
+
+  // Permanente overzicht-link (zelfde link als in de bevestigingsmail).
+  const portalUrl =
+    booking.portalToken && booking.organization.customerPortalEnabled
+      ? `/portal/${slug}/booking/${booking.id}?token=${encodeURIComponent(booking.portalToken)}`
+      : null;
 
   const accent = org.primaryColor ?? "#ef5934";
 
@@ -96,6 +104,15 @@ export default async function PaymentReturnPage({
         </p>
 
         <div className="mt-8 flex flex-col gap-2 sm:flex-row">
+          {isPaid && portalUrl && (
+            <Link
+              href={portalUrl}
+              className="inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-white shadow-sm"
+              style={{ background: accent }}
+            >
+              Boeking-overzicht
+            </Link>
+          )}
           <Link
             href={`/book/${slug}`}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-card px-5 text-sm font-medium hover:bg-accent"
