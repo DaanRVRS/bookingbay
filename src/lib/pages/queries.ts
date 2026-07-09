@@ -95,6 +95,8 @@ async function seedBlocksFromLegacy(organizationId: string): Promise<Block[]> {
     id: newBlockId(),
     type: "hero",
     bgColor: "",
+    blockWidth: "full",
+    blockHeight: "auto",
     heading: org.heroTitle ?? org.name,
     subheading:
       org.heroSubtitle ?? `Online reserveren bij ${org.name}.`,
@@ -109,6 +111,8 @@ async function seedBlocksFromLegacy(organizationId: string): Promise<Block[]> {
       id: newBlockId(),
       type: "text",
       bgColor: "",
+      blockWidth: "full",
+      blockHeight: "auto",
       heading: "",
       body: org.aboutText,
       alignment: "left",

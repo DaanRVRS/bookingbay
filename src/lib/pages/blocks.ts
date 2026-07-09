@@ -25,15 +25,22 @@ export type IconKey = (typeof ICON_KEYS)[number];
 
 const idField = z.string().min(1);
 
-// Optionele eigen achtergrondkleur per blok (hex). Leeg = standaard/
-// transparant. De PageRenderer legt 'm als full-bleed achtergrond onder
-// het blok, dus élk blok kan z'n eigen sectie-kleur krijgen.
+// Gedeelde stijl-velden voor élk blok: eigen achtergrondkleur (hex, leeg =
+// transparant), breedte van de inhoud en minimale hoogte van de sectie.
+// De PageRenderer past ze toe als wrapper rond het blok.
 const hexOrEmpty = z
   .string()
   .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Ongeldige hex-kleur")
   .or(z.literal(""))
   .default("");
-const styleShape = { bgColor: hexOrEmpty };
+const styleShape = {
+  bgColor: hexOrEmpty,
+  // "full" = randloos zoals voorheen; overige opties centreren de inhoud
+  // op een maximale breedte (de achtergrondkleur blijft full-bleed).
+  blockWidth: z.enum(["full", "wide", "normal", "narrow"]).default("full"),
+  // Minimale hoogte van de sectie; "auto" = zo hoog als de inhoud.
+  blockHeight: z.enum(["auto", "sm", "md", "lg", "xl"]).default("auto"),
+};
 
 const heroBlock = z.object({
   id: idField,
@@ -440,12 +447,20 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
  * per-type defaults hieronder ze niet allemaal hoeven te herhalen.
  */
 export function makeDefaultBlock(type: BlockType, id: string): Block {
-  return { bgColor: "", ...makeBareBlock(type, id) } as Block;
+  return {
+    bgColor: "",
+    blockWidth: "full",
+    blockHeight: "auto",
+    ...makeBareBlock(type, id),
+  } as Block;
 }
 
 type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-function makeBareBlock(type: BlockType, id: string): DistOmit<Block, "bgColor"> {
+function makeBareBlock(
+  type: BlockType,
+  id: string,
+): DistOmit<Block, "bgColor" | "blockWidth" | "blockHeight"> {
   switch (type) {
     case "hero":
       return {

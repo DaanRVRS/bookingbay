@@ -10,7 +10,7 @@ export function HeroBlockView({ block, accent }: { block: HeroBlock; accent: str
     // achtergrond-afbeelding/gradient blijft dan bínnen deze sectie i.p.v.
     // achter de achtergrondkleur van een omliggende laag (blok-bgColor of
     // pagina-achtergrond) te verdwijnen.
-    <section className="relative isolate overflow-hidden border-b border-border">
+    <section className="relative isolate flex flex-col justify-center overflow-hidden border-b border-border">
       {hasBg ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}

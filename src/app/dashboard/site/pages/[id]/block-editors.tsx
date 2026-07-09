@@ -77,11 +77,38 @@ export function BlockEditor(props: {
   return (
     <div className="flex flex-col gap-4">
       <BlockTypeFields {...props} />
-      {/* Gedeeld voor élk blok-type: eigen sectie-achtergrondkleur. */}
+      {/* Gedeeld voor élk blok-type: achtergrondkleur, breedte en hoogte. */}
       <BgColorField
         value={block.bgColor ?? ""}
         onChange={(bgColor) => onChange({ bgColor } as Partial<Block>)}
       />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Breedte">
+          <Toggle
+            value={block.blockWidth ?? "full"}
+            onChange={(v) => onChange({ blockWidth: v } as Partial<Block>)}
+            options={[
+              { value: "full", label: "Volledig" },
+              { value: "wide", label: "Breed" },
+              { value: "normal", label: "Normaal" },
+              { value: "narrow", label: "Smal" },
+            ]}
+          />
+        </Field>
+        <Field label="Hoogte (minimaal)">
+          <Toggle
+            value={block.blockHeight ?? "auto"}
+            onChange={(v) => onChange({ blockHeight: v } as Partial<Block>)}
+            options={[
+              { value: "auto", label: "Auto" },
+              { value: "sm", label: "S" },
+              { value: "md", label: "M" },
+              { value: "lg", label: "L" },
+              { value: "xl", label: "XL" },
+            ]}
+          />
+        </Field>
+      </div>
     </div>
   );
 }

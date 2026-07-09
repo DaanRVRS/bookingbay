@@ -246,35 +246,66 @@ export async function PageRenderer({
   return (
     <>
       {blocks.map((block) => {
-        // Eigen achtergrondkleur per blok: full-bleed sectie-kleur ónder het
-        // blok. Leeg = transparant (pagina-achtergrond schijnt door).
+        // Gedeelde blok-stijl: achtergrondkleur (full-bleed), inhouds-
+        // breedte en minimale hoogte. De buitenste div draagt de kleur;
+        // de binnenste beperkt/strekt de inhoud.
         const bg = block.bgColor
           ? { background: block.bgColor }
           : undefined;
+        const inner = blockLayoutClass(block.blockWidth, block.blockHeight);
         if (block.type === "container") {
           return (
             <div key={block.id} style={bg}>
-              <ContainerBlockView block={block} accent={accent}>
-                {block.children.map((child) => (
-                  <div
-                    key={child.id}
-                    style={
-                      child.bgColor ? { background: child.bgColor } : undefined
-                    }
-                  >
-                    {renderNonContainer(child, ctx)}
-                  </div>
-                ))}
-              </ContainerBlockView>
+              <div className={inner}>
+                <ContainerBlockView block={block} accent={accent}>
+                  {block.children.map((child) => (
+                    <div
+                      key={child.id}
+                      style={
+                        child.bgColor ? { background: child.bgColor } : undefined
+                      }
+                    >
+                      {renderNonContainer(child, ctx)}
+                    </div>
+                  ))}
+                </ContainerBlockView>
+              </div>
             </div>
           );
         }
         return (
           <div key={block.id} style={bg}>
-            {renderNonContainer(block, ctx)}
+            <div className={inner}>{renderNonContainer(block, ctx)}</div>
           </div>
         );
       })}
     </>
   );
+}
+
+const BLOCK_WIDTH_CLASS: Record<string, string> = {
+  full: "",
+  wide: "mx-auto w-full max-w-6xl",
+  normal: "mx-auto w-full max-w-4xl",
+  narrow: "mx-auto w-full max-w-2xl",
+};
+
+const BLOCK_HEIGHT_CLASS: Record<string, string> = {
+  auto: "",
+  sm: "min-h-[240px]",
+  md: "min-h-[400px]",
+  lg: "min-h-[560px]",
+  xl: "min-h-[75vh]",
+};
+
+/**
+ * Wrapper-classes voor de gedeelde breedte/hoogte per blok. Bij een
+ * minimale hoogte strekt het blok mee (flex-1) zodat bv. een hero-
+ * afbeelding de hele hoogte vult i.p.v. bovenin te blijven hangen.
+ */
+function blockLayoutClass(width?: string, height?: string): string {
+  const w = BLOCK_WIDTH_CLASS[width ?? "full"] ?? "";
+  const h = BLOCK_HEIGHT_CLASS[height ?? "auto"] ?? "";
+  const stretch = h ? "flex flex-col justify-center [&>*]:w-full [&>*]:flex-1" : "";
+  return [w, h, stretch].filter(Boolean).join(" ");
 }
