@@ -448,10 +448,14 @@ function StatusPill({
       </span>
     );
   }
+  // PENDING = op-locatie-boeking. Die staat gewoon vast (slot geblokkeerd,
+  // bevestigingsmail verstuurd) — het dashboard toont 'm ook als
+  // "Gereserveerd" en er bestaat geen aparte bevestig-stap. "Wacht op
+  // bevestiging" tonen zou de klant dus eeuwig laten wachten op niets.
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.94_0.08_70)] px-2.5 py-1 text-[10px] font-semibold text-[oklch(0.5_0.16_70)]">
-      <Clock className="size-3" />
-      Wacht op bevestiging
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.93_0.07_150)] px-2.5 py-1 text-[10px] font-semibold text-[oklch(0.4_0.14_150)]">
+      <CheckCircle2 className="size-3" />
+      Gereserveerd
     </span>
   );
 }
