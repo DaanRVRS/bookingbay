@@ -6,7 +6,11 @@ export function HeroBlockView({ block, accent }: { block: HeroBlock; accent: str
   const hasBg = block.backgroundImageUrl.trim().length > 0;
 
   return (
-    <section className="relative overflow-hidden border-b border-border">
+    // `isolate` geeft de hero een eigen stacking-context: de -z-10
+    // achtergrond-afbeelding/gradient blijft dan bínnen deze sectie i.p.v.
+    // achter de achtergrondkleur van een omliggende laag (blok-bgColor of
+    // pagina-achtergrond) te verdwijnen.
+    <section className="relative isolate overflow-hidden border-b border-border">
       {hasBg ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}

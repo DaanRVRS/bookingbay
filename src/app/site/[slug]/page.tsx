@@ -80,7 +80,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
       ) : (
         <>
           {/* Hero (fallback when home page is empty) */}
-          <section className="relative overflow-hidden border-b border-border">
+          <section className="relative isolate overflow-hidden border-b border-border">
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 -z-10"
