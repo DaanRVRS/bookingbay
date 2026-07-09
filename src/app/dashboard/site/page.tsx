@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { planAllows, planLimits } from "@/lib/plans";
 import { PageHeader } from "@/components/dashboard/PageHeader";
+import { safeParseSiteTheme } from "@/lib/orgs/site-schemas";
 import { SiteCustomizerForm } from "./site-customizer-form";
 import { CustomDomainSection } from "./custom-domain-section";
 import { SitePreview } from "./site-preview";
@@ -31,6 +32,7 @@ export default async function SitePage() {
         name: true,
         slug: true,
         primaryColor: true,
+        siteTheme: true,
         logoUrl: true,
         contactEmail: true,
         contactPhone: true,
@@ -124,6 +126,7 @@ export default async function SitePage() {
                   contactEmail: org.contactEmail ?? "",
                   contactPhone: org.contactPhone ?? "",
                   itemDisplayStyle: org.itemDisplayStyle,
+                  theme: safeParseSiteTheme(org.siteTheme),
                 }}
                 orgName={org.name}
               />

@@ -246,16 +246,34 @@ export async function PageRenderer({
   return (
     <>
       {blocks.map((block) => {
+        // Eigen achtergrondkleur per blok: full-bleed sectie-kleur ónder het
+        // blok. Leeg = transparant (pagina-achtergrond schijnt door).
+        const bg = block.bgColor
+          ? { background: block.bgColor }
+          : undefined;
         if (block.type === "container") {
           return (
-            <ContainerBlockView key={block.id} block={block} accent={accent}>
-              {block.children.map((child) => (
-                <div key={child.id}>{renderNonContainer(child, ctx)}</div>
-              ))}
-            </ContainerBlockView>
+            <div key={block.id} style={bg}>
+              <ContainerBlockView block={block} accent={accent}>
+                {block.children.map((child) => (
+                  <div
+                    key={child.id}
+                    style={
+                      child.bgColor ? { background: child.bgColor } : undefined
+                    }
+                  >
+                    {renderNonContainer(child, ctx)}
+                  </div>
+                ))}
+              </ContainerBlockView>
+            </div>
           );
         }
-        return <div key={block.id}>{renderNonContainer(block, ctx)}</div>;
+        return (
+          <div key={block.id} style={bg}>
+            {renderNonContainer(block, ctx)}
+          </div>
+        );
       })}
     </>
   );

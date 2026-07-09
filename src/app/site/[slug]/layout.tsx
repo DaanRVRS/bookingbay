@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
 import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
+import { safeParseSiteTheme } from "@/lib/orgs/site-schemas";
 import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
 import { TenantMobileNav } from "@/components/tenants/TenantMobileNav";
@@ -42,15 +43,26 @@ export default async function TenantLayout({
 
   // Per-org accent — fall back to BookingBay coral.
   const accent = org.primaryColor ?? "#ef5934";
+  // Eigen kleuren per onderdeel (header/footer/pagina). Leeg = standaard.
+  const theme = safeParseSiteTheme(org.siteTheme);
   const navPages = await getNavPages(org.id);
   const base = await getTenantBasePath(slug);
 
   return (
     <div
       className={`${geist.variable} flex min-h-svh flex-col font-sans antialiased`}
-      style={{ ["--tenant-accent" as string]: accent }}
+      style={{
+        ["--tenant-accent" as string]: accent,
+        ...(theme.pageBg ? { background: theme.pageBg } : {}),
+      }}
     >
-      <header className="border-b border-border bg-background/85 backdrop-blur">
+      <header
+        className="border-b border-border bg-background/85 backdrop-blur"
+        style={{
+          ...(theme.headerBg ? { background: theme.headerBg } : {}),
+          ...(theme.headerText ? { color: theme.headerText } : {}),
+        }}
+      >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             href={tenantHref(base, "/")}
@@ -76,6 +88,11 @@ export default async function TenantLayout({
                 key={p.slug}
                 href={tenantHref(base, `/${p.slug}`)}
                 className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground"
+                style={
+                  theme.headerText
+                    ? { color: theme.headerText, opacity: 0.85 }
+                    : undefined
+                }
               >
                 {p.title}
               </Link>
@@ -97,10 +114,24 @@ export default async function TenantLayout({
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-muted/30 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:px-6">
+      <footer
+        className="border-t border-border bg-muted/30 py-8"
+        style={{
+          ...(theme.footerBg ? { background: theme.footerBg } : {}),
+          ...(theme.footerText ? { color: theme.footerText } : {}),
+        }}
+      >
+        <div
+          className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:px-6"
+          style={theme.footerText ? { color: theme.footerText } : undefined}
+        >
           <div>
-            <p className="font-medium text-foreground">{org.name}</p>
+            <p
+              className="font-medium text-foreground"
+              style={theme.footerText ? { color: theme.footerText } : undefined}
+            >
+              {org.name}
+            </p>
             <p className="mt-1 text-xs">
               {[org.contactEmail, org.contactPhone].filter(Boolean).join(" · ")}
             </p>
@@ -111,6 +142,7 @@ export default async function TenantLayout({
               <a
                 href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
                 className="text-foreground hover:underline"
+                style={theme.footerText ? { color: theme.footerText } : undefined}
               >
                 BookingBay
               </a>

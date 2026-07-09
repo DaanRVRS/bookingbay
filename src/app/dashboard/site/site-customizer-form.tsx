@@ -13,7 +13,12 @@ import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/auth/FormField";
 import { ImageUploader } from "@/components/dashboard/ImageUploader";
 import { updateSiteAction } from "@/lib/orgs/site-actions";
-import { siteCustomizerSchema, type SiteCustomizerInput } from "@/lib/orgs/site-schemas";
+import {
+  siteCustomizerSchema,
+  EMPTY_SITE_THEME,
+  type SiteCustomizerInput,
+  type SiteTheme,
+} from "@/lib/orgs/site-schemas";
 
 type FormValues = z.input<typeof siteCustomizerSchema>;
 
@@ -25,6 +30,7 @@ interface Props {
     contactEmail: string;
     contactPhone: string;
     itemDisplayStyle: "GRID" | "LIST";
+    theme: SiteTheme;
   };
 }
 
@@ -57,12 +63,16 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
       contactEmail: initial.contactEmail,
       contactPhone: initial.contactPhone,
       itemDisplayStyle: initial.itemDisplayStyle,
+      theme: initial.theme ?? EMPTY_SITE_THEME,
     },
   });
 
   const primaryColor = watch("primaryColor");
   const logoUrl = watch("logoUrl") ?? "";
   const accent = primaryColor || "#ef5934";
+  const theme = (watch("theme") as SiteTheme | undefined) ?? EMPTY_SITE_THEME;
+  const setThemeColor = (key: keyof SiteTheme, v: string) =>
+    setValue(`theme.${key}` as const, v, { shouldValidate: false, shouldDirty: true });
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -147,6 +157,43 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
         </div>
       </div>
 
+      {/* Kleuren per onderdeel */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold">Kleuren per onderdeel</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Geef header, footer en pagina-achtergrond elk hun eigen kleur.
+          Leeg = het standaard thema. Losse blokken op je pagina&apos;s kleur
+          je in de page-builder (per blok een achtergrondkleur).
+        </p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <ThemeColorField
+            label="Header-achtergrond"
+            value={theme.headerBg}
+            onChange={(v) => setThemeColor("headerBg", v)}
+          />
+          <ThemeColorField
+            label="Header-tekst"
+            value={theme.headerText}
+            onChange={(v) => setThemeColor("headerText", v)}
+          />
+          <ThemeColorField
+            label="Footer-achtergrond"
+            value={theme.footerBg}
+            onChange={(v) => setThemeColor("footerBg", v)}
+          />
+          <ThemeColorField
+            label="Footer-tekst"
+            value={theme.footerText}
+            onChange={(v) => setThemeColor("footerText", v)}
+          />
+          <ThemeColorField
+            label="Pagina-achtergrond"
+            value={theme.pageBg}
+            onChange={(v) => setThemeColor("pageBg", v)}
+          />
+        </div>
+      </div>
+
       {/* Contact */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold">Contactgegevens</h2>
@@ -177,5 +224,56 @@ export function SiteCustomizerForm({ initial, orgName: _orgName }: Props) {
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Kleurveld met picker + hex-invoer; leeg = standaard thema. */
+function ThemeColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Standaard
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value || "#ffffff"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-card"
+          aria-label={`${label} kiezen`}
+        />
+        <Input
+          value={value}
+          placeholder="Standaard"
+          maxLength={7}
+          className="font-mono"
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            if (v === "" || /^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
+          }}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v !== "" && !/^#[0-9a-fA-F]{6}$/.test(v)) onChange("");
+          }}
+        />
+      </div>
+    </div>
   );
 }

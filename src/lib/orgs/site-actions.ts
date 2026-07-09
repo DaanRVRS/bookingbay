@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
@@ -22,10 +23,16 @@ export async function updateSiteAction(input: SiteCustomizerInput): Promise<Acti
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fields };
   }
 
+  // Thema alleen opslaan als er echt iets afwijkt van standaard — anders
+  // null, zodat "alles standaard" ook echt leeg in de DB staat.
+  const theme = parsed.data.theme;
+  const themeHasValues = Object.values(theme).some((v) => v !== "");
+
   await db.organization.update({
     where: { id: ctx.organization.id },
     data: {
       primaryColor: parsed.data.primaryColor || null,
+      siteTheme: themeHasValues ? theme : Prisma.JsonNull,
       logoUrl: parsed.data.logoUrl || null,
       contactEmail: parsed.data.contactEmail || null,
       contactPhone: parsed.data.contactPhone || null,

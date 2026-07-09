@@ -25,9 +25,20 @@ export type IconKey = (typeof ICON_KEYS)[number];
 
 const idField = z.string().min(1);
 
+// Optionele eigen achtergrondkleur per blok (hex). Leeg = standaard/
+// transparant. De PageRenderer legt 'm als full-bleed achtergrond onder
+// het blok, dus élk blok kan z'n eigen sectie-kleur krijgen.
+const hexOrEmpty = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Ongeldige hex-kleur")
+  .or(z.literal(""))
+  .default("");
+const styleShape = { bgColor: hexOrEmpty };
+
 const heroBlock = z.object({
   id: idField,
   type: z.literal("hero"),
+  ...styleShape,
   heading: z.string().max(120).default(""),
   subheading: z.string().max(280).default(""),
   buttonText: z.string().max(40).default(""),
@@ -39,6 +50,7 @@ const heroBlock = z.object({
 const textBlock = z.object({
   id: idField,
   type: z.literal("text"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   body: z.string().max(4000).default(""),
   alignment: z.enum(["left", "center", "right"]).default("left"),
@@ -47,6 +59,7 @@ const textBlock = z.object({
 const sliderBlock = z.object({
   id: idField,
   type: z.literal("slider"),
+  ...styleShape,
   source: z.enum(["categories", "items"]).default("categories"),
   // Optional filter: when source=items, restrict to a single category. When
   // source=categories, restricts to children of the given parent.
@@ -57,6 +70,7 @@ const sliderBlock = z.object({
 const imageStripBlock = z.object({
   id: idField,
   type: z.literal("imageStrip"),
+  ...styleShape,
   images: z
     .array(
       z.object({
@@ -72,6 +86,7 @@ const imageStripBlock = z.object({
 const iconRowBlock = z.object({
   id: idField,
   type: z.literal("iconRow"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   items: z
     .array(
@@ -89,6 +104,7 @@ const iconRowBlock = z.object({
 const ctaBlock = z.object({
   id: idField,
   type: z.literal("cta"),
+  ...styleShape,
   heading: z.string().max(120).default(""),
   subheading: z.string().max(220).default(""),
   buttonText: z.string().max(40).default(""),
@@ -98,12 +114,14 @@ const ctaBlock = z.object({
 const spacerBlock = z.object({
   id: idField,
   type: z.literal("spacer"),
+  ...styleShape,
   size: z.enum(["sm", "md", "lg"]).default("md"),
 });
 
 const galleryBlock = z.object({
   id: idField,
   type: z.literal("gallery"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(3),
   images: z
@@ -121,6 +139,7 @@ const galleryBlock = z.object({
 const faqBlock = z.object({
   id: idField,
   type: z.literal("faq"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   intro: z.string().max(400).default(""),
   items: z
@@ -138,6 +157,7 @@ const faqBlock = z.object({
 const videoBlock = z.object({
   id: idField,
   type: z.literal("video"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   // Accepts a YouTube watch URL, youtu.be shortlink, or Vimeo URL.
   // Renderer extracts the embed URL.
@@ -148,6 +168,7 @@ const videoBlock = z.object({
 const priceTableBlock = z.object({
   id: idField,
   type: z.literal("priceTable"),
+  ...styleShape,
   heading: z.string().max(160).default("Prijslijst"),
   intro: z.string().max(400).default(""),
   // "category" — alle (actieve) items uit één categorie. null = hele catalogus.
@@ -170,6 +191,7 @@ const priceTableBlock = z.object({
 const testimonialsBlock = z.object({
   id: idField,
   type: z.literal("testimonials"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   intro: z.string().max(400).default(""),
   // "auto"   = pull latest published reviews from the Review collection
@@ -206,6 +228,7 @@ const testimonialsBlock = z.object({
 const openingHoursBlock = z.object({
   id: idField,
   type: z.literal("openingHours"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   intro: z.string().max(280).default(""),
   // Index 0 = Monday … 6 = Sunday. Empty open/close = closed.
@@ -226,6 +249,7 @@ const openingHoursBlock = z.object({
 const mapBlock = z.object({
   id: idField,
   type: z.literal("map"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   address: z.string().max(280).default(""),
   // Either a Google Maps embed src URL, an OpenStreetMap iframe URL, or any
@@ -237,6 +261,7 @@ const mapBlock = z.object({
 const buttonBlock = z.object({
   id: idField,
   type: z.literal("button"),
+  ...styleShape,
   label: z.string().max(60).default("Klik hier"),
   href: z.string().max(200).default("/"),
   variant: z.enum(["primary", "outline", "ghost"]).default("primary"),
@@ -247,6 +272,7 @@ const buttonBlock = z.object({
 const quoteBlock = z.object({
   id: idField,
   type: z.literal("quote"),
+  ...styleShape,
   quote: z.string().max(800).default(""),
   author: z.string().max(80).default(""),
   role: z.string().max(120).default(""),
@@ -256,6 +282,7 @@ const quoteBlock = z.object({
 const imageSliderBlock = z.object({
   id: idField,
   type: z.literal("imageSlider"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   // Auto-rotate interval in ms (0 = disabled)
   intervalMs: z.number().int().min(0).max(20000).default(5000),
@@ -276,6 +303,7 @@ const imageSliderBlock = z.object({
 const bookingWidgetBlock = z.object({
   id: idField,
   type: z.literal("bookingWidget"),
+  ...styleShape,
   // Optionele kop boven de widget. De widget zelf gebruikt de
   // org-widgetinstellingen (kleur, USP's, taal) — geen losse config nodig.
   heading: z.string().max(160).default(""),
@@ -284,6 +312,7 @@ const bookingWidgetBlock = z.object({
 const contactBlock = z.object({
   id: idField,
   type: z.literal("contact"),
+  ...styleShape,
   heading: z.string().max(160).default("Neem contact op"),
   intro: z.string().max(400).default(""),
 });
@@ -291,6 +320,7 @@ const contactBlock = z.object({
 const containerBlock = z.object({
   id: idField,
   type: z.literal("container"),
+  ...styleShape,
   heading: z.string().max(160).default(""),
   // Visual padding around the inner content
   padding: z.enum(["sm", "md", "lg"]).default("md"),
@@ -406,8 +436,16 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
 /**
  * Build a fresh block of the given type with sensible defaults.
  * The id is generated client-side via crypto.randomUUID() — passed in.
+ * Gedeelde stijl-velden (bgColor) worden centraal toegevoegd zodat de
+ * per-type defaults hieronder ze niet allemaal hoeven te herhalen.
  */
 export function makeDefaultBlock(type: BlockType, id: string): Block {
+  return { bgColor: "", ...makeBareBlock(type, id) } as Block;
+}
+
+type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+function makeBareBlock(type: BlockType, id: string): DistOmit<Block, "bgColor"> {
   switch (type) {
     case "hero":
       return {

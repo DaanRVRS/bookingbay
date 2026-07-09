@@ -11,6 +11,7 @@ export const getOrgBySlug = cache(async (slug: string) => {
       slug: true,
       logoUrl: true,
       primaryColor: true,
+      siteTheme: true,
       heroTitle: true,
       heroSubtitle: true,
       aboutText: true,
