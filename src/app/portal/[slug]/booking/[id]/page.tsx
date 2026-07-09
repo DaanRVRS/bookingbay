@@ -72,7 +72,6 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
           name: true,
           slug: true,
           logoUrl: true,
-          primaryColor: true,
           contactEmail: true,
           contactPhone: true,
           customerPortalEnabled: true,
@@ -96,7 +95,10 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
   if (!booking.organization.customerPortalEnabled) notFound();
 
   const org = booking.organization;
-  const accent = org.primaryColor ?? "#ef5934";
+  // Het portaal is BookingBay-infrastructuur (net als de bevestigingsmail),
+  // geen tenant-site — dus altijd het BookingBay-oranje, bewust losgekoppeld
+  // van de accent-kleur van de klantensite.
+  const accent = "#ef5934";
   const now = new Date();
   const isUpcoming =
     booking.startAt > now &&
