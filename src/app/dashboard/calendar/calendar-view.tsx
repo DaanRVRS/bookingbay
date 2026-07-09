@@ -37,7 +37,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { STATUS_LABELS } from "@/lib/bookings/schemas";
+import { deriveBookingStatus } from "@/lib/bookings/status";
 import { moveBookingAction } from "@/lib/bookings/actions";
 
 interface ItemRow {
@@ -76,14 +76,6 @@ const itemAccents = [
   "from-[oklch(0.7_0.14_60)] to-[oklch(0.55_0.16_50)]",
   "from-[oklch(0.6_0.14_340)] to-[oklch(0.5_0.17_320)]",
 ];
-
-const statusStyles: Record<BookingStatus, string> = {
-  PENDING: "bg-[oklch(0.85_0.13_85)]/25 text-[oklch(0.45_0.13_70)]",
-  CONFIRMED: "bg-primary/15 text-primary",
-  IN_PROGRESS: "bg-[oklch(0.7_0.13_150)]/20 text-[oklch(0.5_0.14_150)]",
-  COMPLETED: "bg-muted text-muted-foreground",
-  CANCELED: "bg-destructive/15 text-destructive line-through",
-};
 
 const HOUR_START = 7;
 const HOUR_END = 22;
@@ -932,14 +924,22 @@ function DayTimeView({
                       {b.customerName}
                     </p>
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium",
-                      statusStyles[b.status],
-                    )}
-                  >
-                    {STATUS_LABELS[b.status]}
-                  </span>
+                  {(() => {
+                    // Zelfde afgeleide status als de boekingenlijst —
+                    // PENDING/CONFIRMED zijn voor de gebruiker allebei
+                    // gewoon "Gereserveerd" (er is geen bevestig-stap).
+                    const st = deriveBookingStatus(b.status);
+                    return (
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium",
+                          st.cls,
+                        )}
+                      >
+                        {st.main}
+                      </span>
+                    );
+                  })()}
                 </Link>
               </li>
             ))}

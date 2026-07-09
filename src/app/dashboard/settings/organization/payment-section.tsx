@@ -84,7 +84,7 @@ export function PaymentSection({ initial, disabled }: Props) {
         <ToggleCard
           icon={MapPin}
           title="Op locatie"
-          description="Klant betaalt bij ophalen. Boeking komt binnen als 'In afwachting'."
+          description="Klant betaalt bij ophalen. Boeking staat direct als 'Gereserveerd' in je planning."
           on={acceptLocation}
           onToggle={() => setAcceptLocation((v) => !v)}
           disabled={disabled}
