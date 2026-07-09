@@ -28,6 +28,7 @@ function buildBuckets(
       name: string;
       description: string | null;
       imageUrl: string | null;
+      imageUrls: string[];
       pricePerUnit: number | null;
       bookingIntervalMinutes: number;
       cleaningFee: number | null;
@@ -46,6 +47,7 @@ function buildBuckets(
           name: i.name,
           description: i.description,
           imageUrl: i.imageUrl,
+          imageUrls: i.imageUrls ?? [],
           pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
           bookingIntervalMinutes: i.bookingIntervalMinutes,
           cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,
@@ -65,6 +67,7 @@ function buildBuckets(
             name: i.name,
             description: i.description,
             imageUrl: i.imageUrl,
+          imageUrls: i.imageUrls ?? [],
             pricePerUnit: i.pricePerUnit ? Number(i.pricePerUnit) : null,
             bookingIntervalMinutes: i.bookingIntervalMinutes,
             cleaningFee: i.cleaningFee ? Number(i.cleaningFee) : null,

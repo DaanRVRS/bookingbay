@@ -24,6 +24,8 @@ interface ItemRow {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  /** Alle foto's (max 5) — de item-kaart toont ze als mini-carrousel. */
+  imageUrls?: string[];
   pricePerUnit: number | null;
   bookingIntervalMinutes: number;
   cleaningFee: number | null;
@@ -516,31 +518,38 @@ function ItemStep({
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
         {category.items.map((item) => (
           <li key={item.id}>
-            <button
-              type="button"
+            {/* div i.p.v. button zodat de carrousel-pijltjes échte knoppen
+                kunnen zijn (geen geneste interactieve elementen). */}
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => onPick(item.id)}
-              className="group flex w-full flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onPick(item.id);
+                }
+              }}
+              className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
-              <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                {item.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                  />
-                ) : (
-                  <div className="grid size-full place-items-center text-muted-foreground">
-                    <ImageIcon className="size-7 opacity-40" />
-                  </div>
-                )}
-                <span
-                  className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur"
-                  style={{ background: `${accent}E0`, color: ON_ACCENT }}
-                >
-                  {priceLabelShort(item, t)}
-                </span>
-              </div>
+              <ItemCardGallery
+                images={
+                  item.imageUrls && item.imageUrls.length > 0
+                    ? item.imageUrls
+                    : item.imageUrl
+                      ? [item.imageUrl]
+                      : []
+                }
+                alt={item.name}
+                badge={
+                  <span
+                    className="absolute right-2 top-2 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur"
+                    style={{ background: `${accent}E0`, color: ON_ACCENT }}
+                  >
+                    {priceLabelShort(item, t)}
+                  </span>
+                }
+              />
               <div className="flex flex-1 flex-col gap-1 p-3.5">
                 <h3 className="text-sm font-semibold tracking-tight">
                   {item.name}
@@ -557,10 +566,82 @@ function ItemStep({
                   {t("item.book")} <ArrowRight className="size-3" />
                 </span>
               </div>
-            </button>
+            </div>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Mini-carrousel op de item-kaart: pijltjes + stippen bij meerdere foto's.
+ * Klikken op de pijltjes selecteert het item níet (stopPropagation) —
+ * klanten kunnen dus eerst alle foto's bekijken.
+ */
+function ItemCardGallery({
+  images,
+  alt,
+  badge,
+}: {
+  images: string[];
+  alt: string;
+  badge?: React.ReactNode;
+}) {
+  const [idx, setIdx] = useState(0);
+  const many = images.length > 1;
+  const current = images[Math.min(idx, images.length - 1)];
+
+  const go = (e: React.MouseEvent, dir: -1 | 1) => {
+    e.stopPropagation();
+    setIdx((i) => (i + dir + images.length) % images.length);
+  };
+
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      {current ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={current}
+          alt={alt}
+          className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+        />
+      ) : (
+        <div className="grid size-full place-items-center text-muted-foreground">
+          <ImageIcon className="size-7 opacity-40" />
+        </div>
+      )}
+      {many && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => go(e, -1)}
+            aria-label="Vorige foto"
+            className="absolute left-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/55 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <ArrowLeft className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => go(e, 1)}
+            aria-label="Volgende foto"
+            className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/55 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <ArrowRight className="size-3.5" />
+          </button>
+          <div className="pointer-events-none absolute inset-x-0 bottom-1.5 flex justify-center gap-1">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`size-1.5 rounded-full transition-colors ${
+                  i === idx ? "bg-white" : "bg-white/45"
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {badge}
     </div>
   );
 }
