@@ -3,6 +3,11 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { db } from "@/lib/db";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { AutoRefresh, RefreshStatusButton } from "./refresh-status";
+
+// Altijd de actuele paymentStatus lezen — deze pagina wordt ge-refresht
+// terwijl de Mollie-webhook de status bijwerkt.
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ slug: string; bookingId: string }>;
@@ -97,13 +102,22 @@ export default async function PaymentReturnPage({
           >
             Nieuwe boeking
           </Link>
-          {!isPaid && variant !== "canceled" && (
+          {variant === "pending" && (
+            <>
+              <RefreshStatusButton accent={accent} />
+              {/* Zolang de betaling pending is elke 5s de status opnieuw
+                  lezen — klapt vanzelf om naar "gelukt" zodra de webhook
+                  binnen is. */}
+              <AutoRefresh />
+            </>
+          )}
+          {variant === "canceled" && (
             <Link
               href={`/book/${slug}`}
               className="inline-flex h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold text-white shadow-sm"
               style={{ background: accent }}
             >
-              Status verversen
+              Opnieuw proberen
             </Link>
           )}
         </div>
