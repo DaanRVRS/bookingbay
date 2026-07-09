@@ -23,7 +23,13 @@ export default async function CalendarPage({ searchParams }: PageProps) {
     db.item.findMany({
       where: { organizationId: orgId, isActive: true, isAddon: false },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, quantity: true },
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        categoryId: true,
+        category: { select: { name: true } },
+      },
     }),
     db.booking.findMany({
       where: {
@@ -46,7 +52,13 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         <CalendarView
           focusedDate={format(focused, "yyyy-MM-dd")}
           weekStart={format(weekStart, "yyyy-MM-dd")}
-          items={items}
+          items={items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            quantity: i.quantity,
+            categoryId: i.categoryId,
+            categoryName: i.category.name,
+          }))}
           bookings={bookings.map((b) => ({
             id: b.id,
             itemId: b.itemId,

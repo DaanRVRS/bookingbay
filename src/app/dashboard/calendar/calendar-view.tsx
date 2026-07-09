@@ -15,7 +15,14 @@ import {
   subWeeks,
 } from "date-fns";
 import { nl } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListFilter, Plus, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import type { BookingStatus } from "@prisma/client";
 import {
@@ -37,6 +44,8 @@ interface ItemRow {
   id: string;
   name: string;
   quantity: number;
+  categoryId: string;
+  categoryName: string;
 }
 
 interface BookingRow {
@@ -140,6 +149,46 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
   const [view, setView] = useState<ViewMode>("week");
   const [, startTransition] = useTransition();
 
+  // Filters: categorie en/of item. "all" = geen filter. De accent-kleuren
+  // blijven op de vólledige items-lijst gebaseerd zodat kleuren niet
+  // verspringen bij het filteren.
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [itemFilter, setItemFilter] = useState<string>("all");
+
+  const categories = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const it of items) {
+      if (!map.has(it.categoryId)) map.set(it.categoryId, it.categoryName);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "nl"));
+  }, [items]);
+
+  const filterableItems = useMemo(
+    () =>
+      categoryFilter === "all"
+        ? items
+        : items.filter((i) => i.categoryId === categoryFilter),
+    [items, categoryFilter],
+  );
+
+  const visibleItems = useMemo(
+    () =>
+      itemFilter === "all"
+        ? filterableItems
+        : filterableItems.filter((i) => i.id === itemFilter),
+    [filterableItems, itemFilter],
+  );
+
+  const visibleBookings = useMemo(() => {
+    if (categoryFilter === "all" && itemFilter === "all") return bookings;
+    const ids = new Set(visibleItems.map((i) => i.id));
+    return bookings.filter((b) => ids.has(b.itemId));
+  }, [bookings, visibleItems, categoryFilter, itemFilter]);
+
+  const filterActive = categoryFilter !== "all" || itemFilter !== "all";
+
   const sensors = useSensors(
     // 6px activation distance: bewegingen onder die threshold tellen niet
     // als drag → onClick op de booking-card navigeert naar de edit-page.
@@ -242,12 +291,85 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         </div>
       </div>
 
+      {/* Filters: categorie + item */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <ListFilter className="size-3.5" />
+          Filter
+        </span>
+        <Select
+          items={[
+            { value: "all", label: "Alle categorieën" },
+            ...categories.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+          value={categoryFilter}
+          onValueChange={(v) => {
+            const next = v ?? "all";
+            setCategoryFilter(next);
+            // Item-filter resetten als het item niet in de nieuwe categorie zit.
+            if (
+              next !== "all" &&
+              itemFilter !== "all" &&
+              !items.some((i) => i.id === itemFilter && i.categoryId === next)
+            ) {
+              setItemFilter("all");
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectValue placeholder="Alle categorieën" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle categorieën</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          items={[
+            { value: "all", label: "Alle items" },
+            ...filterableItems.map((i) => ({ value: i.id, label: i.name })),
+          ]}
+          value={itemFilter}
+          onValueChange={(v) => setItemFilter(v ?? "all")}
+        >
+          <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectValue placeholder="Alle items" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle items</SelectItem>
+            {filterableItems.map((i) => (
+              <SelectItem key={i.id} value={i.id}>
+                {i.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filterActive && (
+          <button
+            type="button"
+            onClick={() => {
+              setCategoryFilter("all");
+              setItemFilter("all");
+            }}
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/15"
+          >
+            <X className="size-3" />
+            {visibleBookings.length}{" "}
+            {visibleBookings.length === 1 ? "boeking" : "boekingen"} — wis filter
+          </button>
+        )}
+      </div>
+
       {view !== "week" && (
         <div className="mt-5 grid grid-cols-7 gap-1.5">
           {days.map((d) => {
             const isSelected = isSameDay(d, selectedDay);
             const today = isToday(d);
-            const dayBookings = bookings.filter(
+            const dayBookings = visibleBookings.filter(
               (b) => isSameDay(parseISO(b.startAt), d) || isSameDay(parseISO(b.endAt), d),
             );
             return (
@@ -289,7 +411,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
           {view === "week" && (
             <WeekTimeGrid
               days={days}
-              bookings={bookings}
+              bookings={visibleBookings}
               items={items}
               accentByItemId={accentByItemId}
             />
@@ -297,7 +419,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
           {view === "day" && (
             <DayTimeView
               day={selectedDay}
-              bookings={bookings}
+              bookings={visibleBookings}
               items={items}
               accentByItemId={accentByItemId}
             />
@@ -305,8 +427,8 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
           {view === "items" && (
             <ItemsGrid
               days={days}
-              bookings={bookings}
-              items={items}
+              bookings={visibleBookings}
+              items={visibleItems}
               accentByItemId={accentByItemId}
               onDayClick={(d) => setSelectedDay(d)}
             />
