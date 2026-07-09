@@ -6,9 +6,12 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  CreditCard,
+  Hourglass,
   Mail,
   Phone,
+  Plus,
+  Receipt,
+  StickyNote,
   XCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -55,6 +58,7 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
         select: {
           name: true,
           description: true,
+          imageUrl: true,
           bookingIntervalMinutes: true,
           cleaningFee: true,
           captainFee: true,
@@ -67,6 +71,7 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
           id: true,
           name: true,
           slug: true,
+          logoUrl: true,
           primaryColor: true,
           contactEmail: true,
           contactPhone: true,
@@ -90,7 +95,8 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
   }
   if (!booking.organization.customerPortalEnabled) notFound();
 
-  const accent = booking.organization.primaryColor ?? "#ef5934";
+  const org = booking.organization;
+  const accent = org.primaryColor ?? "#ef5934";
   const now = new Date();
   const isUpcoming =
     booking.startAt > now &&
@@ -98,9 +104,8 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
     booking.status !== "COMPLETED";
   const hoursUntil = (booking.startAt.getTime() - now.getTime()) / (60 * 60 * 1000);
   const canCancel =
-    isUpcoming && hoursUntil >= booking.organization.customerPortalCancelHoursMin;
+    isUpcoming && hoursUntil >= org.customerPortalCancelHoursMin;
   const totalEur = Number(booking.totalPrice);
-  const amount = `€${totalEur.toFixed(2).replace(".", ",")}`;
   const units = rentalUnitCount(
     booking.startAt.getTime(),
     booking.endAt.getTime(),
@@ -109,39 +114,80 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
   const feeLines = flatFeeLines(booking.item, units);
   const feesTotal = sumFlatFees(booking.item, units);
   // Add-ons (extra's) zitten ook in totalPrice — apart aftrekken zodat het
-  // "Subtotaal" zuiver de huurprijs is en het totaal verklaarbaar blijft.
+  // "Huurprijs"-bedrag zuiver de huur is en het totaal verklaarbaar blijft.
   const addonList = (booking.addons as BookingAddonLine[] | null) ?? [];
   const addonsTotal = sumAddons(addonList);
   const subtotalEur = Math.max(0, totalEur - feesTotal - addonsTotal);
+  const showBreakdown = feesTotal > 0 || addonsTotal > 0;
 
   return (
     <main className="relative min-h-dvh">
+      {/* Accent-gloed bovenin — zelfde sfeer als de boek-widget */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-72"
+        className="pointer-events-none absolute inset-x-0 top-0 h-80"
         style={{
-          background: `radial-gradient(ellipse at 50% 0%, ${accent}25 0%, transparent 65%)`,
+          background: `radial-gradient(ellipse at 50% 0%, ${accent}2E 0%, transparent 65%)`,
         }}
       />
+
       <div className="relative mx-auto max-w-xl px-4 py-10 sm:px-6 sm:py-14">
-        <header>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {booking.organization.name}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Mijn boeking</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Hoi {booking.customer.name} — hier vind je alle details.
-          </p>
+        {/* Merk-header — zelfde opzet als de widget */}
+        <header className="flex items-center gap-3">
+          {org.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={org.logoUrl}
+              alt={org.name}
+              width={44}
+              height={44}
+              className="size-11 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-border"
+            />
+          ) : (
+            <div
+              className="grid size-11 shrink-0 place-items-center rounded-xl text-sm font-bold text-white shadow-sm"
+              style={{
+                background: accent,
+                boxShadow: `0 4px 14px -4px ${accent}80`,
+              }}
+            >
+              {org.name.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p
+              className="text-[10px] font-semibold tracking-wider uppercase"
+              style={{ color: accent }}
+            >
+              Je boeking bij
+            </p>
+            <p className="truncate text-lg font-bold tracking-tight">
+              {org.name}
+            </p>
+          </div>
         </header>
 
-        <section className="mt-7 rounded-2xl border border-border bg-card p-6">
-          <div className="flex items-start justify-between gap-3">
+        <p className="mt-5 text-sm text-muted-foreground">
+          Hoi <span className="font-medium text-foreground">{booking.customer.name}</span>{" "}
+          — hier vind je alle details van je boeking. Bewaar deze link: hij
+          blijft werken.
+        </p>
+
+        {/* Hoofdkaart */}
+        <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_-28px_rgba(0,0,0,0.25)]">
+          {/* Item-kop met accent-tint */}
+          <div
+            className="flex items-start justify-between gap-3 border-b border-border px-6 py-5"
+            style={{
+              background: `linear-gradient(135deg, ${accent}14 0%, transparent 70%)`,
+            }}
+          >
             <div className="min-w-0">
-              <p className="text-base font-semibold tracking-tight">
+              <p className="text-lg font-semibold tracking-tight">
                 {booking.item.name}
               </p>
               {booking.item.description && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                   {booking.item.description}
                 </p>
               )}
@@ -152,118 +198,219 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
             />
           </div>
 
-          <dl className="mt-5 grid gap-3 text-sm">
-            <Row icon={Calendar} label="Datum">
-              {format(booking.startAt, "EEEE d MMMM yyyy", { locale: nl })}
-            </Row>
-            <Row icon={Clock} label="Tijd">
-              {format(booking.startAt, "HH:mm")} —{" "}
-              {format(booking.endAt, "HH:mm")}
-            </Row>
-            <Row icon={CreditCard} label="Totaal">
-              {amount}
-              {booking.paymentStatus === "PAID" && (
-                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  <CheckCircle2 className="size-3" />
-                  Betaald
-                </span>
-              )}
-            </Row>
-          </dl>
+          {/* Wanneer — tegels */}
+          <div className="grid gap-3 px-6 py-5 sm:grid-cols-3">
+            <InfoTile
+              icon={Calendar}
+              accent={accent}
+              label="Datum"
+              value={format(booking.startAt, "EEEE d MMMM", { locale: nl })}
+              sub={format(booking.startAt, "yyyy")}
+            />
+            <InfoTile
+              icon={Clock}
+              accent={accent}
+              label="Tijd"
+              value={`${format(booking.startAt, "HH:mm")} — ${format(booking.endAt, "HH:mm")}`}
+            />
+            <InfoTile
+              icon={Hourglass}
+              accent={accent}
+              label="Duur"
+              value={durationLabel(booking.startAt, booking.endAt)}
+            />
+          </div>
 
-          {(feesTotal > 0 || addonsTotal > 0) && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Subtotaal: €{subtotalEur.toFixed(2).replace(".", ",")}
-              {feeLines.map((l) => (
-                <span key={l.label}>
-                  {" "}+ {l.label.toLowerCase()} €
-                  {l.amount.toFixed(2).replace(".", ",")}
-                </span>
-              ))}
-              {addonsTotal > 0 && (
-                <span>
-                  {" "}+ extra&apos;s €{addonsTotal.toFixed(2).replace(".", ",")}
-                </span>
+          {/* Prijsopbouw */}
+          <div className="border-t border-border px-6 py-5">
+            <div className="mb-3 flex items-center gap-2">
+              <span
+                className="grid size-6 place-items-center rounded-md"
+                style={{ background: `${accent}18`, color: accent }}
+              >
+                <Receipt className="size-3.5" />
+              </span>
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                Prijs
+              </span>
+            </div>
+            <dl className="flex flex-col gap-1.5 text-sm">
+              {showBreakdown && (
+                <PriceRow label="Huurprijs" amount={subtotalEur} />
               )}
-            </p>
-          )}
-          {addonList.length > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Extra&apos;s:{" "}
-              {addonList
-                .map((a) => `${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`)
-                .join(", ")}
-            </p>
-          )}
+              {feeLines.map((l) => (
+                <PriceRow key={l.label} label={l.label} amount={l.amount} />
+              ))}
+              {addonList.map((a) => (
+                <PriceRow
+                  key={a.itemId}
+                  label={`${a.name}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`}
+                  amount={a.unitPrice * a.quantity}
+                  icon={<Plus className="size-3 text-muted-foreground" />}
+                />
+              ))}
+              <div className="mt-2 flex items-baseline justify-between border-t border-border pt-3">
+                <dt className="text-sm font-semibold">Totaal</dt>
+                <dd className="flex items-center gap-2">
+                  <span
+                    className="text-xl font-semibold tabular-nums"
+                    style={{ color: accent }}
+                  >
+                    €{totalEur.toFixed(2).replace(".", ",")}
+                  </span>
+                  {booking.paymentStatus === "PAID" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[oklch(0.93_0.07_150)] px-2 py-0.5 text-[10px] font-semibold text-[oklch(0.4_0.14_150)]">
+                      <CheckCircle2 className="size-3" />
+                      Betaald
+                    </span>
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           {booking.notes && (
-            <div className="mt-5 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-              <strong className="block text-foreground">Opmerking</strong>
-              <p className="mt-1">{booking.notes}</p>
+            <div className="border-t border-border px-6 py-5">
+              <div className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3">
+                <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 text-xs">
+                  <p className="font-semibold">Jouw opmerking</p>
+                  <p className="mt-0.5 whitespace-pre-line text-muted-foreground">
+                    {booking.notes}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
-          {canCancel && (
-            <div className="mt-6 border-t border-border pt-5">
-              <CancelButton slug={slug} bookingId={booking.id} token={token} />
+          {(canCancel || isUpcoming) && (
+            <div className="border-t border-border bg-muted/20 px-6 py-5">
+              {canCancel ? (
+                <CancelButton slug={slug} bookingId={booking.id} token={token} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Annuleren kan tot {org.customerPortalCancelHoursMin}u vóór de
+                  starttijd. Bel of mail anders direct met {org.name}.
+                </p>
+              )}
             </div>
-          )}
-          {isUpcoming && !canCancel && (
-            <p className="mt-6 border-t border-border pt-5 text-xs text-muted-foreground">
-              Annuleren kan tot {booking.organization.customerPortalCancelHoursMin}u
-              vóór de starttijd. Bel of mail anders direct met {booking.organization.name}.
-            </p>
           )}
         </section>
 
-        {(booking.organization.contactPhone || booking.organization.contactEmail) && (
-          <section className="mt-5 rounded-2xl border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold tracking-tight">Contact</h2>
-            <div className="mt-3 flex flex-col gap-2 text-sm">
-              {booking.organization.contactPhone && (
+        {/* Contact */}
+        {(org.contactPhone || org.contactEmail) && (
+          <section className="mt-4 rounded-2xl border border-border bg-card p-6">
+            <h2 className="text-sm font-semibold tracking-tight">
+              Vragen over je boeking?
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {org.name} helpt je graag.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {org.contactPhone && (
                 <a
-                  href={`tel:${booking.organization.contactPhone}`}
-                  className="flex items-center gap-2 text-foreground hover:underline"
+                  href={`tel:${org.contactPhone}`}
+                  className="flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
                 >
-                  <Phone className="size-4 text-muted-foreground" />
-                  {booking.organization.contactPhone}
+                  <span
+                    className="grid size-8 shrink-0 place-items-center rounded-lg"
+                    style={{ background: `${accent}18`, color: accent }}
+                  >
+                    <Phone className="size-4" />
+                  </span>
+                  {org.contactPhone}
                 </a>
               )}
-              {booking.organization.contactEmail && (
+              {org.contactEmail && (
                 <a
-                  href={`mailto:${booking.organization.contactEmail}`}
-                  className="flex items-center gap-2 text-foreground hover:underline"
+                  href={`mailto:${org.contactEmail}`}
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm font-medium transition-colors hover:bg-accent"
                 >
-                  <Mail className="size-4 text-muted-foreground" />
-                  {booking.organization.contactEmail}
+                  <span
+                    className="grid size-8 shrink-0 place-items-center rounded-lg"
+                    style={{ background: `${accent}18`, color: accent }}
+                  >
+                    <Mail className="size-4" />
+                  </span>
+                  <span className="truncate">{org.contactEmail}</span>
                 </a>
               )}
             </div>
           </section>
         )}
+
+        <p className="mt-8 text-center text-[11px] text-muted-foreground">
+          Boeking-id <code className="font-mono">{booking.id.slice(-8)}</code>
+          {" · "}Powered by{" "}
+          <a
+            href="https://www.bookingbay.nl"
+            className="font-medium hover:text-foreground"
+          >
+            BookingBay
+          </a>
+        </p>
       </div>
     </main>
   );
 }
 
-function Row({
+function durationLabel(start: Date, end: Date): string {
+  const ms = end.getTime() - start.getTime();
+  if (ms <= 0) return "—";
+  const days = Math.floor(ms / 86_400_000);
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+  const mins = Math.round((ms % 3_600_000) / 60_000);
+  if (days > 0) return `${days} ${days === 1 ? "dag" : "dagen"}${hours ? ` ${hours}u` : ""}`;
+  if (hours > 0) return `${hours}u${mins ? ` ${mins}m` : ""}`;
+  return `${mins} min`;
+}
+
+function InfoTile({
   icon: Icon,
+  accent,
   label,
-  children,
+  value,
+  sub,
 }: {
   icon: typeof Calendar;
+  accent: string;
   label: string;
-  children: React.ReactNode;
+  value: string;
+  sub?: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <div className="flex items-baseline gap-2">
-        <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-          {label}
-        </dt>
-        <dd className="text-sm">{children}</dd>
-      </div>
+    <div className="rounded-xl border border-border bg-background/60 p-3.5">
+      <span
+        className="grid size-8 place-items-center rounded-lg"
+        style={{ background: `${accent}18`, color: accent }}
+      >
+        <Icon className="size-4" />
+      </span>
+      <p className="mt-2.5 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-semibold capitalize">{value}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+function PriceRow({
+  label,
+  amount,
+  icon,
+}: {
+  label: string;
+  amount: number;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+        {label}
+      </dt>
+      <dd className="tabular-nums">€{amount.toFixed(2).replace(".", ",")}</dd>
     </div>
   );
 }
@@ -277,7 +424,7 @@ function StatusPill({
 }) {
   if (status === "CANCELED") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-medium text-destructive">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-[10px] font-semibold text-destructive">
         <XCircle className="size-3" />
         Geannuleerd
       </span>
@@ -285,23 +432,24 @@ function StatusPill({
   }
   if (status === "COMPLETED") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.93_0.07_150)] px-2.5 py-1 text-[10px] font-semibold text-[oklch(0.4_0.14_150)]">
         <CheckCircle2 className="size-3" />
         Voltooid
       </span>
     );
   }
-  if (paymentStatus === "PAID") {
+  if (paymentStatus === "PAID" || status === "CONFIRMED") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.93_0.07_150)] px-2.5 py-1 text-[10px] font-semibold text-[oklch(0.4_0.14_150)]">
         <CheckCircle2 className="size-3" />
-        Betaald
+        {paymentStatus === "PAID" ? "Betaald" : "Bevestigd"}
       </span>
     );
   }
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
-      {status === "PENDING" ? "Wacht op bevestiging" : "Bevestigd"}
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[oklch(0.94_0.08_70)] px-2.5 py-1 text-[10px] font-semibold text-[oklch(0.5_0.16_70)]">
+      <Clock className="size-3" />
+      Wacht op bevestiging
     </span>
   );
 }
