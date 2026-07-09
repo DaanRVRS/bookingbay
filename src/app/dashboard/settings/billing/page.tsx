@@ -26,6 +26,7 @@ import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
 import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
 import {
   CancelSubscriptionButton,
+  ChangePlanButton,
   ResumeSubscriptionButton,
   StartCheckoutButton,
 } from "./subscription-actions";
@@ -279,9 +280,9 @@ export default async function BillingPage({ searchParams }: PageProps) {
       <section>
         <h2 className="text-base font-semibold">Plannen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Wisselen van plan? Mail{" "}
-          <a className="underline" href="mailto:hallo@bookingbay.nl">hallo@bookingbay.nl</a>
-          {" "}— we passen &lsquo;t dezelfde dag aan.
+          Wissel direct van plan — de nieuwe limieten gelden meteen. Heb je
+          een actief abonnement, dan geldt het nieuwe bedrag vanaf de
+          volgende verlenging.
         </p>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {PLAN_ORDER.map((p) => (
@@ -297,22 +298,10 @@ export default async function BillingPage({ searchParams }: PageProps) {
     </div>
   );
   } catch (err) {
-    // TIJDELIJK: render de echte serverfout op het scherm zodat we 'm
-    // kunnen zien (Next redact 'm anders in productie). Weghalen zodra
-    // de oorzaak bekend is.
-    return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-sm">
-        <h2 className="font-semibold text-destructive">Billing-diagnostiek</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Tijdelijk zichtbaar gemaakt om de serverfout te achterhalen.
-        </p>
-        <pre className="mt-3 max-h-96 overflow-auto rounded bg-background p-3 text-[11px] whitespace-pre-wrap">
-          {err instanceof Error
-            ? `${err.name}: ${err.message}\n\n${err.stack ?? ""}`
-            : String(err)}
-        </pre>
-      </div>
-    );
+    // Server-side loggen (pm2-logs), gebruiker krijgt de nette
+    // error-boundary (settings/error.tsx) — nooit stacktraces op scherm.
+    console.error("[billing] pagina-render mislukt:", err);
+    throw err;
   }
 }
 
@@ -766,6 +755,14 @@ function PlanCard({
         >
           Neem contact op
         </a>
+      )}
+      {!limits.customPricing && !isCurrent && (
+        <ChangePlanButton
+          plan={plan}
+          planLabel={limits.label}
+          priceLabel={`${formatEuroNL(limits.monthlyPriceEuro)}/maand`}
+          isUpgrade={PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(current)}
+        />
       )}
     </div>
   );

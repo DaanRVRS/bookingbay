@@ -3,8 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
+import type { Plan } from "@prisma/client";
 import {
   cancelSubscriptionAction,
+  changePlanAction,
   resumeSubscriptionAction,
   startCheckoutAction,
 } from "@/lib/billing/actions";
@@ -44,6 +46,68 @@ export function StartCheckoutButton({
       >
         {pending && <Loader2 className="mr-2 size-4 animate-spin" />}
         {label}
+      </button>
+      {err && (
+        <p className="flex items-start gap-1.5 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 size-3 shrink-0" />
+          {err}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Zelf wisselen van plan op de plan-kaarten. Upgrade werkt direct;
+ * downgrade wordt server-side geweigerd met uitleg als het huidige
+ * gebruik niet in het doelplan past. Bij een actief abonnement gaat
+ * het nieuwe bedrag in bij de volgende verlenging.
+ */
+export function ChangePlanButton({
+  plan,
+  planLabel,
+  priceLabel,
+  isUpgrade,
+}: {
+  plan: Plan;
+  planLabel: string;
+  priceLabel: string;
+  isUpgrade: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  function go() {
+    const msg = isUpgrade
+      ? `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct. Heb je een actief abonnement, dan geldt het nieuwe bedrag vanaf de volgende verlenging.`
+      : `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe houdt alles wat binnen dit plan past. Heb je een actief abonnement, dan geldt het nieuwe bedrag vanaf de volgende verlenging.`;
+    if (!confirm(msg)) return;
+    setErr(null);
+    startTransition(async () => {
+      const res = await changePlanAction(plan);
+      if (!res.ok) {
+        setErr(res.error ?? "Wisselen mislukt");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={go}
+        disabled={pending}
+        className={
+          isUpgrade
+            ? "inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            : "inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent disabled:opacity-50"
+        }
+      >
+        {pending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+        {isUpgrade ? `Upgrade naar ${planLabel}` : `Wissel naar ${planLabel}`}
       </button>
       {err && (
         <p className="flex items-start gap-1.5 text-xs text-destructive">
