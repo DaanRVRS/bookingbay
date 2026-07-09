@@ -373,10 +373,99 @@ function bookingPosition(start: Date, end: Date, day: Date) {
   const top =
     (differenceInMinutes(visibleStart, dayBoundaryStart) / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    24,
+    22,
     (differenceInMinutes(visibleEnd, visibleStart) / 60) * HOUR_HEIGHT,
   );
   return { top, height };
+}
+
+interface PositionedBooking {
+  b: BookingRow;
+  top: number;
+  height: number;
+  startMs: number;
+  endMs: number;
+}
+
+/**
+ * Verdeel overlappende boekingen over "lanen" zodat ze naast elkaar staan
+ * i.p.v. onleesbaar over elkaar heen. Klassiek interval-algoritme: sorteer
+ * op starttijd, geef elke boeking de eerste vrije laan; per overlappend
+ * cluster bepaalt het gebruikte aantal lanen de breedte.
+ */
+function assignLanes(
+  items: PositionedBooking[],
+): Map<string, { lane: number; lanes: number }> {
+  const sorted = [...items].sort(
+    (a, b) => a.startMs - b.startMs || b.endMs - a.endMs,
+  );
+  const result = new Map<string, { lane: number; lanes: number }>();
+  let cluster: PositionedBooking[] = [];
+  let laneEnds: number[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    const laneCount = Math.max(1, laneEnds.length);
+    for (const it of cluster) {
+      const r = result.get(it.b.id);
+      if (r) result.set(it.b.id, { lane: r.lane, lanes: laneCount });
+    }
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const it of sorted) {
+    if (cluster.length > 0 && it.startMs >= clusterEnd) flush();
+    let lane = laneEnds.findIndex((end) => end <= it.startMs);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(it.endMs);
+    } else {
+      laneEnds[lane] = it.endMs;
+    }
+    result.set(it.b.id, { lane, lanes: 1 });
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.endMs);
+  }
+  flush();
+  return result;
+}
+
+/** Positioneer boekingen van één dag incl. laan-indeling. */
+function positionDayBookings(
+  dayBookings: BookingRow[],
+  day: Date,
+): { positioned: PositionedBooking[]; lanes: Map<string, { lane: number; lanes: number }> } {
+  const positioned: PositionedBooking[] = [];
+  for (const b of dayBookings) {
+    const start = parseISO(b.startAt);
+    const end = parseISO(b.endAt);
+    const pos = bookingPosition(start, end, day);
+    if (!pos) continue;
+    positioned.push({
+      b,
+      ...pos,
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+    });
+  }
+  return { positioned, lanes: assignLanes(positioned) };
+}
+
+/** Rode "nu"-lijn in de kolom van vandaag. */
+function NowLine() {
+  const now = new Date();
+  const mins = (now.getHours() - HOUR_START) * 60 + now.getMinutes();
+  const maxMins = (HOUR_END + 1 - HOUR_START) * 60;
+  if (mins < 0 || mins > maxMins) return null;
+  const top = (mins / 60) * HOUR_HEIGHT;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top }}>
+      <div className="relative h-[2px] bg-[oklch(0.6_0.22_25)]/80">
+        <span className="absolute -top-[3px] left-0 size-2 rounded-full bg-[oklch(0.6_0.22_25)]" />
+      </div>
+    </div>
+  );
 }
 
 function WeekTimeGrid({
@@ -470,34 +559,56 @@ function WeekTimeGrid({
                     />
                   </div>
                 ))}
-                {/* Booking blocks */}
-                {dayBookings.map((b) => {
-                  const pos = bookingPosition(
-                    parseISO(b.startAt),
-                    parseISO(b.endAt),
-                    d,
-                  );
-                  if (!pos) return null;
-                  return (
-                    <DraggableBooking
-                      key={b.id}
-                      bookingId={b.id}
-                      href={`/dashboard/bookings/${b.id}`}
-                      className={cn(
-                        "absolute right-1 left-1 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-1.5 py-1 text-[10px] font-medium text-white shadow-sm transition-all hover:brightness-110",
-                        accentByItemId.get(b.itemId) ?? "from-primary to-primary",
-                        b.status === "CANCELED" && "opacity-50 line-through",
-                      )}
-                      style={{ top: pos.top + 1, height: pos.height - 2 }}
-                      title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")} — sleep om te verplaatsen`}
-                    >
-                      <span className="truncate font-semibold">
-                        {format(parseISO(b.startAt), "HH:mm")} {b.itemName}
-                      </span>
-                      <span className="truncate opacity-90">{b.customerName}</span>
-                    </DraggableBooking>
-                  );
-                })}
+                {/* Booking blocks — overlappende boekingen krijgen elk een
+                    eigen laan; korte boekingen een compacte één-regel-look. */}
+                {(() => {
+                  const { positioned, lanes } = positionDayBookings(dayBookings, d);
+                  return positioned.map(({ b, top, height }) => {
+                    const li = lanes.get(b.id) ?? { lane: 0, lanes: 1 };
+                    const compact = height < 40;
+                    return (
+                      <DraggableBooking
+                        key={b.id}
+                        bookingId={b.id}
+                        href={`/dashboard/bookings/${b.id}`}
+                        className={cn(
+                          "absolute flex flex-col overflow-hidden rounded-md bg-gradient-to-br text-[10px] font-medium text-white shadow-sm transition-all hover:z-10 hover:brightness-110",
+                          compact
+                            ? "justify-center px-1.5 leading-none"
+                            : "gap-0.5 px-1.5 py-1",
+                          accentByItemId.get(b.itemId) ?? "from-primary to-primary",
+                          b.status === "CANCELED" && "opacity-50 line-through",
+                        )}
+                        style={{
+                          top: top + 1,
+                          height: height - 2,
+                          left: `calc(${(li.lane / li.lanes) * 100}% + 3px)`,
+                          width: `calc(${100 / li.lanes}% - 6px)`,
+                        }}
+                        title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")} — sleep om te verplaatsen`}
+                      >
+                        {compact ? (
+                          <span className="truncate text-[9px]">
+                            <span className="font-semibold tabular-nums">
+                              {format(parseISO(b.startAt), "HH:mm")}
+                            </span>{" "}
+                            {b.customerName}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="truncate font-semibold">
+                              {format(parseISO(b.startAt), "HH:mm")} {b.itemName}
+                            </span>
+                            <span className="truncate opacity-90">
+                              {b.customerName}
+                            </span>
+                          </>
+                        )}
+                      </DraggableBooking>
+                    );
+                  });
+                })()}
+                {isToday(d) && <NowLine />}
               </div>
             );
           })}
@@ -582,35 +693,56 @@ function DayTimeView({
                 />
               </div>
             ))}
-            {dayBookings.map((b) => {
-              const pos = bookingPosition(
-                parseISO(b.startAt),
-                parseISO(b.endAt),
-                day,
-              );
-              if (!pos) return null;
-              return (
-                <DraggableBooking
-                  key={b.id}
-                  bookingId={b.id}
-                  href={`/dashboard/bookings/${b.id}`}
-                  className={cn(
-                    "absolute right-2 left-2 flex flex-col gap-0.5 overflow-hidden rounded-md bg-gradient-to-br px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:brightness-110",
-                    accentByItemId.get(b.itemId) ?? "from-primary to-primary",
-                    b.status === "CANCELED" && "opacity-50 line-through",
-                  )}
-                  style={{ top: pos.top + 1, height: pos.height - 2 }}
-                  title="Sleep om te verplaatsen"
-                >
-                  <span className="truncate text-[11px] font-semibold opacity-95">
-                    {format(parseISO(b.startAt), "HH:mm")} –{" "}
-                    {format(parseISO(b.endAt), "HH:mm")}
-                  </span>
-                  <span className="truncate text-sm font-semibold">{b.itemName}</span>
-                  <span className="truncate opacity-90">{b.customerName}</span>
-                </DraggableBooking>
-              );
-            })}
+            {(() => {
+              const { positioned, lanes } = positionDayBookings(dayBookings, day);
+              return positioned.map(({ b, top, height }) => {
+                const li = lanes.get(b.id) ?? { lane: 0, lanes: 1 };
+                const compact = height < 44;
+                return (
+                  <DraggableBooking
+                    key={b.id}
+                    bookingId={b.id}
+                    href={`/dashboard/bookings/${b.id}`}
+                    className={cn(
+                      "absolute flex flex-col overflow-hidden rounded-md bg-gradient-to-br text-xs font-medium text-white shadow-sm transition-all hover:z-10 hover:brightness-110",
+                      compact
+                        ? "justify-center px-2.5 leading-none"
+                        : "gap-0.5 px-3 py-2",
+                      accentByItemId.get(b.itemId) ?? "from-primary to-primary",
+                      b.status === "CANCELED" && "opacity-50 line-through",
+                    )}
+                    style={{
+                      top: top + 1,
+                      height: height - 2,
+                      left: `calc(${(li.lane / li.lanes) * 100}% + 5px)`,
+                      width: `calc(${100 / li.lanes}% - 10px)`,
+                    }}
+                    title={`${b.itemName} · ${b.customerName} · ${format(parseISO(b.startAt), "HH:mm")}–${format(parseISO(b.endAt), "HH:mm")} — sleep om te verplaatsen`}
+                  >
+                    {compact ? (
+                      <span className="truncate text-[11px]">
+                        <span className="font-semibold tabular-nums">
+                          {format(parseISO(b.startAt), "HH:mm")}
+                        </span>{" "}
+                        {b.itemName} · {b.customerName}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="truncate text-[11px] font-semibold opacity-95">
+                          {format(parseISO(b.startAt), "HH:mm")} –{" "}
+                          {format(parseISO(b.endAt), "HH:mm")}
+                        </span>
+                        <span className="truncate text-sm font-semibold">
+                          {b.itemName}
+                        </span>
+                        <span className="truncate opacity-90">{b.customerName}</span>
+                      </>
+                    )}
+                  </DraggableBooking>
+                );
+              });
+            })()}
+            {isToday(day) && <NowLine />}
           </div>
         </div>
       </div>
