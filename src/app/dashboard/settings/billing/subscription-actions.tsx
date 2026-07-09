@@ -58,30 +58,41 @@ export function StartCheckoutButton({
 }
 
 /**
- * Zelf wisselen van plan op de plan-kaarten. Upgrade werkt direct;
- * downgrade wordt server-side geweigerd met uitleg als het huidige
- * gebruik niet in het doelplan past. Bij een actief abonnement gaat
- * het nieuwe bedrag in bij de volgende verlenging.
+ * Zelf wisselen van plan op de plan-kaarten. Upgrade werkt direct (bij een
+ * actief abonnement met pro-rata verrekening van het verschil); downgrade
+ * gaat in bij de volgende verlenging. Server-side geweigerd met uitleg als
+ * het huidige gebruik niet in het doelplan past.
  */
 export function ChangePlanButton({
   plan,
   planLabel,
   priceLabel,
   isUpgrade,
+  hasActiveSub,
+  renewalLabel,
 }: {
   plan: Plan;
   planLabel: string;
   priceLabel: string;
   isUpgrade: boolean;
+  hasActiveSub: boolean;
+  renewalLabel: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
   function go() {
-    const msg = isUpgrade
-      ? `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct. Heb je een actief abonnement, dan geldt het nieuwe bedrag vanaf de volgende verlenging.`
-      : `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe houdt alles wat binnen dit plan past. Heb je een actief abonnement, dan geldt het nieuwe bedrag vanaf de volgende verlenging.`;
+    let msg: string;
+    if (isUpgrade && hasActiveSub) {
+      msg = `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct. Het prijsverschil voor de rest van je huidige periode wordt automatisch via je betaalmethode verrekend; vanaf ${renewalLabel} betaal je het nieuwe maandbedrag.`;
+    } else if (!isUpgrade && hasActiveSub) {
+      msg = `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe hebt al betaald voor je huidige periode, dus de wissel gaat in op ${renewalLabel}. Tot die tijd houd je je huidige plan. Je kunt de geplande wissel tot dat moment annuleren.`;
+    } else if (isUpgrade) {
+      msg = `Upgraden naar ${planLabel} (${priceLabel})?\n\nDe nieuwe limieten en functies gelden direct.`;
+    } else {
+      msg = `Wisselen naar ${planLabel} (${priceLabel})?\n\nJe houdt alles wat binnen dit plan past.`;
+    }
     if (!confirm(msg)) return;
     setErr(null);
     startTransition(async () => {
@@ -108,6 +119,56 @@ export function ChangePlanButton({
       >
         {pending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
         {isUpgrade ? `Upgrade naar ${planLabel}` : `Wissel naar ${planLabel}`}
+      </button>
+      {err && (
+        <p className="flex items-start gap-1.5 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 size-3 shrink-0" />
+          {err}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Op de kaart van een geplande downgrade: annuleer de wissel — je blijft
+ * dan gewoon op je huidige plan en het Mollie-bedrag gaat terug omhoog.
+ */
+export function CancelScheduledPlanButton({
+  currentPlan,
+  planLabel,
+}: {
+  currentPlan: Plan;
+  planLabel: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  function go() {
+    if (!confirm(`Geplande wissel naar ${planLabel} annuleren? Je blijft dan op je huidige plan.`)) return;
+    setErr(null);
+    startTransition(async () => {
+      // Huidig plan "kiezen" = server-side de geplande downgrade annuleren.
+      const res = await changePlanAction(currentPlan);
+      if (!res.ok) {
+        setErr(res.error ?? "Annuleren mislukt");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={go}
+        disabled={pending}
+        className="inline-flex h-9 w-full items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-accent disabled:opacity-50"
+      >
+        {pending && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+        Geplande wissel annuleren
       </button>
       {err && (
         <p className="flex items-start gap-1.5 text-xs text-destructive">

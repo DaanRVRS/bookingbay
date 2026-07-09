@@ -11,6 +11,7 @@ import { planLimits, PLAN_LIMITS } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
 import { isMollieConfigured } from "./mollie";
 import {
+  chargePlanUpgradeProrata,
   markScheduledCancel,
   resumeSubscription,
   startFirstPayment,
@@ -56,10 +57,18 @@ export async function startCheckoutAction(): Promise<
 }
 
 /**
- * Self-service plan-wissel. Up- én downgraden kan direct; bij een actief
- * Mollie-abonnement wordt het maandbedrag van de subscription meteen
- * bijgewerkt zodat de VOLGENDE verlenging het nieuwe bedrag pakt (geen
- * pro-rata halverwege de maand — simpel en voorspelbaar).
+ * Self-service plan-wissel. Spelregels (tegen misbruik van "even upgraden,
+ * dan terug" — anders krijg je het dure plan tegen de goedkope prijs):
+ *
+ *  - Geen actief abonnement (trial/verlopen/legacy): wissel direct, gratis.
+ *  - Actief abonnement + UPGRADE: direct, met pro-rata verrekening van het
+ *    prijsverschil voor de rest van de lopende periode (via de mandate);
+ *    de volgende verlenging pakt het nieuwe volle bedrag.
+ *  - Actief abonnement + DOWNGRADE: gaat in bij de volgende verlenging
+ *    (pendingPlan) — je hebt immers al betaald voor de huidige periode.
+ *    Het Mollie-bedrag wordt alvast omlaag gezet voor de volgende charge.
+ *  - Je huidige plan kiezen terwijl er een downgrade gepland staat =
+ *    de geplande wissel annuleren.
  *
  * Downgrade-guards: het nieuwe plan moet het huidige gebruik aankunnen
  * (items/leden/pagina's/eigen domein), anders leggen we uit wat er eerst
@@ -84,11 +93,41 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
 
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
-    select: { id: true, plan: true, customDomain: true },
+    select: {
+      id: true,
+      plan: true,
+      pendingPlan: true,
+      customDomain: true,
+      subscriptionId: true,
+      subscriptionStatus: true,
+    },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
+
+  const hasActiveSub =
+    Boolean(org.subscriptionId) && org.subscriptionStatus === "active";
+
+  // Huidig plan aangeklikt: alleen zinvol om een geplande downgrade te
+  // annuleren.
   if (org.plan === newPlan) {
-    return { ok: false, error: "Dit is al je huidige plan." };
+    if (!org.pendingPlan) {
+      return { ok: false, error: "Dit is al je huidige plan." };
+    }
+    await db.organization.update({
+      where: { id: org.id },
+      data: { pendingPlan: null },
+    });
+    await syncSubscriptionAmount(org.id); // terug naar het huidige-plan-bedrag
+    await audit({
+      organizationId: org.id,
+      actorUserId: ctx.user.id,
+      action: "billing.plan.downgrade-canceled",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { canceled: org.pendingPlan },
+    });
+    revalidatePath("/dashboard/settings/billing");
+    return { ok: true };
   }
 
   // Downgrade-guards tegen het huidige gebruik.
@@ -127,14 +166,54 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
   }
 
   const oldPlan = org.plan;
+  const isUpgrade =
+    planLimits(newPlan).monthlyPriceEuro > planLimits(oldPlan).monthlyPriceEuro;
+
+  if (hasActiveSub && !isUpgrade) {
+    // Downgrade bij actief abonnement: inplannen voor de volgende
+    // verlenging. Mollie-bedrag alvast omlaag zodat de volgende charge
+    // het nieuwe bedrag pakt; de webhook zet dan ook org.plan om.
+    await db.organization.update({
+      where: { id: org.id },
+      data: { pendingPlan: newPlan },
+    });
+    await syncSubscriptionAmount(org.id, newPlan);
+    await audit({
+      organizationId: org.id,
+      actorUserId: ctx.user.id,
+      action: "billing.plan.downgrade-scheduled",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { from: oldPlan, to: newPlan },
+    });
+    revalidatePath("/dashboard/settings/billing");
+    return { ok: true };
+  }
+
+  // Upgrade (of wissel zonder actief abonnement): direct.
+  if (hasActiveSub && isUpgrade) {
+    // Pro-rata verrekening voor de rest van de periode. Faalt Mollie,
+    // dan gaat de wissel NIET door — anders is het gat weer open.
+    try {
+      await chargePlanUpgradeProrata({
+        organizationId: org.id,
+        oldPlan,
+        newPlan,
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        error: `Verrekening van de upgrade kon niet gestart worden: ${
+          err instanceof Error ? err.message.slice(0, 150) : "Mollie-fout"
+        }`,
+      };
+    }
+  }
+
   await db.organization.update({
     where: { id: org.id },
-    data: { plan: newPlan },
+    data: { plan: newPlan, pendingPlan: null },
   });
-
-  // Actieve Mollie-subscription meteen op het nieuwe maandbedrag zetten —
-  // best-effort (logt intern bij falen), volgende charge pakt het nieuwe
-  // bedrag. Zelfde mechanisme als bij koppeling-wijzigingen.
   await syncSubscriptionAmount(org.id);
 
   await audit({
@@ -143,7 +222,7 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
     action: "billing.plan.changed",
     resource: "organization",
     resourceId: org.id,
-    metadata: { from: oldPlan, to: newPlan },
+    metadata: { from: oldPlan, to: newPlan, prorata: hasActiveSub && isUpgrade },
   });
 
   revalidatePath("/dashboard/settings/billing");

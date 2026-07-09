@@ -141,6 +141,11 @@ model Organization {
   businessHours    Json?
 
   plan                 Plan      @default(STARTER)
+  // Geplande downgrade: bij een actief abonnement gaat een lager plan pas
+  // in bij de volgende verlenging (de klant heeft immers al betaald voor de
+  // huidige periode). De webhook (onRecurringPaid) past dit toe en leegt 'm.
+  // Null = geen wissel gepland. Upgrades zijn altijd direct (met pro-rata).
+  pendingPlan          Plan?
   // Mollie subscription state. Authoritative voor orgs die de
   // standaard SaaS-flow doorlopen hebben (via /api/billing/checkout).
   //  - "trialing"   = trial loopt, geen mandate aanwezig

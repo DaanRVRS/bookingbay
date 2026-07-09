@@ -1,4 +1,5 @@
 import "server-only";
+import type { Plan } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { planLimits } from "@/lib/plans";
@@ -7,6 +8,7 @@ import {
   cancelSubscription as mollieCancel,
   createCustomer,
   createFirstPayment,
+  createMandatePayment,
   createSubscription,
   getPayment,
   isMollieConfigured,
@@ -41,6 +43,7 @@ function checkoutCallbackUrl(): string {
 
 export async function computeMonthlyTotalCents(
   organizationId: string,
+  planOverride?: Plan,
 ): Promise<{ totalCents: number; planCents: number; integrationsCents: number }> {
   const [org, integrations] = await Promise.all([
     db.organization.findUnique({
@@ -55,7 +58,9 @@ export async function computeMonthlyTotalCents(
   if (!org) throw new Error("Organization missing");
   // Math.round zodat .99-prijzen (€24,99 → 2499 cent) zonder
   // floating-point drift in centen worden uitgedrukt.
-  const planCents = Math.round(planLimits(org.plan).monthlyPriceEuro * 100);
+  const planCents = Math.round(
+    planLimits(planOverride ?? org.plan).monthlyPriceEuro * 100,
+  );
   const integrationsCents = integrations.reduce(
     (sum, r) => sum + Math.round(r.monthlyPriceEuro * 100),
     0,
@@ -249,7 +254,13 @@ export async function onRecurringPaid(args: {
 }): Promise<void> {
   const org = await db.organization.findUnique({
     where: { id: args.organizationId },
-    select: { id: true, currentPeriodEnd: true, cancelAtPeriodEnd: true },
+    select: {
+      id: true,
+      currentPeriodEnd: true,
+      cancelAtPeriodEnd: true,
+      plan: true,
+      pendingPlan: true,
+    },
   });
   if (!org) return;
 
@@ -265,8 +276,23 @@ export async function onRecurringPaid(args: {
       lastPaymentFailedAt: null,
       suspendedAt: null,
       paymentReminderStage: 0,
+      // Geplande downgrade gaat in op de verlenging: de charge die deze
+      // webhook meldt is al tegen het (eerder gesyncte) nieuwe bedrag.
+      ...(org.pendingPlan
+        ? { plan: org.pendingPlan, pendingPlan: null }
+        : {}),
     },
   });
+
+  if (org.pendingPlan) {
+    await audit({
+      organizationId: org.id,
+      action: "billing.plan.downgrade-applied",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: { from: org.plan, to: org.pendingPlan },
+    });
+  }
 }
 
 export async function onRecurringFailed(args: {
@@ -404,6 +430,7 @@ export async function resumeSubscription(organizationId: string): Promise<void> 
  */
 export async function syncSubscriptionAmount(
   organizationId: string,
+  planOverride?: Plan,
 ): Promise<void> {
   const org = await db.organization.findUnique({
     where: { id: organizationId },
@@ -418,7 +445,10 @@ export async function syncSubscriptionAmount(
   if (org.subscriptionStatus !== "active") return;
 
   try {
-    const { totalCents } = await computeMonthlyTotalCents(organizationId);
+    const { totalCents } = await computeMonthlyTotalCents(
+      organizationId,
+      planOverride,
+    );
     if (totalCents <= 0) return;
     await updateSubscriptionAmount({
       customerId: org.mollieCustomerId,
@@ -439,4 +469,84 @@ export async function syncSubscriptionAmount(
       err instanceof Error ? err.message : err,
     );
   }
+}
+
+/**
+ * Pro-rata verrekening bij een plan-upgrade halverwege de betaalperiode:
+ * charge het prijsverschil × resterend deel van de periode direct op de
+ * bestaande mandate. Zonder dit zou up-down-wisselen neerkomen op het
+ * duurdere plan gebruiken tegen de goedkopere prijs.
+ *
+ * Retourneert het gecharchde bedrag in centen, of 0 wanneer er niets te
+ * verrekenen viel (verschil verwaarloosbaar of periode-info onbekend).
+ * Gooit bij een Mollie-fout — de caller besluit of de wissel doorgaat.
+ */
+export async function chargePlanUpgradeProrata(args: {
+  organizationId: string;
+  oldPlan: Plan;
+  newPlan: Plan;
+}): Promise<number> {
+  const org = await db.organization.findUnique({
+    where: { id: args.organizationId },
+    select: {
+      id: true,
+      mollieCustomerId: true,
+      mollieMandateId: true,
+      subscriptionId: true,
+      subscriptionStatus: true,
+      currentPeriodEnd: true,
+    },
+  });
+  if (
+    !org?.mollieCustomerId ||
+    !org.mollieMandateId ||
+    !org.subscriptionId ||
+    org.subscriptionStatus !== "active" ||
+    !org.currentPeriodEnd
+  ) {
+    return 0; // Geen actieve betaalperiode → niets te verrekenen.
+  }
+
+  const diffCents =
+    Math.round(planLimits(args.newPlan).monthlyPriceEuro * 100) -
+    Math.round(planLimits(args.oldPlan).monthlyPriceEuro * 100);
+  if (diffCents <= 0) return 0;
+
+  // Resterend deel van de lopende periode (periode = 1 maand vóór
+  // currentPeriodEnd tot currentPeriodEnd).
+  const periodEnd = org.currentPeriodEnd.getTime();
+  const periodStart = new Date(org.currentPeriodEnd);
+  periodStart.setUTCMonth(periodStart.getUTCMonth() - 1);
+  const totalMs = periodEnd - periodStart.getTime();
+  const remainingMs = Math.min(Math.max(periodEnd - Date.now(), 0), totalMs);
+  if (totalMs <= 0 || remainingMs <= 0) return 0;
+
+  const chargeCents = Math.round((diffCents * remainingMs) / totalMs);
+  // Onder de 50 cent niet chargen — transactiekosten > opbrengst.
+  if (chargeCents < 50) return 0;
+
+  const payment = await createMandatePayment({
+    customerId: org.mollieCustomerId,
+    mandateId: org.mollieMandateId,
+    amountCents: chargeCents,
+    description: `BookingBay plan-upgrade naar ${planLimits(args.newPlan).label} (pro-rata)`,
+    webhookUrl: webhookUrl(),
+    organizationId: org.id,
+    kind: "plan-upgrade-prorata",
+  });
+
+  await audit({
+    organizationId: org.id,
+    action: "billing.plan.prorata-charged",
+    resource: "organization",
+    resourceId: org.id,
+    metadata: {
+      paymentId: payment.id,
+      amountCents: chargeCents,
+      from: args.oldPlan,
+      to: args.newPlan,
+    },
+  });
+
+  return chargeCents;
 }

@@ -25,6 +25,7 @@ import { getIntegration } from "@/lib/integrations/catalog";
 import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
 import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
 import {
+  CancelScheduledPlanButton,
   CancelSubscriptionButton,
   ChangePlanButton,
   ResumeSubscriptionButton,
@@ -49,6 +50,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
     select: {
       id: true,
       plan: true,
+      pendingPlan: true,
       trialEndsAt: true,
       subscriptionStatus: true,
       subscriptionId: true,
@@ -280,9 +282,9 @@ export default async function BillingPage({ searchParams }: PageProps) {
       <section>
         <h2 className="text-base font-semibold">Plannen</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Wissel direct van plan — de nieuwe limieten gelden meteen. Heb je
-          een actief abonnement, dan geldt het nieuwe bedrag vanaf de
-          volgende verlenging.
+          Wissel direct van plan. Upgrades gaan meteen in — het verschil voor
+          de rest van je periode wordt automatisch verrekend. Downgrades gaan
+          in bij je volgende verlenging.
         </p>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {PLAN_ORDER.map((p) => (
@@ -290,6 +292,9 @@ export default async function BillingPage({ searchParams }: PageProps) {
               key={p}
               plan={p}
               current={org.plan}
+              pendingPlan={org.pendingPlan}
+              hasActiveSub={hasMollieSubscription && org.subscriptionStatus === "active"}
+              renewalDate={org.currentPeriodEnd}
               limits={PLAN_LIMITS[p]}
             />
           ))}
@@ -635,13 +640,23 @@ function FeatureBadge({ label, enabled }: { label: string; enabled: boolean }) {
 function PlanCard({
   plan,
   current,
+  pendingPlan,
+  hasActiveSub,
+  renewalDate,
   limits,
 }: {
   plan: Plan;
   current: Plan;
+  pendingPlan: Plan | null;
+  hasActiveSub: boolean;
+  renewalDate: Date | null;
   limits: ReturnType<typeof planLimits>;
 }) {
   const isCurrent = plan === current;
+  const isPending = plan === pendingPlan;
+  const renewalLabel = renewalDate
+    ? format(renewalDate, "d MMMM yyyy", { locale: nl })
+    : "je volgende verlenging";
   return (
     <div
       className={`relative rounded-xl border p-5 ${
@@ -651,6 +666,11 @@ function PlanCard({
       {isCurrent && (
         <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
           <Sparkles className="size-2.5" /> Huidig
+        </span>
+      )}
+      {isPending && (
+        <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-[oklch(0.94_0.08_70)] px-2 py-0.5 text-[10px] font-medium text-[oklch(0.5_0.16_70)]">
+          <Clock className="size-2.5" /> Vanaf {renewalLabel}
         </span>
       )}
       <h3 className="text-base font-semibold tracking-tight">{limits.label}</h3>
@@ -756,13 +776,18 @@ function PlanCard({
           Neem contact op
         </a>
       )}
-      {!limits.customPricing && !isCurrent && (
+      {!limits.customPricing && !isCurrent && !isPending && (
         <ChangePlanButton
           plan={plan}
           planLabel={limits.label}
           priceLabel={`${formatEuroNL(limits.monthlyPriceEuro)}/maand`}
           isUpgrade={PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(current)}
+          hasActiveSub={hasActiveSub}
+          renewalLabel={renewalLabel}
         />
+      )}
+      {isPending && (
+        <CancelScheduledPlanButton currentPlan={current} planLabel={limits.label} />
       )}
     </div>
   );

@@ -162,6 +162,35 @@ export function getPayment(paymentId: string): Promise<MolliePayment> {
   return mollieGet<MolliePayment>(`/payments/${paymentId}`);
 }
 
+/**
+ * Eenmalige charge op een bestaande mandate (sequenceType "recurring"
+ * zónder subscription) — gebruikt voor pro-rata verrekening bij een
+ * plan-upgrade halverwege de betaalperiode. `kind` gaat mee in metadata
+ * zodat de webhook 'm kan onderscheiden van subscription-charges.
+ */
+export function createMandatePayment(args: {
+  customerId: string;
+  mandateId: string;
+  amountCents: number;
+  description: string;
+  webhookUrl: string;
+  organizationId: string;
+  kind: string;
+}): Promise<MolliePayment> {
+  return molliePost<MolliePayment>("/payments", {
+    amount: toMollieAmount(args.amountCents),
+    description: args.description,
+    customerId: args.customerId,
+    mandateId: args.mandateId,
+    sequenceType: "recurring",
+    webhookUrl: args.webhookUrl,
+    metadata: {
+      organizationId: args.organizationId,
+      kind: args.kind,
+    },
+  });
+}
+
 // ── Mandates ─────────────────────────────────────────────────────────────
 
 export interface MollieMandate {

@@ -86,11 +86,14 @@ export async function POST(req: Request) {
         });
       }
     } else if (payment.status === "failed" || payment.status === "expired") {
-      if (payment.sequenceType === "recurring") {
+      // Alleen subscription-charges mogen past_due triggeren. Een losse
+      // mandate-betaling (pro-rata plan-upgrade) heeft geen subscriptionId
+      // en mag het abonnement niet als wanbetaling markeren.
+      if (payment.sequenceType === "recurring" && payment.subscriptionId) {
         await onRecurringFailed({ organizationId });
       }
     } else if (payment.status === "canceled") {
-      if (payment.sequenceType === "recurring") {
+      if (payment.sequenceType === "recurring" && payment.subscriptionId) {
         // Mollie cancelt de subscription wanneer alle retries op zijn.
         await onSubscriptionCanceled({ organizationId });
       }
