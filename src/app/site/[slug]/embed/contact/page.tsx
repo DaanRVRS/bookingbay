@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrgBySlug } from "@/lib/tenants/queries";
-import { ContactForm } from "../../contact/contact-form";
+import { ContactForm } from "@/components/tenants/ContactForm";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

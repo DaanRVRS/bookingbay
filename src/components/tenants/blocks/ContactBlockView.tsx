@@ -1,5 +1,5 @@
 import type { ContactBlock } from "@/lib/pages/blocks";
-import { ContactForm } from "@/app/site/[slug]/contact/contact-form";
+import { ContactForm } from "@/components/tenants/ContactForm";
 
 export function ContactBlockView({
   block,

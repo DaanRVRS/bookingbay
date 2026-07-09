@@ -503,7 +503,7 @@ function makeBareBlock(
         heading: "Klaar om te boeken?",
         subheading: "Neem contact op of bekijk het aanbod.",
         buttonText: "Contact opnemen",
-        buttonHref: "/contact",
+        buttonHref: "",
       };
     case "spacer":
       return { id, type: "spacer", size: "md" };
@@ -603,7 +603,7 @@ function makeBareBlock(
         id,
         type: "button",
         label: "Bekijk meer",
-        href: "/contact",
+        href: "",
         variant: "primary",
         size: "md",
         align: "center",

@@ -104,12 +104,15 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
                   >
                     Bekijk het aanbod
                   </Link>
-                  <Link
-                    href={tenantHref(base, "/contact")}
-                    className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium hover:bg-accent"
-                  >
-                    Stuur een aanvraag
-                  </Link>
+                  {/* Geen standaard /contact-pagina meer — val terug op mail. */}
+                  {org.contactEmail && (
+                    <a
+                      href={`mailto:${org.contactEmail}`}
+                      className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-6 font-medium hover:bg-accent"
+                    >
+                      Stuur een aanvraag
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -187,13 +190,15 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
                   ? `Niets gevonden voor "${trimmed}". Probeer een andere zoekterm of stuur een aanvraag.`
                   : "Het aanbod wordt nog samengesteld. Stuur ondertussen gerust een aanvraag — we helpen je graag."}
               </p>
-              <Link
-                href={tenantHref(base, "/contact")}
-                className="mt-5 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
-                style={{ background: accent }}
-              >
-                Contact opnemen
-              </Link>
+              {org.contactEmail && (
+                <a
+                  href={`mailto:${org.contactEmail}`}
+                  className="mt-5 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
+                  style={{ background: accent }}
+                >
+                  Contact opnemen
+                </a>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -228,19 +228,9 @@ export default async function TenantLayout({
                       </Link>
                     </li>
                   ))}
-                  {/* Alleen tonen als er geen éigen contact-pagina in de nav
-                      staat — anders staat "contact" er dubbel in. */}
-                  {!navPages.some((p) => p.slug === "contact") && (
-                    <li>
-                      <Link
-                        href={tenantHref(base, "/contact")}
-                        className="hover:underline"
-                        style={theme.footerText ? { color: theme.footerText } : undefined}
-                      >
-                        Contact
-                      </Link>
-                    </li>
-                  )}
+                  {/* Geen hardcoded Contact-link: alleen échte pagina's van
+                      de tenant staan hier (een eigen contact-pagina komt
+                      vanzelf via navPages mee). */}
                 </ul>
             </div>
 
