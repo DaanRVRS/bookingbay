@@ -15,7 +15,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { nl } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ListFilter, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, ListFilter, Plus, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -67,10 +67,16 @@ interface Props {
   weekStart: string;
   items: ItemRow[];
   bookings: BookingRow[];
-  /** Zichtbaar tijdvenster (uren), afgeleid uit openingstijden + boekingen. */
-  hourStart?: number;
-  hourEnd?: number;
+  /** Venster o.b.v. openingstijden — gebruikt zodra de gebruiker de
+   *  "Openingstijden"-toggle aanzet. Standaard toont de kalender 00:00–24:00. */
+  businessHourStart?: number;
+  businessHourEnd?: number;
 }
+
+// Volledige dag: 00:00 t/m label 23:00, onderrand 24:00.
+const FULL_DAY_START = 0;
+const FULL_DAY_END = 23;
+const BUSINESS_HOURS_PREF_KEY = "bb-calendar-business-hours";
 
 type ViewMode = "week" | "day" | "items";
 
@@ -156,10 +162,42 @@ export function CalendarView({
   weekStart,
   items,
   bookings,
-  hourStart = DEFAULT_HOUR_START,
-  hourEnd = DEFAULT_HOUR_END,
+  businessHourStart = DEFAULT_HOUR_START,
+  businessHourEnd = DEFAULT_HOUR_END,
 }: Props) {
   const router = useRouter();
+
+  // Toggle: volledige dag (00:00–24:00) of alleen de openingstijden. Keuze
+  // blijft bewaard in localStorage. Start op `false` (= volledige dag) zodat
+  // server- en client-render matchen; een effect leest daarna de voorkeur.
+  const [useBusinessHours, setUseBusinessHours] = useState(false);
+  // Voorkeur pas ná mount inlezen: server en client renderen allebei eerst
+  // `false` (volledige dag), daarna past de client de opgeslagen keuze toe —
+  // dit voorkomt een hydration-mismatch (localStorage bestaat niet op de
+  // server). De set-state-in-effect is hier dus bewust.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(BUSINESS_HOURS_PREF_KEY) === "1") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setUseBusinessHours(true);
+      }
+    } catch {
+      /* localStorage niet beschikbaar — negeren */
+    }
+  }, []);
+  const toggleBusinessHours = () => {
+    setUseBusinessHours((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(BUSINESS_HOURS_PREF_KEY, next ? "1" : "0");
+      } catch {
+        /* negeren */
+      }
+      return next;
+    });
+  };
+  const hourStart = useBusinessHours ? businessHourStart : FULL_DAY_START;
+  const hourEnd = useBusinessHours ? businessHourEnd : FULL_DAY_END;
   const focused = parseISO(focusedDate);
   const start = parseISO(weekStart);
   const days = useMemo(
@@ -526,6 +564,41 @@ export function CalendarView({
             <X className="size-3" />
             {visibleBookings.length}{" "}
             {visibleBookings.length === 1 ? "boeking" : "boekingen"} — wis filter
+          </button>
+        )}
+
+        {/* Tijdvenster: volledige dag of alleen de openingstijden. Alleen
+            zinvol in de tijd-roosters (week/dag), niet in de Items-weergave. */}
+        {view !== "items" && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={useBusinessHours}
+            onClick={toggleBusinessHours}
+            title="Toon alleen je openingstijden i.p.v. de volledige dag"
+            className={cn(
+              "ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+              useBusinessHours
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-accent",
+            )}
+          >
+            <Clock className="size-3.5" />
+            Openingstijden
+            <span
+              className={cn(
+                "ml-0.5 inline-flex h-3.5 w-6 items-center rounded-full transition-colors",
+                useBusinessHours ? "bg-primary" : "bg-muted-foreground/30",
+              )}
+              aria-hidden
+            >
+              <span
+                className={cn(
+                  "inline-block size-2.5 rounded-full bg-white shadow transition-transform",
+                  useBusinessHours ? "translate-x-[11px]" : "translate-x-0.5",
+                )}
+              />
+            </span>
           </button>
         )}
       </div>
