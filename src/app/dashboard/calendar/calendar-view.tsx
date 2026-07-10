@@ -27,14 +27,17 @@ import { toast } from "sonner";
 import type { BookingStatus } from "@prisma/client";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
+  type DragStartEvent,
+  type Modifier,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { deriveBookingStatus } from "@/lib/bookings/status";
@@ -79,8 +82,30 @@ const itemAccents = [
 
 const HOUR_START = 7;
 const HOUR_END = 22;
+// Slepen snapt op kwartieren — fijn genoeg voor echte planningen, grof
+// genoeg om moeiteloos te raken.
+const SNAP_MIN = 15;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
 const HOUR_HEIGHT = 56;
+const SNAP_PX = HOUR_HEIGHT * (SNAP_MIN / 60); // 14px per kwartier
+
+/**
+ * Snap de verticale beweging van de drag-overlay op kwartier-hoogtes, zodat
+ * het blok voelbaar "klikt" op de tijden waarop je ook echt kunt landen.
+ * Horizontaal blijft vrij (dag-kolommen hebben variabele breedtes).
+ */
+const snapVertical: Modifier = ({ transform }) => ({
+  ...transform,
+  y: Math.round(transform.y / SNAP_PX) * SNAP_PX,
+});
+
+/** Waar de sleep zou landen — voor de ghost-indicator + tijd-label. */
+interface DropHint {
+  dayKey: string; // yyyy-MM-dd van de doelkolom
+  top: number;
+  height: number;
+  label: string; // "10:15 – 12:15"
+}
 
 const BOOKING_DRAG_PREFIX = "booking__";
 const SLOT_DROP_PREFIX = "slot__"; // slot__YYYY-MM-DD__HH (hour bucket within a day)
@@ -131,11 +156,41 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
     return map;
   }, [items]);
 
+  // Optimistic verplaatsingen: het blok staat direct op z'n nieuwe plek,
+  // de server bevestigt op de achtergrond. Bij een fout draaien we terug.
+  const [optimistic, setOptimistic] = useState<
+    Map<string, { startAt: string; endAt: string; itemId: string }>
+  >(new Map());
+
+  // Zodra de server-props de verplaatsing bevestigen, mag de optimistic
+  // entry weg (match-aware, zodat een tweede sleep niet terugflitst).
+  useEffect(() => {
+    setOptimistic((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Map(prev);
+      for (const b of bookings) {
+        const opt = next.get(b.id);
+        if (opt && b.startAt === opt.startAt && b.itemId === opt.itemId) {
+          next.delete(b.id);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [bookings]);
+
+  const effectiveBookings = useMemo(() => {
+    if (optimistic.size === 0) return bookings;
+    return bookings.map((b) => {
+      const opt = optimistic.get(b.id);
+      return opt ? { ...b, ...opt } : b;
+    });
+  }, [bookings, optimistic]);
+
   const bookingById = useMemo(() => {
     const map = new Map<string, BookingRow>();
-    for (const b of bookings) map.set(b.id, b);
+    for (const b of effectiveBookings) map.set(b.id, b);
     return map;
-  }, [bookings]);
+  }, [effectiveBookings]);
 
   const [selectedDay, setSelectedDay] = useState<Date>(focused);
   const [view, setView] = useState<ViewMode>("week");
@@ -174,10 +229,10 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
   );
 
   const visibleBookings = useMemo(() => {
-    if (categoryFilter === "all" && itemFilter === "all") return bookings;
+    if (categoryFilter === "all" && itemFilter === "all") return effectiveBookings;
     const ids = new Set(visibleItems.map((i) => i.id));
-    return bookings.filter((b) => ids.has(b.itemId));
-  }, [bookings, visibleItems, categoryFilter, itemFilter]);
+    return effectiveBookings.filter((b) => ids.has(b.itemId));
+  }, [effectiveBookings, visibleItems, categoryFilter, itemFilter]);
 
   const filterActive = categoryFilter !== "all" || itemFilter !== "all";
 
@@ -192,27 +247,104 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
     router.push(`/dashboard/calendar?date=${iso}`);
   };
 
+  // Actieve sleep + landings-hint (ghost-blok met tijd-label).
+  const [dragging, setDragging] = useState<{
+    booking: BookingRow;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [dropHint, setDropHint] = useState<DropHint | null>(null);
+
+  /**
+   * Bereken de landing van een tijd-sleep: de verticale delta (gesnapt op
+   * kwartieren door de modifier) verschuift de starttijd; de kolom waar je
+   * boven hangt bepaalt de dag. Duur blijft altijd behouden.
+   */
+  const computeSlotDrop = (
+    booking: BookingRow,
+    targetDay: Date,
+    deltaY: number,
+  ) => {
+    const oldStart = parseISO(booking.startAt);
+    const oldEnd = parseISO(booking.endAt);
+    const durationMin = differenceInMinutes(oldEnd, oldStart);
+    const deltaMin = Math.round(deltaY / SNAP_PX) * SNAP_MIN;
+    const startOfDayMin = oldStart.getHours() * 60 + oldStart.getMinutes();
+    const newMin = Math.min(
+      Math.max(startOfDayMin + deltaMin, HOUR_START * 60),
+      (HOUR_END + 1) * 60 - SNAP_MIN,
+    );
+    const newStart = new Date(targetDay);
+    newStart.setHours(Math.floor(newMin / 60), newMin % 60, 0, 0);
+    const newEnd = new Date(newStart.getTime() + durationMin * 60_000);
+    return { newStart, newEnd, durationMin, newMin };
+  };
+
+  const activeBookingFromEvent = (event: { active: { id: string | number } }) => {
+    const activeId = String(event.active.id);
+    if (!activeId.startsWith(BOOKING_DRAG_PREFIX)) return null;
+    return bookingById.get(activeId.slice(BOOKING_DRAG_PREFIX.length)) ?? null;
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    const booking = activeBookingFromEvent(event);
+    if (!booking) return;
+    const rect = event.active.rect.current.initial;
+    setDragging({
+      booking,
+      width: rect?.width ?? 140,
+      height: rect?.height ?? 40,
+    });
+  };
+
+  const onDragMove = (event: DragMoveEvent) => {
+    if (!dragging) return;
+    const { over, delta } = event;
+    if (!over) {
+      setDropHint(null);
+      return;
+    }
+    const target = parseDropTarget(String(over.id));
+    if (!target || target.kind !== "slot") {
+      setDropHint(null);
+      return;
+    }
+    const { newStart, newEnd, durationMin, newMin } = computeSlotDrop(
+      dragging.booking,
+      target.day,
+      delta.y,
+    );
+    const top = ((newMin - HOUR_START * 60) / 60) * HOUR_HEIGHT;
+    const height = Math.max(22, (durationMin / 60) * HOUR_HEIGHT);
+    setDropHint({
+      dayKey: format(target.day, "yyyy-MM-dd"),
+      top,
+      height,
+      label: `${format(newStart, "HH:mm")} – ${format(newEnd, "HH:mm")}`,
+    });
+  };
+
+  const onDragCancel = () => {
+    setDragging(null);
+    setDropHint(null);
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
-    const activeId = String(active.id);
-    if (!activeId.startsWith(BOOKING_DRAG_PREFIX)) return;
-    const bookingId = activeId.slice(BOOKING_DRAG_PREFIX.length);
-    const booking = bookingById.get(bookingId);
-    if (!booking) return;
+    const booking = activeBookingFromEvent({ active });
+    setDragging(null);
+    setDropHint(null);
+    if (!over || !booking) return;
 
     const target = parseDropTarget(String(over.id));
     if (!target) return;
 
-    const oldStart = parseISO(booking.startAt);
     let newStart: Date;
     let newItemId: string | undefined;
     if (target.kind === "slot") {
-      newStart = new Date(target.day);
-      // Keep the original minute precision: a 10:30 booking dropped on the
-      // 13:00 slot moves to 13:30.
-      newStart.setHours(target.hour, oldStart.getMinutes(), 0, 0);
+      newStart = computeSlotDrop(booking, target.day, event.delta.y).newStart;
     } else {
+      const oldStart = parseISO(booking.startAt);
       newStart = new Date(target.day);
       newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
       newItemId = target.itemId;
@@ -226,6 +358,18 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
       return;
     }
 
+    // Optimistic: blok staat meteen op de nieuwe plek.
+    const durationMs =
+      parseISO(booking.endAt).getTime() - parseISO(booking.startAt).getTime();
+    const optimisticEntry = {
+      startAt: newStartIso,
+      endAt: new Date(newStart.getTime() + durationMs).toISOString(),
+      itemId: newItemId ?? booking.itemId,
+    };
+    const bookingId = booking.id;
+    const previous = optimistic.get(bookingId) ?? null;
+    setOptimistic((prev) => new Map(prev).set(bookingId, optimisticEntry));
+
     startTransition(async () => {
       const res = await moveBookingAction({
         id: bookingId,
@@ -233,10 +377,19 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         newItemId,
       });
       if (!res.ok) {
+        // Terugdraaien naar de vorige (optimistic of server-) positie.
+        setOptimistic((prev) => {
+          const next = new Map(prev);
+          if (previous) next.set(bookingId, previous);
+          else next.delete(bookingId);
+          return next;
+        });
         toast.error(res.error);
         return;
       }
-      toast.success("Boeking verplaatst");
+      toast.success(
+        `Verplaatst naar ${format(newStart, "EEE d MMM HH:mm", { locale: nl })}`,
+      );
       router.refresh();
     });
   };
@@ -356,7 +509,9 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         )}
       </div>
 
-      {view !== "week" && (
+      {/* Dag-kiezer: alleen in de Dag-weergave zinvol — de Items-weergave
+          heeft z'n eigen klikbare dag-koppen in de grid. */}
+      {view === "day" && (
         <div className="mt-5 grid grid-cols-7 gap-1.5">
           {days.map((d) => {
             const isSelected = isSameDay(d, selectedDay);
@@ -398,7 +553,14 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
         </div>
       )}
 
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragMove={onDragMove}
+        onDragCancel={onDragCancel}
+        onDragEnd={onDragEnd}
+        modifiers={view === "items" ? undefined : [snapVertical]}
+      >
         <div className="mt-6">
           {view === "week" && (
             <WeekTimeGrid
@@ -406,6 +568,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
               bookings={visibleBookings}
               items={items}
               accentByItemId={accentByItemId}
+              dropHint={dropHint}
             />
           )}
           {view === "day" && (
@@ -414,6 +577,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
               bookings={visibleBookings}
               items={items}
               accentByItemId={accentByItemId}
+              dropHint={dropHint}
             />
           )}
           {view === "items" && (
@@ -426,6 +590,29 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
             />
           )}
         </div>
+
+        {/* De overlay volgt de cursor (gesnapt op kwartieren) met een live
+            tijd-label; het bron-blok blijft vervaagd staan als referentie. */}
+        <DragOverlay dropAnimation={null}>
+          {dragging ? (
+            <div
+              className={cn(
+                "flex flex-col justify-center overflow-hidden rounded-md bg-gradient-to-br px-2 text-[10px] font-medium text-white shadow-xl ring-2 ring-white/40",
+                accentByItemId.get(dragging.booking.itemId) ??
+                  "from-primary to-primary",
+              )}
+              style={{ width: dragging.width, height: dragging.height }}
+            >
+              <span className="truncate font-semibold tabular-nums">
+                {dropHint?.label ??
+                  `${format(parseISO(dragging.booking.startAt), "HH:mm")} – ${format(parseISO(dragging.booking.endAt), "HH:mm")}`}
+              </span>
+              <span className="truncate opacity-90">
+                {dragging.booking.itemName} · {dragging.booking.customerName}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* Mobile floating new-booking button */}
@@ -582,16 +769,32 @@ function NowLine() {
   );
 }
 
+/** Ghost-indicator: gestippeld blok op de plek waar de sleep zou landen. */
+function DropGhost({ hint }: { hint: DropHint }) {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-[3px] z-10 rounded-md border-2 border-dashed border-primary/70 bg-primary/10"
+      style={{ top: hint.top + 1, height: hint.height - 2 }}
+    >
+      <span className="absolute left-1 top-1 rounded bg-primary px-1 py-0.5 text-[9px] font-semibold tabular-nums text-primary-foreground shadow-sm">
+        {hint.label}
+      </span>
+    </div>
+  );
+}
+
 function WeekTimeGrid({
   days,
   bookings,
   items,
   accentByItemId,
+  dropHint,
 }: {
   days: Date[];
   bookings: BookingRow[];
   items: ItemRow[];
   accentByItemId: Map<string, string>;
+  dropHint: DropHint | null;
 }) {
   if (items.length === 0) {
     return (
@@ -744,6 +947,9 @@ function WeekTimeGrid({
                     );
                   });
                 })()}
+                {dropHint && dropHint.dayKey === format(d, "yyyy-MM-dd") && (
+                  <DropGhost hint={dropHint} />
+                )}
                 {isToday(d) && <NowLine />}
               </div>
             );
@@ -759,11 +965,13 @@ function DayTimeView({
   bookings,
   items,
   accentByItemId,
+  dropHint,
 }: {
   day: Date;
   bookings: BookingRow[];
   items: ItemRow[];
   accentByItemId: Map<string, string>;
+  dropHint: DropHint | null;
 }) {
   if (items.length === 0) {
     return (
@@ -878,6 +1086,9 @@ function DayTimeView({
                 );
               });
             })()}
+            {dropHint && dropHint.dayKey === format(day, "yyyy-MM-dd") && (
+              <DropGhost hint={dropHint} />
+            )}
             {isToday(day) && <NowLine />}
           </div>
         </div>
@@ -1114,8 +1325,9 @@ function DraggableBooking({
   title?: string;
 }) {
   const router = useRouter();
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: `${BOOKING_DRAG_PREFIX}${bookingId}` });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `${BOOKING_DRAG_PREFIX}${bookingId}`,
+  });
 
   // Track whether a drag actually occurred during this press. dnd-kit clears
   // isDragging before the click event fires after pointerup, so checking
@@ -1137,12 +1349,12 @@ function DraggableBooking({
     }
   }, [isDragging]);
 
+  // Géén transform op het bron-element: de DragOverlay volgt de cursor.
+  // Het origineel blijft vervaagd staan als anker ("hier kwam je vandaan").
   const dragStyle: React.CSSProperties = {
     ...style,
-    transform: CSS.Translate.toString(transform),
     cursor: "grab",
-    zIndex: isDragging ? 30 : undefined,
-    opacity: isDragging ? 0.8 : undefined,
+    opacity: isDragging ? 0.35 : undefined,
   };
 
   return (
