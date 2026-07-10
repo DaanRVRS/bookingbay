@@ -77,11 +77,7 @@ export function BlockEditor(props: {
   return (
     <div className="flex flex-col gap-4">
       <BlockTypeFields {...props} />
-      {/* Gedeeld voor élk blok-type: achtergrondkleur, breedte en hoogte. */}
-      <BgColorField
-        value={block.bgColor ?? ""}
-        onChange={(bgColor) => onChange({ bgColor } as Partial<Block>)}
-      />
+      {/* Gedeeld voor élk blok-type: breedte en hoogte. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Breedte">
           <Toggle
@@ -108,63 +104,6 @@ export function BlockEditor(props: {
             ]}
           />
         </Field>
-      </div>
-    </div>
-  );
-}
-
-/** Eigen achtergrondkleur per blok — leeg = standaard (transparant). */
-function BgColorField({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5 border-t border-border pt-4">
-      <div className="flex items-center justify-between">
-        <Label>Achtergrondkleur van dit blok</Label>
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
-          >
-            Terug naar standaard
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value || "#ffffff"}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-12 cursor-pointer rounded-md border border-border bg-card"
-          aria-label="Achtergrondkleur kiezen"
-        />
-        <Input
-          value={value}
-          placeholder="Standaard (transparant)"
-          maxLength={7}
-          className="font-mono"
-          onChange={(e) => {
-            const v = e.target.value.trim();
-            // Tijdens het typen alles binnen hex-vorm toestaan; definitieve
-            // validatie bij verlaten van het veld (onBlur) + zod bij opslaan.
-            if (v === "" || /^#[0-9a-fA-F]{0,6}$/.test(v)) {
-              onChange(v);
-            }
-          }}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            // Halve hex ("#ef59") is geen kleur — terug naar standaard zodat
-            // opslaan nooit op een ongeldige waarde stukloopt.
-            if (v !== "" && !/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
-              onChange("");
-            }
-          }}
-        />
       </div>
     </div>
   );
