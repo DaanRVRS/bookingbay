@@ -47,8 +47,14 @@ export default async function SitePage() {
         customDomainVerifiedAt: true,
       },
     }),
+    // Alleen ÉXTRA pagina's — home bestaat altijd en staat standaard live,
+    // dus meetellen zou "Eerste eigen pagina live" direct afvinken.
     db.page.count({
-      where: { organizationId: ctx.organization.id, isPublished: true },
+      where: {
+        organizationId: ctx.organization.id,
+        isPublished: true,
+        NOT: { slug: "home" },
+      },
     }),
   ]);
   if (!org) throw new Error("Organization not found");
@@ -58,7 +64,10 @@ export default async function SitePage() {
   const protocol = env.APP_URL.startsWith("https") ? "https" : "http";
   const tenantUrl = `${protocol}://${org.slug}.${env.TENANT_DOMAIN}`;
   const builderEnabled = planAllows(org.plan, "pageBuilder");
-  const domainAllowed = planLimits(org.plan).customDomain;
+  const limits = planLimits(org.plan);
+  const domainAllowed = limits.customDomain;
+  // Starter: builder alleen voor de homepagina, geen extra pagina's.
+  const extraPagesAllowed = limits.maxPages > 0;
 
   // Setup-checklist — echte data, geen aannames. Eigen domein telt als
   // optioneel en drukt de voortgang niet.
@@ -81,11 +90,13 @@ export default async function SitePage() {
       done: Boolean(org.contactEmail),
       href: "#instellingen",
     },
-    ...(builderEnabled
+    // Alleen tonen op plannen mét extra pagina's — op Starter (alleen
+    // homepagina) is dit punt onhaalbaar en dus misleidend.
+    ...(extraPagesAllowed
       ? [
           {
             id: "pages",
-            label: "Eerste eigen pagina live",
+            label: "Eerste extra pagina live",
             done: pageCount > 0,
             href: "/dashboard/site/pages",
           },
@@ -219,8 +230,12 @@ export default async function SitePage() {
                 <QuickLink
                   href="/dashboard/site/pages"
                   icon={FileText}
-                  title="Pagina's & homepagina"
-                  sub="Hero, tekst, slider, prijslijst, contact-blok — drag-and-drop."
+                  title={extraPagesAllowed ? "Pagina's & homepagina" : "Homepagina bewerken"}
+                  sub={
+                    extraPagesAllowed
+                      ? "Hero, tekst, slider, prijslijst, contact-blok — drag-and-drop."
+                      : "Hero, tekst, prijslijst, contact-blok — drag-and-drop. Extra pagina's vanaf Professional."
+                  }
                 />
               )}
               <QuickLink

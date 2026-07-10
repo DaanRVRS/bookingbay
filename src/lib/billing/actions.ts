@@ -135,7 +135,10 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
   const [itemCount, memberCount, pageCount] = await Promise.all([
     db.item.count({ where: { organizationId: org.id, isActive: true } }),
     db.membership.count({ where: { organizationId: org.id } }),
-    db.page.count({ where: { organizationId: org.id } }),
+    // Alleen ÉXTRA pagina's — de homepagina is verplicht en onverwijderbaar
+    // en mag een downgrade (naar bv. Starter met 0 extra pagina's) dus
+    // nooit blokkeren.
+    db.page.count({ where: { organizationId: org.id, NOT: { slug: "home" } } }),
   ]);
   const blockers: string[] = [];
   if (itemCount > target.maxItems) {
@@ -150,7 +153,9 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
   }
   if (pageCount > target.maxPages) {
     blockers.push(
-      `je hebt ${pageCount} site-pagina's (max ${Number.isFinite(target.maxPages) ? target.maxPages : "onbeperkt"} op ${target.label})`,
+      target.maxPages === 0
+        ? `je hebt ${pageCount} extra pagina's naast je homepagina (${target.label} bevat alleen de homepagina) — verwijder die eerst`
+        : `je hebt ${pageCount} extra pagina's naast je homepagina (max ${Number.isFinite(target.maxPages) ? target.maxPages : "onbeperkt"} op ${target.label})`,
     );
   }
   if (org.customDomain && !target.customDomain) {

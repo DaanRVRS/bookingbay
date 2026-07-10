@@ -78,7 +78,8 @@ export default async function BillingPage({ searchParams }: PageProps) {
       await Promise.all([
         db.item.count({ where: { organizationId: org.id, isActive: true } }),
         db.membership.count({ where: { organizationId: org.id } }),
-        db.page.count({ where: { organizationId: org.id } }),
+        // Alleen extra pagina's — de verplichte homepagina telt nergens mee.
+        db.page.count({ where: { organizationId: org.id, NOT: { slug: "home" } } }),
         db.orgIntegration.findMany({
           where: { organizationId: org.id, status: "ACTIVE" },
           orderBy: { activatedAt: "asc" },
@@ -176,7 +177,11 @@ export default async function BillingPage({ searchParams }: PageProps) {
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <Stat label="Items" current={itemCount} max={describeLimit(org.plan, "items")} />
           <Stat label="Leden" current={memberCount} max={describeLimit(org.plan, "members")} />
-          <Stat label="Pagina's" current={pageCount} max={describeLimit(org.plan, "pages")} />
+          <Stat
+            label="Extra pagina's"
+            current={pageCount}
+            max={describeLimit(org.plan, "pages")}
+          />
           <FeatureBadge label="Site-builder" enabled={current.pageBuilder} />
           <FeatureBadge label="Eigen domein" enabled={current.customDomain} />
         </div>
@@ -712,11 +717,13 @@ function PlanCard({
             <X className="size-3 text-muted-foreground" />
           )}
           <span className={limits.pageBuilder ? "" : "text-muted-foreground"}>
-            {limits.pageBuilder
-              ? `Site-builder + ${
-                  Number.isFinite(limits.maxPages) ? limits.maxPages : "onbeperkt"
-                } pagina's`
-              : "Geen site-builder"}
+            {!limits.pageBuilder
+              ? "Geen site-builder"
+              : limits.maxPages === 0
+                ? "Site-builder — alleen je homepagina"
+                : `Site-builder — homepagina + ${
+                    Number.isFinite(limits.maxPages) ? limits.maxPages : "onbeperkt"
+                  } extra pagina's`}
           </span>
         </li>
         <li className="flex items-center gap-2">

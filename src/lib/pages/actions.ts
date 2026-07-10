@@ -63,7 +63,12 @@ export async function createPageAction(
     return { ok: false, error: `'${parsed.data.slug}' is gereserveerd, kies een andere slug.` };
   }
 
-  const count = await db.page.count({ where: { organizationId: ctx.organization.id } });
+  // maxPages telt alleen ÉXTRA pagina's — de altijd-aanwezige homepagina
+  // telt niet mee (anders is de limiet effectief één lager dan beloofd en
+  // is Starter, met 0 extra pagina's, per definitie "vol").
+  const count = await db.page.count({
+    where: { organizationId: ctx.organization.id, NOT: { slug: "home" } },
+  });
   try {
     assertPageQuotaOk(org.plan, count);
   } catch (e) {

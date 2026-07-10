@@ -5,7 +5,11 @@ export interface PlanLimits {
   maxItems: number;
   /** Max members in the org (incl. OWNER). */
   maxMembers: number;
-  /** Max custom-built pages on the tenant site (excludes the auto-generated home). */
+  /**
+   * Max ÉXTRA pagina's op de klantsite, náást de homepagina. De homepagina
+   * bestaat altijd, is niet verwijderbaar en telt nergens mee — 0 betekent
+   * dus: alleen de homepagina (Starter).
+   */
   maxPages: number;
   customDomain: boolean;
   /** Show full site customizer (custom CSS, hide-poweredBy toggle, …) */
@@ -34,10 +38,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   STARTER: {
     maxItems: 25,
     maxMembers: 2,
+    // Alleen de homepagina — wél in de builder te bewerken, geen extra
+    // pagina's erbij.
     maxPages: 0,
     customDomain: false,
     customCss: false,
-    pageBuilder: false,
+    pageBuilder: true,
     hidePoweredByOption: false,
     alwaysShowPoweredBy: true,
     apiAccess: false,
@@ -172,13 +178,18 @@ export function assertMemberQuotaOk(plan: Plan, currentMemberCount: number) {
   }
 }
 
+/**
+ * `currentPageCount` = aantal ÉXTRA pagina's (home niet meetellen!).
+ */
 export function assertPageQuotaOk(plan: Plan, currentPageCount: number) {
   const max = PLAN_LIMITS[plan].maxPages;
   if (currentPageCount >= max) {
     throw new Error(
-      `Je ${PLAN_LIMITS[plan].label}-plan bevat ${
-        Number.isFinite(max) ? max : "onbeperkt"
-      } pagina's. Upgrade om er meer toe te voegen.`,
+      max === 0
+        ? `Je ${PLAN_LIMITS[plan].label}-plan bevat alleen de homepagina. Upgrade om extra pagina's toe te voegen.`
+        : `Je ${PLAN_LIMITS[plan].label}-plan bevat naast de homepagina ${
+            Number.isFinite(max) ? max : "onbeperkt"
+          } extra pagina's. Upgrade om er meer toe te voegen.`,
     );
   }
 }

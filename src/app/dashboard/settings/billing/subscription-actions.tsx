@@ -182,6 +182,11 @@ export function ChangePlanButton({
   } else {
     body = "Je houdt alles wat binnen dit plan past.";
   }
+  // Starter = alleen de homepagina. Zeg dat vóór het wisselen — de
+  // server weigert de downgrade toch zolang er extra pagina's bestaan.
+  if (!isUpgrade && plan === "STARTER") {
+    body += " Op Starter heb je één pagina: je homepagina (niet verwijderbaar). Extra pagina's moeten eerst verwijderd zijn; je homepagina blijft gewoon bewerkbaar.";
+  }
 
   function go() {
     setErr(null);
