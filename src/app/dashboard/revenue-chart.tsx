@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TrendingUp } from "lucide-react";
 
 interface Point {
@@ -26,6 +26,57 @@ const fmtEuro = (n: number) =>
     maximumFractionDigits: 0,
   });
 
+/**
+ * Monotone-cubic (Fritsch–Carlson) pad: een gladde curve die de datapunten
+ * exact raakt en — anders dan een gewone spline — nooit onder 0 duikt of over
+ * een piek heen schiet. Dat maakt losstaande omzet-pieken een nette heuvel
+ * i.p.v. een scherpe naald, zonder de cijfers te verdraaien.
+ */
+function monotonePath(pts: { x: number; y: number }[]): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = pts[i + 1].x - pts[i].x;
+    slope[i] = (pts[i + 1].y - pts[i].y) / dx[i];
+  }
+  const tan: number[] = new Array(n);
+  tan[0] = slope[0];
+  tan[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    tan[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      tan[i] = 0;
+      tan[i + 1] = 0;
+      continue;
+    }
+    const a = tan[i] / slope[i];
+    const b = tan[i + 1] / slope[i];
+    const h = Math.hypot(a, b);
+    if (h > 3) {
+      const t = 3 / h;
+      tan[i] = t * a * slope[i];
+      tan[i + 1] = t * b * slope[i];
+    }
+  }
+  let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const x1 = pts[i].x + dx[i] / 3;
+    const y1 = pts[i].y + (tan[i] * dx[i]) / 3;
+    const x2 = pts[i + 1].x - dx[i] / 3;
+    const y2 = pts[i + 1].y - (tan[i + 1] * dx[i]) / 3;
+    d += ` C ${x1.toFixed(2)} ${y1.toFixed(2)}, ${x2.toFixed(2)} ${y2.toFixed(2)}, ${pts[
+      i + 1
+    ].x.toFixed(2)} ${pts[i + 1].y.toFixed(2)}`;
+  }
+  return d;
+}
+
 export function RevenueChart({ points }: { points: Point[] }) {
   const [rangeKey, setRangeKey] = useState<RangeKey>("1m");
   const range = RANGES.find((r) => r.key === rangeKey)!;
@@ -41,7 +92,6 @@ export function RevenueChart({ points }: { points: Point[] }) {
     const total = inRange.reduce((s, p) => s + p.amount, 0);
     const prevTotal = inPrev.reduce((s, p) => s + p.amount, 0);
 
-    // Buckets
     const out: { label: string; value: number; ts: number }[] = [];
     const start = new Date(from);
     if (range.bucket === "day") {
@@ -102,57 +152,71 @@ export function RevenueChart({ points }: { points: Point[] }) {
         ? 100
         : 0;
 
-  // SVG geometry. De SVG wordt met preserveAspectRatio="none" uitgerekt om
-  // de kaart te vullen — daarom staan ALLE teksten en de punt-marker als
-  // HTML-overlay erbovenop (in % gepositioneerd), nooit als <text> binnen
-  // de SVG. SVG-tekst zou meevervormen en onleesbaar worden ("€ ll").
-  const W = 760;
-  const H = 200;
-  const padX = 6;
-  const padTop = 16;
-  const padBottom = 8;
-  const innerW = W - padX * 2;
+  // Responsieve, ONVERVORMDE geometrie: we meten de echte breedte en tekenen
+  // de SVG op ware pixel-grootte (geen preserveAspectRatio-rek meer, die de
+  // curve en pieken vervormde). Alle coördinaten zijn dus px binnen [0, w].
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = plotRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (cr) setW(cr.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const H = 220;
+  const padX = 10;
+  const padTop = 26;
+  const padBottom = 6;
+  const innerW = Math.max(1, w - padX * 2);
   const innerH = H - padTop - padBottom;
+  const baseline = padTop + innerH;
   const n = buckets.length;
   const maxV = peak <= 0 ? 1 : peak;
 
-  const x = (i: number) =>
-    n <= 1 ? padX + innerW / 2 : padX + (i / (n - 1)) * innerW;
+  const x = (i: number) => (n <= 1 ? padX + innerW / 2 : padX + (i / (n - 1)) * innerW);
   const y = (v: number) => padTop + innerH - (v / maxV) * innerH;
 
-  // Naar % van de container — werkt 1-op-1 omdat de SVG niet-uniform
-  // wordt opgerekt tot exact de container-afmetingen.
-  const leftPct = (i: number) => (x(i) / W) * 100;
-  const topPct = (v: number) => (y(v) / H) * 100;
-
-  const linePath = buckets
-    .map((b, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(b.value).toFixed(1)}`)
-    .join(" ");
+  const pts = buckets.map((b, i) => ({ x: x(i), y: y(b.value) }));
+  const linePath = monotonePath(pts);
   const areaPath =
     n > 0
-      ? `${linePath} L ${x(n - 1).toFixed(1)} ${(padTop + innerH).toFixed(1)} L ${x(0).toFixed(1)} ${(padTop + innerH).toFixed(1)} Z`
+      ? `${linePath} L ${x(n - 1).toFixed(2)} ${baseline.toFixed(2)} L ${x(0).toFixed(
+          2,
+        )} ${baseline.toFixed(2)} Z`
       : "";
 
   const lastIdx = n - 1;
   const peakIdx = buckets.findIndex((b) => b.value === peak && b.value > 0);
 
-  // X-as labels: max ~5 gelijk verdeeld, inclusief eerste + laatste.
   const labelIdx = (() => {
     if (n <= 1) return [0];
     const want = Math.min(5, n);
     const s = new Set<number>();
-    for (let k = 0; k < want; k++) {
-      s.add(Math.round((k / (want - 1)) * (n - 1)));
-    }
+    for (let k = 0; k < want; k++) s.add(Math.round((k / (want - 1)) * (n - 1)));
     return [...s].sort((a, b) => a - b);
   })();
 
-  // Edge-aware uitlijning zodat rand-labels niet wegvallen.
-  const anchorStyle = (i: number) => {
-    if (i === 0) return { transform: "translateX(0)" };
-    if (i === lastIdx) return { transform: "translateX(-100%)" };
-    return { transform: "translateX(-50%)" };
+  // Hover: crosshair + tooltip op de dichtstbijzijnde bucket (muis én touch).
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (n === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const idx = n <= 1 ? 0 : Math.round(((relX - padX) / innerW) * (n - 1));
+    setHoverIdx(Math.max(0, Math.min(n - 1, idx)));
   };
+  const clearHover = () => setHoverIdx(null);
+
+  // Edge-aware horizontale uitlijning van een zwevend label op index i.
+  const labelShiftX = (i: number) =>
+    i === 0 ? "0" : i === lastIdx ? "-100%" : "-50%";
+
+  const active = hoverIdx != null ? buckets[hoverIdx] : null;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -168,14 +232,10 @@ export function RevenueChart({ points }: { points: Point[] }) {
             {deltaPct !== 0 && (
               <span
                 className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                  deltaPct >= 0
-                    ? "text-[oklch(0.52_0.15_150)]"
-                    : "text-destructive"
+                  deltaPct >= 0 ? "text-[oklch(0.52_0.15_150)]" : "text-destructive"
                 }`}
               >
-                <TrendingUp
-                  className={`size-3.5 ${deltaPct < 0 ? "rotate-180" : ""}`}
-                />
+                <TrendingUp className={`size-3.5 ${deltaPct < 0 ? "rotate-180" : ""}`} />
                 {deltaPct > 0 ? "+" : ""}
                 {deltaPct}%
               </span>
@@ -206,97 +266,170 @@ export function RevenueChart({ points }: { points: Point[] }) {
 
       <div className="p-5">
         {total === 0 ? (
-          <div className="grid h-[200px] place-items-center rounded-lg border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
+          <div className="grid h-[220px] place-items-center rounded-lg border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
             Nog geen omzet in deze periode.
           </div>
         ) : (
           <div>
-            <div className="relative h-[200px] w-full">
-              <svg
-                viewBox={`0 0 ${W} ${H}`}
-                className="absolute inset-0 h-full w-full"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <defs>
-                  <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
-                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+            <div
+              ref={plotRef}
+              className="relative w-full touch-pan-y"
+              style={{ height: H }}
+              role="img"
+              aria-label={`Omzetgrafiek — ${fmtEuro(total)} in de gekozen periode`}
+              onPointerMove={onPointerMove}
+              onPointerLeave={clearHover}
+              onPointerDown={onPointerMove}
+            >
+              {w > 0 && n > 0 && (
+                <svg
+                  width={w}
+                  height={H}
+                  viewBox={`0 0 ${w} ${H}`}
+                  className="absolute inset-0 block"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.30" />
+                      <stop offset="55%" stopColor="var(--primary)" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
 
-                {/* Horizontale rasterlijnen */}
-                {[0.25, 0.5, 0.75, 1].map((f) => (
+                  {/* Recessieve rasterlijnen */}
+                  {[0.25, 0.5, 0.75, 1].map((f) => (
+                    <line
+                      key={f}
+                      x1={padX}
+                      x2={w - padX}
+                      y1={baseline - f * innerH}
+                      y2={baseline - f * innerH}
+                      stroke="var(--border)"
+                      strokeWidth="1"
+                      strokeDasharray="2 6"
+                      opacity="0.6"
+                    />
+                  ))}
+                  {/* Basislijn (0) — iets steviger */}
                   <line
-                    key={f}
                     x1={padX}
-                    x2={W - padX}
-                    y1={padTop + innerH - f * innerH}
-                    y2={padTop + innerH - f * innerH}
+                    x2={w - padX}
+                    y1={baseline}
+                    y2={baseline}
                     stroke="var(--border)"
                     strokeWidth="1"
-                    strokeDasharray="3 5"
-                    opacity="0.5"
-                    vectorEffect="non-scaling-stroke"
                   />
-                ))}
 
-                <path d={areaPath} fill="url(#revFill)" />
-                <path
-                  d={linePath}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
+                  <path d={areaPath} fill="url(#revFill)" />
+                  {/* Zachte halo onder de lijn — geeft diepte zonder filter
+                      (en dus zonder risico op zwart-terugval in sommige
+                      browsers). */}
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.14"
+                  />
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
 
-              {/* Punt-marker op laatste waarde (crisp, als HTML) */}
-              {n > 0 && (
+                  {/* Crosshair bij hover */}
+                  {active && hoverIdx != null && (
+                    <line
+                      x1={x(hoverIdx)}
+                      x2={x(hoverIdx)}
+                      y1={padTop - 6}
+                      y2={baseline}
+                      stroke="var(--primary)"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                      opacity="0.5"
+                    />
+                  )}
+                </svg>
+              )}
+
+              {/* Laatste-punt marker (crisp HTML) — verborgen tijdens hover */}
+              {w > 0 && n > 0 && hoverIdx == null && (
                 <span
                   className="absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow-sm"
-                  style={{
-                    left: `${leftPct(lastIdx)}%`,
-                    top: `${topPct(buckets[lastIdx].value)}%`,
-                  }}
+                  style={{ left: x(lastIdx), top: y(buckets[lastIdx].value) }}
                   aria-hidden="true"
                 />
               )}
 
-              {/* Waarde-label op de piek (crisp, als HTML) */}
-              {peakIdx >= 0 && (
+              {/* Hover-dot */}
+              {w > 0 && active && hoverIdx != null && (
+                <span
+                  className="absolute z-20 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow-md ring-2 ring-primary/25"
+                  style={{ left: x(hoverIdx), top: y(active.value) }}
+                  aria-hidden="true"
+                />
+              )}
+
+              {/* Piek-label (crisp HTML) — verborgen tijdens hover */}
+              {w > 0 && peakIdx >= 0 && hoverIdx == null && (
                 <div
-                  className="absolute z-10 whitespace-nowrap rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
+                  className="pointer-events-none absolute z-10 whitespace-nowrap rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
                   style={{
-                    left: `${leftPct(peakIdx)}%`,
-                    top: `${topPct(buckets[peakIdx].value)}%`,
-                    transform:
-                      peakIdx === lastIdx
-                        ? "translate(-100%, calc(-100% - 10px))"
-                        : peakIdx === 0
-                          ? "translate(0, calc(-100% - 10px))"
-                          : "translate(-50%, calc(-100% - 10px))",
+                    left: x(peakIdx),
+                    top: y(buckets[peakIdx].value),
+                    transform: `translate(${labelShiftX(peakIdx)}, calc(-100% - 10px))`,
                   }}
                 >
                   {fmtEuro(peak)}
                 </div>
               )}
+
+              {/* Hover-tooltip: datum + exact bedrag */}
+              {w > 0 && active && hoverIdx != null && (
+                <div
+                  className="pointer-events-none absolute z-30 whitespace-nowrap rounded-lg border border-border bg-card px-2.5 py-1.5 shadow-lg"
+                  style={{
+                    left: x(hoverIdx),
+                    top: y(active.value),
+                    transform: `translate(${labelShiftX(hoverIdx)}, calc(-100% - 14px))`,
+                  }}
+                >
+                  <div className="text-[10px] font-medium text-muted-foreground">
+                    {active.label}
+                  </div>
+                  <div className="text-sm font-semibold tabular-nums text-foreground">
+                    {fmtEuro(active.value)}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* X-as labels — gewone HTML, dus altijd scherp */}
-            <div className="relative mt-2 h-4">
-              {labelIdx.map((i) => (
-                <span
-                  key={`l-${buckets[i].ts}`}
-                  className="absolute text-[10px] text-muted-foreground tabular-nums"
-                  style={{ left: `${leftPct(i)}%`, ...anchorStyle(i) }}
-                >
-                  {buckets[i].label}
-                </span>
-              ))}
-            </div>
+            {w > 0 && (
+              <div className="relative mt-2 h-4">
+                {labelIdx.map((i) => (
+                  <span
+                    key={`l-${buckets[i].ts}`}
+                    className={`absolute text-[10px] tabular-nums transition-colors ${
+                      hoverIdx === i ? "font-semibold text-foreground" : "text-muted-foreground"
+                    }`}
+                    style={{
+                      left: x(i),
+                      transform: `translateX(${labelShiftX(i)})`,
+                    }}
+                  >
+                    {buckets[i].label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
