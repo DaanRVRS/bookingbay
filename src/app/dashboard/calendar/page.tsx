@@ -1,7 +1,6 @@
 import { addDays, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
 import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { CalendarView } from "./calendar-view";
 
 export const metadata = { title: "Planning" };
@@ -10,69 +9,10 @@ interface PageProps {
   searchParams: Promise<{ date?: string }>;
 }
 
-// Fallback wanneer er geen openingstijden of boekingen zijn.
-const FALLBACK_START_HOUR = 8;
-const FALLBACK_END_HOUR = 19; // inclusief laatste label; onderrand = 20:00
-const MIN_SPAN_HOURS = 6;
-
-function hhmmToMin(s: string): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
-  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
-}
-
-/**
- * Bepaal het zichtbare tijdvenster van het rooster: strak om de werkdag i.p.v.
- * altijd 07:00–23:00. Basis = de openingstijden (stabiel per week); daarna
- * uitrekken voor tijd-boekingen die buiten die uren vallen. Hele-dag-verhuur
- * (00:00–23:59, bv. boten per dag) wordt genegeerd zodat die het venster niet
- * naar 0–24 opblaast.
- */
-function computeHourWindow(
-  businessHours: unknown,
-  bookings: { startAt: Date; endAt: Date }[],
-): { hourStart: number; hourEnd: number } {
-  let minOpen = Infinity;
-  let maxClose = -Infinity;
-
-  const hours = safeParseBusinessHours(businessHours);
-  if (hours) {
-    for (const d of hours) {
-      if (d.closed) continue;
-      const o = hhmmToMin(d.open || "09:00");
-      const c = hhmmToMin(d.close || "17:00");
-      if (o != null) minOpen = Math.min(minOpen, o);
-      if (c != null) maxClose = Math.max(maxClose, c);
-    }
-  }
-
-  const WHOLE_DAY_MIN = 20 * 60; // ≥20u = hele-dag/week-verhuur → overslaan
-  for (const b of bookings) {
-    const startMin = b.startAt.getHours() * 60 + b.startAt.getMinutes();
-    const endAbs = (b.endAt.getTime() - startOfLocalDay(b.startAt)) / 60000;
-    if (endAbs - startMin >= WHOLE_DAY_MIN) continue;
-    minOpen = Math.min(minOpen, startMin);
-    maxClose = Math.max(maxClose, endAbs);
-  }
-
-  if (!Number.isFinite(minOpen) || !Number.isFinite(maxClose)) {
-    return { hourStart: FALLBACK_START_HOUR, hourEnd: FALLBACK_END_HOUR };
-  }
-
-  let hourStart = Math.max(0, Math.floor(minOpen / 60));
-  let endExclusive = Math.min(24, Math.ceil(maxClose / 60));
-  // Minimale hoogte zodat een korte werkdag niet als sliver oogt.
-  if (endExclusive - hourStart < MIN_SPAN_HOURS) {
-    endExclusive = Math.min(24, hourStart + MIN_SPAN_HOURS);
-    hourStart = Math.max(0, endExclusive - MIN_SPAN_HOURS);
-  }
-  return { hourStart, hourEnd: endExclusive - 1 };
-}
-
-function startOfLocalDay(d: Date): number {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.getTime();
-}
+// Volledige dag: 00:00–24:00. hourEnd is het laatste label (23:00); de
+// onderrand ligt op hourEnd+1 = 24:00.
+const HOUR_START = 0;
+const HOUR_END = 23;
 
 export default async function CalendarPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
@@ -84,11 +24,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
   const weekStart = startOfWeek(focused, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(focused, { weekStartsOn: 1 });
 
-  const [org, items, bookings] = await Promise.all([
-    db.organization.findUnique({
-      where: { id: orgId },
-      select: { businessHours: true },
-    }),
+  const [items, bookings] = await Promise.all([
     db.item.findMany({
       where: { organizationId: orgId, isActive: true, isAddon: false },
       orderBy: { name: "asc" },
@@ -115,19 +51,14 @@ export default async function CalendarPage({ searchParams }: PageProps) {
     }),
   ]);
 
-  const { hourStart, hourEnd } = computeHourWindow(
-    org?.businessHours,
-    bookings.map((b) => ({ startAt: b.startAt, endAt: b.endAt })),
-  );
-
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-7xl">
         <CalendarView
           focusedDate={format(focused, "yyyy-MM-dd")}
           weekStart={format(weekStart, "yyyy-MM-dd")}
-          hourStart={hourStart}
-          hourEnd={hourEnd}
+          hourStart={HOUR_START}
+          hourEnd={HOUR_END}
           items={items.map((i) => ({
             id: i.id,
             name: i.name,
