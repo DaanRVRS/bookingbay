@@ -42,6 +42,7 @@ export default async function ContactPage({ params }: PageProps) {
       organizationId={org.id}
       accent={accent}
       contactBasePath={base}
+      tenantSlug={slug}
     />
   );
 }

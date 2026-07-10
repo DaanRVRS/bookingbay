@@ -176,6 +176,9 @@ export function createMandatePayment(args: {
   webhookUrl: string;
   organizationId: string;
   kind: string;
+  /** Plan waarop de org stond vóór de upgrade — laat de webhook terugrollen
+   *  als deze losse pro-rata-charge later faalt. */
+  prevPlan?: string;
 }): Promise<MolliePayment> {
   return molliePost<MolliePayment>("/payments", {
     amount: toMollieAmount(args.amountCents),
@@ -187,6 +190,7 @@ export function createMandatePayment(args: {
     metadata: {
       organizationId: args.organizationId,
       kind: args.kind,
+      ...(args.prevPlan ? { prevPlan: args.prevPlan } : {}),
     },
   });
 }

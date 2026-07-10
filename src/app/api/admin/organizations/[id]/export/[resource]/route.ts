@@ -6,6 +6,11 @@ import { toCsv, todayStamp } from "@/lib/csv";
 const RESOURCES = ["customers", "categories", "bookings"] as const;
 type Resource = (typeof RESOURCES)[number];
 
+// Veiligheidscap: voorkomt dat een mega-export de volledige dataset in
+// geheugen bouwt en de swap-krappe host plat legt (zelfde reden als de
+// dashboard-export-cap).
+const ADMIN_EXPORT_LIMIT = 20000;
+
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string; resource: string }> },
@@ -39,6 +44,7 @@ async function buildCsv(organizationId: string, resource: Resource): Promise<str
       where: { organizationId },
       include: { _count: { select: { bookings: true } } },
       orderBy: { createdAt: "desc" },
+      take: ADMIN_EXPORT_LIMIT,
     });
     return toCsv(
       [
@@ -72,6 +78,7 @@ async function buildCsv(organizationId: string, resource: Resource): Promise<str
         _count: { select: { items: true, children: true } },
       },
       orderBy: [{ parentId: "asc" }, { sortOrder: "asc" }],
+      take: ADMIN_EXPORT_LIMIT,
     });
     return toCsv(
       [
@@ -108,6 +115,7 @@ async function buildCsv(organizationId: string, resource: Resource): Promise<str
       createdBy: { select: { email: true, name: true } },
     },
     orderBy: { startAt: "desc" },
+    take: ADMIN_EXPORT_LIMIT,
   });
   return toCsv(
     [

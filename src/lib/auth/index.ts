@@ -9,6 +9,12 @@ import { env } from "@/lib/env";
 import { sendEmail, emailLayout, btn } from "@/lib/email";
 import { verifyHandoffToken } from "@/lib/twofa/core";
 import { verifyDemoToken } from "@/lib/demo/token";
+import {
+  checkRateLimit,
+  recordFailure,
+  clearAttempts,
+  LOGIN_LIMIT,
+} from "@/lib/security/rate-limit";
 
 declare module "next-auth" {
   interface Session {
@@ -49,11 +55,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = credentialsSchema.safeParse(creds);
         if (!parsed.success) return null;
 
+        // Brute-force-throttle óók op dit rauwe endpoint (loginAction is niet
+        // de enige weg hierheen — /api/auth/callback/credentials is publiek).
+        const rlKey = `login:${parsed.data.email.toLowerCase()}`;
+        const gate = await checkRateLimit(rlKey);
+        if (gate.limited) return null;
+
         const user = await db.user.findUnique({ where: { email: parsed.data.email } });
-        if (!user || !user.passwordHash) return null;
+        if (!user || !user.passwordHash) {
+          await recordFailure(rlKey, LOGIN_LIMIT);
+          return null;
+        }
 
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!ok) return null;
+        if (!ok) {
+          await recordFailure(rlKey, LOGIN_LIMIT);
+          return null;
+        }
+        await clearAttempts(rlKey);
+
+        // KRITIEK: gebruikers mét 2FA (en admins, die 2FA verplicht moeten
+        // opzetten) mogen NOOIT via deze provider een sessie krijgen. De
+        // 2FA-poort zit in loginAction/gateTwoFactor, maar Auth.js exposet
+        // deze provider óók op POST /api/auth/callback/credentials — een
+        // directe POST met alleen het wachtwoord zou anders 2FA volledig
+        // omzeilen. Zulke gebruikers loggen uitsluitend in via de
+        // 2fa-handoff-provider ná een geslaagde TOTP-check.
+        if (user.twoFactorEnabledAt || user.isAdmin) return null;
 
         // Allow login but force verification flow if email not verified.
         // The middleware/dashboard layout should redirect unverified users to /verify-email.
@@ -68,9 +96,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
     Credentials({
       // Handoff provider: signs the user in *after* a successful 2FA
-      // challenge. The token is an HMAC-signed userId set by the server in
-      // an HttpOnly cookie at the end of password-validation, so this
-      // provider cannot be invoked directly by a user.
+      // challenge. Accepteert UITSLUITEND "authenticated"-tokens, die pas
+      // ná een geslaagde TOTP/backup-check (verifyTwoFactorAction) of ná
+      // confirmSetupAction server-side worden gemint. Het pre-TOTP
+      // "verify"-cookie wordt hier dus NIET geaccepteerd — anders kon een
+      // aanvaller met het wachtwoord dat cookie uit de eigen browser naar
+      // POST /api/auth/callback/2fa-handoff replayen en TOTP overslaan.
       id: "2fa-handoff",
       name: "2FA handoff",
       credentials: {
@@ -80,10 +111,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const token = typeof creds?.token === "string" ? creds.token : null;
         const payload = verifyHandoffToken(token ?? undefined);
         if (!payload) return null;
-        // Only "verify" tokens are accepted here — "setup" tokens must
-        // first go through confirmSetupAction which then re-signs as
-        // "verify" before signing in.
-        if (payload.mode !== "verify") return null;
+        if (payload.mode !== "authenticated") return null;
         const user = await db.user.findUnique({
           where: { id: payload.userId },
         });

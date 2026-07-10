@@ -112,6 +112,7 @@ function renderNonContainer(
     testimonialItemsByBlockId: Map<string, TestimonialItem[]>;
     priceTableItemsByBlockId: Map<string, PriceTableItem[]>;
     contactBasePath: string;
+    tenantSlug: string;
     widgetData: InlineWidgetData | null;
   },
 ) {
@@ -121,6 +122,7 @@ function renderNonContainer(
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,
     contactBasePath,
+    tenantSlug,
     widgetData,
   } = ctx;
   switch (block.type) {
@@ -142,6 +144,8 @@ function renderNonContainer(
           block={block}
           organizationId={organizationId}
           accent={accent}
+          basePath={contactBasePath}
+          tenantSlug={tenantSlug}
         />
       );
     case "gallery":
@@ -195,6 +199,7 @@ export async function PageRenderer({
   organizationId,
   accent,
   contactBasePath = "",
+  tenantSlug = "",
 }: {
   blocks: Block[];
   organizationId: string;
@@ -205,6 +210,8 @@ export async function PageRenderer({
    * /site/<slug> path-style access.
    */
   contactBasePath?: string;
+  /** Tenant-slug voor absolute links naar de boek-widget (/book/<slug>). */
+  tenantSlug?: string;
 }) {
   // Pre-resolve all dynamic blocks (testimonials + price tables) so the
   // rendered output stays synchronous from here down.
@@ -240,6 +247,7 @@ export async function PageRenderer({
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,
     contactBasePath,
+    tenantSlug,
     widgetData,
   };
 

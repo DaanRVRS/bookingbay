@@ -112,6 +112,18 @@ model PasswordReset {
   @@index([userId])
 }
 
+/// Brute-force-throttle voor login en 2FA-verificatie. `key` is bv.
+/// "login:email" of "2fa:userId". Telt mislukte pogingen binnen een venster
+/// en zet `lockedUntil` zodra de drempel is bereikt.
+model LoginThrottle {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  count       Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
 // ----------------------------------------------------------------------------
 // Multi-tenant core
 // ----------------------------------------------------------------------------
@@ -496,6 +508,12 @@ model Booking {
   // boekingen kloppen ook als het add-on-item later wijzigt/verdwijnt.
   // Shape: [{ itemId, name, unitPrice, quantity }]. Null = geen extra's.
   addons         Json?
+  // Snapshot van de fee-velden (interval + schoonmaak/kapitein/brandstof) op
+  // het moment van boeken, zodat exports/facturen de opbouw tonen zoals de
+  // klant 'm betaalde — ook als de eigenaar de item-fees later wijzigt.
+  // Shape: { bookingIntervalMinutes, cleaningFee, captainFee, fuelFee }.
+  // Null = oude boeking → val terug op de live item-fees.
+  feeSnapshot    Json?
   // Nullable: bookings created via the public widget (no logged-in user)
   // have no createdBy. Internal bookings always set this.
   createdById    String?
@@ -1011,7 +1029,11 @@ model CalendarBlock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([source, externalId])
+  // Org-gescoped uniek: twee tenants kunnen hetzelfde Google-event delen
+  // (attendee-kopieën delen dezelfde event-id). Zonder organizationId in de
+  // key zou de sync van tenant B de CalendarBlock-rij van tenant A
+  // overschrijven → cross-tenant corruptie + overboeking.
+  @@unique([organizationId, source, externalId])
   @@index([organizationId, startAt])
   @@index([itemId, startAt])
 }
@@ -1026,6 +1048,12 @@ model CalendarSyncState {
   channelId        String?  @unique
   resourceId       String?
   channelExpiresAt DateTime?
+  // Geheim dat we als channel-token meegeven aan Google's watch; Google
+  // stuurt 't terug in de X-Goog-Channel-Token-header bij elke push. De
+  // webhook verifieert het zodat een uitgelekte channelId alleen niet
+  // volstaat om nep-pushes/resyncs af te dwingen. Null = legacy watch
+  // (nog zonder token) → geverifieerd zodra 'ie renewt.
+  webhookToken     String?
   // Incremental sync token van Google. Null = volgende sync = full backfill.
   syncToken        String?
   lastPolledAt     DateTime?

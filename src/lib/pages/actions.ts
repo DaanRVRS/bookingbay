@@ -123,9 +123,6 @@ export async function updatePageMetaAction(
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
   }
-  if (RESERVED_SLUGS.has(parsed.data.slug)) {
-    return { ok: false, error: `'${parsed.data.slug}' is gereserveerd.` };
-  }
 
   const existing = await db.page.findFirst({
     where: { id: parsed.data.id, organizationId: ctx.organization.id },
@@ -136,6 +133,14 @@ export async function updatePageMetaAction(
   // slug field, but enforce here too in case someone bypasses it.
   const isHome = existing.slug === "home";
   const targetSlug = isHome ? "home" : parsed.data.slug;
+
+  // Reserved-slug check ná de home-afhandeling: de homepagina HEEFT slug
+  // "home" (zelf een gereserveerde slug), dus deze check vóór isHome
+  // blokkeerde elke opslag van de homepagina-instellingen. Voor home is de
+  // slug al vastgezet op "home", dus we slaan de check daar over.
+  if (!isHome && RESERVED_SLUGS.has(targetSlug)) {
+    return { ok: false, error: `'${targetSlug}' is gereserveerd.` };
+  }
 
   if (targetSlug !== existing.slug) {
     const collision = await db.page.findFirst({

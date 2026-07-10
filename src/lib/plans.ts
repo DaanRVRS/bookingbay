@@ -125,6 +125,25 @@ export function planLimits(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];
 }
 
+/**
+ * Plan-rangorde van goedkoop → duur. De index bepaalt upgrade vs downgrade —
+ * robuuster dan `monthlyPriceEuro` vergelijken, want ENTERPRISE heeft prijs 0
+ * als "op aanvraag"-sentinel, waardoor een prijs-vergelijking een downgrade
+ * vanaf Enterprise ten onrechte als upgrade zag (en onterecht pro-rata
+ * chargede).
+ */
+export const PLAN_ORDER: Plan[] = ["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"];
+
+export function planRank(plan: Plan): number {
+  const i = PLAN_ORDER.indexOf(plan);
+  return i === -1 ? 0 : i;
+}
+
+/** Is `to` een hoger plan dan `from`? (op basis van PLAN_ORDER, niet prijs) */
+export function isPlanUpgrade(from: Plan, to: Plan): boolean {
+  return planRank(to) > planRank(from);
+}
+
 /** Dutch-formatted euro, bv. 24.99 → "€ 24,99". Voor "Op aanvraag" zelf afhandelen. */
 const EURO_NL = new Intl.NumberFormat("nl-NL", {
   style: "currency",

@@ -7,7 +7,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { blockDemoWrite } from "@/lib/demo/guard";
-import { planLimits, PLAN_LIMITS } from "@/lib/plans";
+import { planLimits, PLAN_LIMITS, isPlanUpgrade } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
 import { isMollieConfigured } from "./mollie";
 import {
@@ -132,23 +132,30 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
 
   // Downgrade-guards tegen het huidige gebruik.
   const target = planLimits(newPlan);
-  const [itemCount, memberCount, pageCount] = await Promise.all([
+  const [itemCount, memberCount, pendingInvites, pageCount] = await Promise.all([
     db.item.count({ where: { organizationId: org.id, isActive: true } }),
     db.membership.count({ where: { organizationId: org.id } }),
+    // Open uitnodigingen tellen als toekomstige leden — anders kan een org
+    // met 2 leden + 8 openstaande invites naar Starter (max 2) downgraden en
+    // daarna de invites laten accepteren tot ver boven de limiet.
+    db.invitation.count({ where: { organizationId: org.id, acceptedAt: null } }),
     // Alleen ÉXTRA pagina's — de homepagina is verplicht en onverwijderbaar
     // en mag een downgrade (naar bv. Starter met 0 extra pagina's) dus
     // nooit blokkeren.
     db.page.count({ where: { organizationId: org.id, NOT: { slug: "home" } } }),
   ]);
+  const futureMemberCount = memberCount + pendingInvites;
   const blockers: string[] = [];
   if (itemCount > target.maxItems) {
     blockers.push(
       `je hebt ${itemCount} actieve items (max ${target.maxItems} op ${target.label})`,
     );
   }
-  if (memberCount > target.maxMembers) {
+  if (futureMemberCount > target.maxMembers) {
     blockers.push(
-      `je hebt ${memberCount} leden (max ${target.maxMembers} op ${target.label})`,
+      pendingInvites > 0
+        ? `je hebt ${memberCount} leden + ${pendingInvites} open uitnodigingen (max ${target.maxMembers} op ${target.label})`
+        : `je hebt ${memberCount} leden (max ${target.maxMembers} op ${target.label})`,
     );
   }
   if (pageCount > target.maxPages) {
@@ -171,8 +178,11 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
   }
 
   const oldPlan = org.plan;
-  const isUpgrade =
-    planLimits(newPlan).monthlyPriceEuro > planLimits(oldPlan).monthlyPriceEuro;
+  // Upgrade/downgrade via PLAN_ORDER-rangorde, niet via prijs: ENTERPRISE
+  // heeft prijs 0 ("op aanvraag"), waardoor een prijs-vergelijking een
+  // downgrade vanaf Enterprise ten onrechte als upgrade zag en onterecht
+  // pro-rata chargede.
+  const isUpgrade = isPlanUpgrade(oldPlan, newPlan);
 
   if (hasActiveSub && !isUpgrade) {
     // Downgrade bij actief abonnement: inplannen voor de volgende

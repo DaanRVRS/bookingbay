@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 export type BookingStatusForOverlap = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELED";
@@ -122,4 +123,79 @@ export async function checkAvailability(
   }
 
   return { available, overlapping, blocks, message };
+}
+
+/** Interne throw-marker voor een vol slot binnen de guard-transactie. */
+export const BOOKING_CONFLICT = "BOOKING_SLOT_TAKEN";
+
+/**
+ * Race-vrije conflict-check + schrijfactie binnen één Serializable-transactie.
+ * Telt actieve boekingen + agenda-blokken die het slot raken en gooit
+ * BOOKING_CONFLICT als de capaciteit vol is; draait daarna `write` binnen
+ * dezelfde transactie. Twee gelijktijdige requests voor hetzelfde slot kunnen
+ * zo niet allebei inserten — Postgres SSI detecteert de write-skew (P2034).
+ *
+ * De losse `checkAvailability` blijft bruikbaar als snelle pre-check voor
+ * nette UX-feedback, maar deze guard is de daadwerkelijke bescherming en moet
+ * élke dashboard-write (create/update/move/reactivate) omhullen — net als de
+ * publieke flow.
+ */
+export async function withBookingConflictGuard<T>(params: {
+  organizationId: string;
+  itemId: string;
+  itemQuantity: number;
+  startAt: Date;
+  endAt: Date;
+  excludeBookingId?: string;
+  write: (tx: Prisma.TransactionClient) => Promise<T>;
+}): Promise<T> {
+  return db.$transaction(
+    async (tx) => {
+      const [overlap, blocked] = await Promise.all([
+        tx.booking.count({
+          where: {
+            itemId: params.itemId,
+            organizationId: params.organizationId,
+            status: { not: "CANCELED" },
+            startAt: { lt: params.endAt },
+            endAt: { gt: params.startAt },
+            ...(params.excludeBookingId ? { NOT: { id: params.excludeBookingId } } : {}),
+          },
+        }),
+        tx.calendarBlock.count({
+          where: {
+            organizationId: params.organizationId,
+            startAt: { lt: params.endAt },
+            endAt: { gt: params.startAt },
+            OR: [{ itemId: params.itemId }, { itemId: null }],
+          },
+        }),
+      ]);
+      if (overlap + blocked >= Math.max(1, params.itemQuantity)) {
+        throw new Error(BOOKING_CONFLICT);
+      }
+      return params.write(tx);
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+}
+
+/**
+ * Vertaalt een throw uit `withBookingConflictGuard` (BOOKING_CONFLICT of een
+ * Postgres P2034-serialisatieconflict) naar een nette NL-melding, of null als
+ * het geen conflict-fout is (dan moet de caller de fout doorgooien).
+ */
+export function bookingConflictError(err: unknown): string | null {
+  if (err instanceof Error && err.message === BOOKING_CONFLICT) {
+    return "Net te laat — dit tijdslot is zojuist geboekt.";
+  }
+  if (
+    err &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code?: string }).code === "P2034"
+  ) {
+    return "Net te laat — probeer een ander tijdslot.";
+  }
+  return null;
 }

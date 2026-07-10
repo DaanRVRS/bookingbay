@@ -185,7 +185,7 @@ export async function syncCalendarFromGoogle(
 
     if (isCancelledEvent(event)) {
       const res = await db.calendarBlock.deleteMany({
-        where: { source: "google-calendar", externalId: event.id },
+        where: { organizationId, source: "google-calendar", externalId: event.id },
       });
       deleted += res.count;
       continue;
@@ -197,7 +197,11 @@ export async function syncCalendarFromGoogle(
 
     await db.calendarBlock.upsert({
       where: {
-        source_externalId: { source: "google-calendar", externalId: event.id },
+        organizationId_source_externalId: {
+          organizationId,
+          source: "google-calendar",
+          externalId: event.id,
+        },
       },
       create: {
         organizationId,
@@ -274,6 +278,10 @@ export async function ensureWatchAndInitialSync(
     }
 
     const channelId = `bb-${randomBytes(12).toString("hex")}`;
+    // Geheim channel-token: Google echoot dit terug in X-Goog-Channel-Token
+    // bij elke push, zodat een uitgelekte channelId niet volstaat om
+    // nep-pushes te sturen.
+    const webhookToken = randomBytes(24).toString("hex");
     const webhookUrl = `${env.APP_URL}/api/integrations/google-calendar/webhook`;
     try {
       const channel = await watchCalendar({
@@ -281,6 +289,7 @@ export async function ensureWatchAndInitialSync(
         calendarId,
         channelId,
         webhookUrl,
+        token: webhookToken,
       });
       await db.calendarSyncState.upsert({
         where: {
@@ -297,11 +306,13 @@ export async function ensureWatchAndInitialSync(
           channelId: channel.id,
           resourceId: channel.resourceId,
           channelExpiresAt: new Date(channel.expiration),
+          webhookToken,
         },
         update: {
           channelId: channel.id,
           resourceId: channel.resourceId,
           channelExpiresAt: new Date(channel.expiration),
+          webhookToken,
           lastError: null,
           failureCount: 0,
         },

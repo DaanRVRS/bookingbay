@@ -15,9 +15,11 @@ import { requireOrg } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   PLAN_LIMITS,
+  PLAN_ORDER,
   planLimits,
   describeLimit,
   formatEuroNL,
+  isPlanUpgrade,
 } from "@/lib/plans";
 import type { Plan, OrgIntegration, PaymentEvent } from "@prisma/client";
 import { isMollieConfigured } from "@/lib/billing/mollie";
@@ -33,8 +35,6 @@ import {
 } from "./subscription-actions";
 
 export const metadata = { title: "Plan & facturatie" };
-
-const PLAN_ORDER: Plan[] = ["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"];
 
 interface PageProps {
   searchParams: Promise<{ checkout?: string }>;
@@ -788,7 +788,7 @@ function PlanCard({
           plan={plan}
           planLabel={limits.label}
           priceLabel={`${formatEuroNL(limits.monthlyPriceEuro)}/maand`}
-          isUpgrade={PLAN_ORDER.indexOf(plan) > PLAN_ORDER.indexOf(current)}
+          isUpgrade={isPlanUpgrade(current, plan)}
           hasActiveSub={hasActiveSub}
           renewalLabel={renewalLabel}
         />

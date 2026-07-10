@@ -5,26 +5,14 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { BookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { deriveBookingStatus } from "@/lib/bookings/status";
 import { HistoryDetails } from "../history-details";
 
 export const metadata = { title: "Boekingen" };
 
-const STATUS_LABELS: Record<BookingStatus, string> = {
-  PENDING: "In behandeling",
-  CONFIRMED: "Bevestigd",
-  IN_PROGRESS: "Loopt",
-  COMPLETED: "Afgerond",
-  CANCELED: "Geannuleerd",
-};
-
-const STATUS_COLORS: Record<BookingStatus, string> = {
-  PENDING: "bg-yellow-100 text-yellow-900",
-  CONFIRMED: "bg-blue-100 text-blue-900",
-  IN_PROGRESS: "bg-emerald-100 text-emerald-900",
-  COMPLETED: "bg-muted text-muted-foreground",
-  CANCELED: "bg-destructive/10 text-destructive",
-};
-
+// Labels via deriveBookingStatus zodat PENDING én CONFIRMED overal
+// "Gereserveerd" tonen — er is geen bevestig-stap, dus "In behandeling"/
+// "Bevestigd" mogen nergens verschijnen.
 const STATUS_VALUES = [
   "PENDING",
   "CONFIRMED",
@@ -113,7 +101,7 @@ export default async function AdminOrgBookingsPage({
         <div>
           <h2 className="text-lg font-semibold">Boekingen</h2>
           <p className="text-xs text-muted-foreground">
-            {total} totaal {statusFilter && `(filter: ${STATUS_LABELS[statusFilter as BookingStatus] ?? statusFilter})`}
+            {total} totaal {statusFilter && `(filter: ${deriveBookingStatus(statusFilter as BookingStatus).main})`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -126,7 +114,7 @@ export default async function AdminOrgBookingsPage({
               <option value="">Alle statussen</option>
               {STATUS_VALUES.map((s) => (
                 <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
+                  {deriveBookingStatus(s).main}
                 </option>
               ))}
             </select>
@@ -183,9 +171,9 @@ export default async function AdminOrgBookingsPage({
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[b.status]}`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${deriveBookingStatus(b.status).cls}`}
                     >
-                      {STATUS_LABELS[b.status]}
+                      {deriveBookingStatus(b.status).main}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">

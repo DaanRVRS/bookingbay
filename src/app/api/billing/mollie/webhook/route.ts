@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, Plan } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getPayment } from "@/lib/billing/mollie";
 import {
   onFirstPaymentPaid,
+  onProrataUpgradeFailed,
   onRecurringFailed,
   onRecurringPaid,
   onSubscriptionCanceled,
@@ -86,10 +87,15 @@ export async function POST(req: Request) {
         });
       }
     } else if (payment.status === "failed" || payment.status === "expired") {
-      // Alleen subscription-charges mogen past_due triggeren. Een losse
-      // mandate-betaling (pro-rata plan-upgrade) heeft geen subscriptionId
-      // en mag het abonnement niet als wanbetaling markeren.
-      if (payment.sequenceType === "recurring" && payment.subscriptionId) {
+      if (payment.metadata?.kind === "plan-upgrade-prorata" && payment.metadata?.prevPlan) {
+        // Losse pro-rata plan-upgrade-charge gefaald → rol de direct-toegepaste
+        // upgrade terug naar het vorige plan (anders gratis upgrade).
+        await onProrataUpgradeFailed({
+          organizationId,
+          prevPlan: payment.metadata.prevPlan as Plan,
+        });
+      } else if (payment.sequenceType === "recurring" && payment.subscriptionId) {
+        // Alleen subscription-charges mogen past_due triggeren.
         await onRecurringFailed({ organizationId });
       }
     } else if (payment.status === "canceled") {
@@ -99,11 +105,20 @@ export async function POST(req: Request) {
       }
     }
   } catch (err) {
-    console.warn(
+    console.error(
       `[mollie/webhook] handler error for ${paymentId}:`,
       err instanceof Error ? err.message : err,
     );
-    // Toch 200 → anders retried Mollie eindeloos.
+    // KRITIEK: de side-effects zijn NIET (volledig) gelukt. Rol de
+    // idempotency-claim terug en geef 500 zodat Mollie de webhook opnieuw
+    // stuurt en de (idempotente) handler opnieuw kan draaien. Bleef de claim
+    // staan én gaven we 200, dan werd elke retry als duplicate weggegooid —
+    // dat is exact hoe een transiënte createSubscription-fout leidde tot
+    // "geld geïnd, geen abonnement, klant later gesuspendeerd".
+    await db.paymentEvent
+      .deleteMany({ where: { organizationId, externalId: paymentId, eventType } })
+      .catch(() => {});
+    return NextResponse.json({ ok: false, error: "handler failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

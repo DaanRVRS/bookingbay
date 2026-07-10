@@ -90,9 +90,21 @@ export async function findMatchingBackupCode(
 
 /* ------------------------- Handoff tokens ------------------------- */
 
+/**
+ * - "verify"        challenge uitgegeven ná wachtwoord, VÓÓR TOTP. Alleen
+ *                   bruikbaar om te weten wélke user uitgedaagd wordt; geeft
+ *                   NOOIT zelf een sessie.
+ * - "setup"         geforceerde admin-setup ná wachtwoord, vóór TOTP.
+ * - "authenticated" pas ná een geslaagde TOTP/backup-check gemint. Dit is de
+ *                   ENIGE modus die de 2fa-handoff-provider mag inwisselen
+ *                   voor een sessie. Zo kan het pre-TOTP "verify"-cookie niet
+ *                   worden gereplayed naar /api/auth/callback/2fa-handoff.
+ */
+export type HandoffMode = "verify" | "setup" | "authenticated";
+
 export interface HandoffPayload {
   userId: string;
-  mode: "verify" | "setup";
+  mode: HandoffMode;
   exp: number; // ms timestamp
 }
 
@@ -109,7 +121,7 @@ function sign(payload: string): string {
  */
 export function signHandoffToken(input: {
   userId: string;
-  mode: "verify" | "setup";
+  mode: HandoffMode;
   ttlMs?: number;
 }): string {
   const exp = Date.now() + (input.ttlMs ?? 5 * 60_000);
@@ -124,7 +136,7 @@ export function verifyHandoffToken(token: string | undefined): HandoffPayload | 
   if (parts.length !== 5) return null;
   const [version, userId, mode, expStr, sig] = parts;
   if (version !== TOKEN_VERSION) return null;
-  if (mode !== "verify" && mode !== "setup") return null;
+  if (mode !== "verify" && mode !== "setup" && mode !== "authenticated") return null;
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp < Date.now()) return null;
   const expected = sign(`${version}.${userId}.${mode}.${expStr}`);

@@ -62,9 +62,11 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[mollie-webhook] fetch mislukt:", err);
-    // 200 terug zodat Mollie niet hammert; we handlen het later (cron of
-    // handmatig) als nodig.
-    return NextResponse.json({ ok: true });
+    // 500 → Mollie retryt de webhook (uren-/dagenlang). Een transiënte
+    // API-hik mag een betaalde boeking niet permanent op PENDING/UNPAID laten
+    // staan; er is géén reconciliatie-cron die dit later oppakt, dus de
+    // PSP-retry ís de reconciliatie.
+    return NextResponse.json({ ok: false, error: "fetch failed" }, { status: 500 });
   }
 
   const next = mapMollieStatus(payment.status);

@@ -18,6 +18,7 @@ import {
   sumFlatFees,
   addonAppliesToCategory,
   isWholeDayUnit,
+  makeFeeSnapshot,
   type BookingAddonLine,
 } from "./price";
 import { windowForDay } from "./slot-window";
@@ -100,6 +101,8 @@ export async function createPublicBooking(
       bookingIntervalMinutes: true,
       followsOrgHours: true,
       itemHours: true,
+      bookingWindowStartMin: true,
+      bookingWindowEndMin: true,
       cleaningFee: true,
       captainFee: true,
       fuelFee: true,
@@ -145,8 +148,8 @@ export async function createPublicBooking(
   // weigeren. Dag/week-items boeken hele dagen, los van openingstijden.
   if (!isWholeDayUnit(item.bookingIntervalMinutes)) {
     const dayWindow = windowForDay(startAt, {
-      windowStartMin: 0,
-      windowEndMin: 1440,
+      windowStartMin: item.bookingWindowStartMin,
+      windowEndMin: item.bookingWindowEndMin,
       followsOrgHours: item.followsOrgHours,
       orgHours: safeParseBusinessHours(org.businessHours),
       itemHours: safeParseBusinessHours(item.itemHours),
@@ -156,6 +159,23 @@ export async function createPublicBooking(
         ok: false,
         error: "Dit item is niet boekbaar op de gekozen dag.",
         fieldErrors: { startAt: "Gesloten op deze dag" },
+      };
+    }
+    // Start én eind moeten binnen de openingstijden van die dag vallen. De
+    // eindtijd meten we relatief aan de STARTdag zodat een boeking die netjes
+    // op de volgende dag 00:00 eindigt (venster tot middernacht = 1440) is
+    // toegestaan, maar 03:00-boekingen buiten het venster én absurde duren
+    // (bv. een 5-daagse "uur"-boeking via directe API) worden geweigerd.
+    // Dit dwingt server-side af wat de widget al client-side verbergt.
+    const startDay = new Date(startAt);
+    startDay.setHours(0, 0, 0, 0);
+    const startMinOfDay = Math.round((startAt.getTime() - startDay.getTime()) / 60_000);
+    const endMinFromStartDay = Math.round((endAt.getTime() - startDay.getTime()) / 60_000);
+    if (startMinOfDay < dayWindow.startMin || endMinFromStartDay > dayWindow.endMin) {
+      return {
+        ok: false,
+        error: "Gekozen tijd valt buiten de openingstijden van dit item.",
+        fieldErrors: { startAt: "Buiten openingstijden" },
       };
     }
   }
@@ -303,6 +323,7 @@ export async function createPublicBooking(
               addonLines.length > 0
                 ? (addonLines as unknown as Prisma.InputJsonValue)
                 : undefined,
+            feeSnapshot: makeFeeSnapshot(item) as unknown as Prisma.InputJsonValue,
             portalToken,
           },
           select: { id: true },
@@ -597,7 +618,16 @@ export async function getItemAvailability(
       }
       if (concurrent < item.quantity) availableMs += winEnd - lastTime;
 
-      if (availableMs < 60_000) {
+      // Hoeveel vrije tijd moet er minstens zijn om de dag boekbaar te tonen?
+      // Hele-dag/week-items bezetten de HELE dag, dus de dag is alleen vrij
+      // als het volledige venster nog beschikbaar is (bij de vereiste
+      // gelijktijdigheid). De widget slaat zo'n boeking op als 00:00–23:59,
+      // waardoor er anders precies 60_000 ms (de laatste minuut) overblijft en
+      // de oude `< 60_000`-drempel een volgeboekte dag ten onrechte groen
+      // toonde. Uur-items houden de losse 1-minuut-drempel; de client
+      // (dayHasFreeSlot) doet daar de fijnmazige slot-check.
+      const minFreeMs = isWholeDay ? winEnd - winStart : 60_000;
+      if (availableMs < minFreeMs) {
         unavailable.push(dateStr);
       }
     }

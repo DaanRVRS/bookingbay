@@ -82,6 +82,7 @@ async function seedBlocksFromLegacy(organizationId: string): Promise<Block[]> {
     where: { id: organizationId },
     select: {
       name: true,
+      slug: true,
       heroTitle: true,
       heroSubtitle: true,
       aboutText: true,
@@ -101,7 +102,10 @@ async function seedBlocksFromLegacy(organizationId: string): Promise<Block[]> {
     subheading:
       org.heroSubtitle ?? `Online reserveren bij ${org.name}.`,
     buttonText: "Bekijk het aanbod",
-    buttonHref: "#aanbod",
+    // Boek-widget i.p.v. "#aanbod": dat anker bestaat niet meer zodra de
+    // seed als custom homepagina wordt gepubliceerd (de catalogus-sectie
+    // rendert dan niet).
+    buttonHref: `/book/${org.slug}`,
     backgroundImageUrl: "",
     alignment: "left",
   });

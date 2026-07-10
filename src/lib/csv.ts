@@ -9,6 +9,14 @@ function cell(value: unknown): string {
   } else {
     str = String(value);
   }
+  // Formule-injectie neutraliseren: Excel/LibreOffice voert een cel uit die
+  // met = + - @ (of tab/CR) begint als formule/DDE. Publiek-beheerbare velden
+  // (klantnaam, notities) kunnen zo'n payload bevatten. Prefixen met een
+  // apostrof dwingt tekst-interpretatie af. RFC 4180-quoting alleen volstaat
+  // niet — de app strip't de quotes en Excel evalueert alsnog.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }

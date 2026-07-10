@@ -20,6 +20,13 @@ import {
   verifyTotpCode,
   type BackupCode,
 } from "./core";
+import {
+  checkRateLimit,
+  recordFailure,
+  clearAttempts,
+  TWOFA_LIMIT,
+  tooManyAttemptsMessage,
+} from "@/lib/security/rate-limit";
 
 // Cookie-namen zijn intern — niet exporteren (Next.js "use server" files
 // mogen alleen async functies exporteren, geen constants).
@@ -85,6 +92,13 @@ export async function verifyTwoFactorAction(code: string): Promise<ActionResult>
   if (!payload || payload.mode !== "verify") {
     return { ok: false, error: "Sessie verlopen — log opnieuw in" };
   }
+  // Brute-force-throttle op TOTP/backup-raden binnen het pending-venster.
+  const rlKey = `2fa:${payload.userId}`;
+  const gate = await checkRateLimit(rlKey);
+  if (gate.limited) {
+    return { ok: false, error: tooManyAttemptsMessage(gate.retryAfterSec) };
+  }
+
   const user = await db.user.findUnique({
     where: { id: payload.userId },
     select: {
@@ -102,12 +116,14 @@ export async function verifyTwoFactorAction(code: string): Promise<ActionResult>
 
   if (isTotpFormat) {
     if (!verifyTotpCode(user.twoFactorSecret, trimmed)) {
+      await recordFailure(rlKey, TWOFA_LIMIT);
       return { ok: false, error: "Code klopt niet" };
     }
   } else {
     const stored = (user.twoFactorBackupCodes ?? []) as unknown as BackupCode[];
     const idx = await findMatchingBackupCode(trimmed, stored);
     if (idx === -1) {
+      await recordFailure(rlKey, TWOFA_LIMIT);
       return { ok: false, error: "Code klopt niet" };
     }
     const updated = stored.map((c, i) =>
@@ -125,13 +141,19 @@ export async function verifyTwoFactorAction(code: string): Promise<ActionResult>
     });
   }
 
-  // Sign the user in. signIn() needs a fresh handoff cookie that the
-  // 2fa-handoff provider can read, so keep the cookie set while signIn
-  // resolves and clear afterward.
-  await signIn("2fa-handoff", {
-    token: (await cookies()).get(TWOFA_PENDING_COOKIE)?.value ?? "",
-    redirect: false,
+  await clearAttempts(rlKey);
+
+  // TOTP/backup geslaagd → mint nu pas een "authenticated"-token (de enige
+  // modus die de 2fa-handoff-provider accepteert). Het pre-TOTP
+  // "verify"-cookie kan hierdoor nooit zelf een sessie geven.
+  const authToken = signHandoffToken({
+    userId: user.id,
+    mode: "authenticated",
+    ttlMs: 60_000,
   });
+  const store = await cookies();
+  store.set(TWOFA_PENDING_COOKIE, authToken, cookieOpts(60_000));
+  await signIn("2fa-handoff", { token: authToken, redirect: false });
   await clearPendingCookies();
   return { ok: true };
 }
@@ -221,14 +243,18 @@ export async function confirmSetupAction(
   });
 
   if (ctx.fromHandoff) {
-    // Forced-setup flow → log the user in via the handoff provider. We
-    // upgrade the cookie from "setup" → "verify" so the 2fa-handoff
-    // provider accepts it (it only signs in for verify-mode tokens).
-    const verifyToken = signHandoffToken({ userId: user.id, mode: "verify" });
+    // Forced-setup flow → de TOTP is zojuist geverifieerd (verifyTotpCode
+    // hierboven), dus mint een "authenticated"-token om in te loggen via de
+    // handoff-provider.
+    const authToken = signHandoffToken({
+      userId: user.id,
+      mode: "authenticated",
+      ttlMs: 60_000,
+    });
     const store = await cookies();
-    store.set(TWOFA_PENDING_COOKIE, verifyToken, cookieOpts(60_000));
+    store.set(TWOFA_PENDING_COOKIE, authToken, cookieOpts(60_000));
     await signIn("2fa-handoff", {
-      token: verifyToken,
+      token: authToken,
       redirect: false,
     });
     await clearPendingCookies();

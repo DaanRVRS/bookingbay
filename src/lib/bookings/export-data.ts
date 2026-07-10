@@ -6,6 +6,7 @@ import {
   rentalUnitCount,
   unitLabel,
   type BookingAddonLine,
+  type FeeSnapshot,
   type FlatFeeLine,
 } from "./price";
 
@@ -120,11 +121,15 @@ type LoadedBooking = Prisma.BookingGetPayload<{
 
 function toRecord(b: LoadedBooking): BookingExportRecord {
   const addons = (b.addons as BookingAddonLine[] | null) ?? null;
+  // Fee-opbouw uit de SNAPSHOT (bewaard bij boeken) zodat de export toont wat
+  // de klant betaalde — óók als de eigenaar de item-fees later wijzigde. Oude
+  // boekingen zonder snapshot vallen terug op de live item-fees.
+  const snap = (b.feeSnapshot as FeeSnapshot | null) ?? null;
   const breakdown = computeBookingBreakdown({
     startMs: b.startAt.getTime(),
     endMs: b.endAt.getTime(),
     totalPrice: Number(b.totalPrice),
-    item: b.item,
+    item: snap ?? b.item,
     addons,
   });
   return {

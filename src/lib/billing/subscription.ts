@@ -2,7 +2,7 @@ import "server-only";
 import type { Plan } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { planLimits } from "@/lib/plans";
+import { planLimits, planRank } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
 import {
   cancelSubscription as mollieCancel,
@@ -308,6 +308,41 @@ export async function onRecurringFailed(args: {
 }
 
 /**
+ * De losse pro-rata mandate-charge bij een mid-period upgrade is alsnog
+ * gefaald/expired. De plan-upgrade werd direct toegepast op basis van het
+ * enkel AANMAKEN van de charge (die toen nog pending was), dus we rollen 'm nu
+ * terug naar het plan van vóór de upgrade en zetten het Mollie-abonnements-
+ * bedrag terug. Zonder deze rollback bleef de klant op het duurdere plan
+ * zonder het verschil te betalen (gratis upgrade).
+ */
+export async function onProrataUpgradeFailed(args: {
+  organizationId: string;
+  prevPlan: Plan;
+}): Promise<void> {
+  const org = await db.organization.findUnique({
+    where: { id: args.organizationId },
+    select: { id: true, plan: true },
+  });
+  if (!org) return;
+  // Alleen terugrollen als de org nog op een duurder plan staat dan prevPlan.
+  // Is er sinds de upgrade al iets anders gebeurd (verdere wissel, downgrade),
+  // dan niet platwalsen.
+  if (planRank(org.plan) <= planRank(args.prevPlan)) return;
+  await db.organization.update({
+    where: { id: org.id },
+    data: { plan: args.prevPlan },
+  });
+  await syncSubscriptionAmount(org.id, args.prevPlan);
+  await audit({
+    organizationId: org.id,
+    action: "billing.plan.prorata-reverted",
+    resource: "organization",
+    resourceId: org.id,
+    metadata: { revertedFrom: org.plan, revertedTo: args.prevPlan },
+  });
+}
+
+/**
  * Mollie heeft de subscription gecanceld (door ons of door retry-uitputting).
  * Direct dichtzetten — de service was al actief tot currentPeriodEnd,
  * suspendedAt zetten we wanneer die datum gepasseerd is.
@@ -533,6 +568,9 @@ export async function chargePlanUpgradeProrata(args: {
     webhookUrl: webhookUrl(),
     organizationId: org.id,
     kind: "plan-upgrade-prorata",
+    // Zodat de webhook de plan-upgrade kan terugdraaien als deze losse
+    // pro-rata-charge later alsnog faalt/expired.
+    prevPlan: args.oldPlan,
   });
 
   await audit({

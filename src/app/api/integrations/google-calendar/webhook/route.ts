@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import {
   findSyncStateByChannelId,
   syncCalendarFromGoogle,
@@ -39,6 +40,20 @@ export async function POST(req: Request) {
     // Channel onbekend — kan een verlopen of door-ons-opgeruimde watch
     // zijn. 200 returnen zodat Google 'm niet eindeloos retried.
     return new NextResponse(null, { status: 200 });
+  }
+
+  // Token-verificatie: als deze watch met een token is geregistreerd, MOET de
+  // push het juiste X-Goog-Channel-Token dragen. Zo volstaat een uitgelekte
+  // channelId niet om resyncs af te dwingen. Legacy watches (webhookToken
+  // null) worden geverifieerd zodra ze renewen.
+  if (state.webhookToken) {
+    const provided = req.headers.get("x-goog-channel-token") ?? "";
+    const a = Buffer.from(provided);
+    const b = Buffer.from(state.webhookToken);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      console.warn(`[google-calendar/webhook] ongeldig channel-token voor ${channelId}`);
+      return new NextResponse(null, { status: 403 });
+    }
   }
 
   // Trigger sync best-effort. Fouten loggen we naar de syncState, niet

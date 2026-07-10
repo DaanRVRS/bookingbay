@@ -45,6 +45,7 @@ export default async function TenantBuilderPage({ params }: PageProps) {
       organizationId={org.id}
       accent={accent}
       contactBasePath={base}
+      tenantSlug={slug}
     />
   );
 }

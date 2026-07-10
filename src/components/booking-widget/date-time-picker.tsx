@@ -8,6 +8,7 @@ import { nl } from "date-fns/locale";
 import { CalendarDays, Loader2 } from "lucide-react";
 import { isWholeDayUnit } from "@/lib/bookings/price";
 import { windowForDay } from "@/lib/bookings/slot-window";
+import { tenantDayTimeToMs } from "@/lib/bookings/timezone";
 import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 /**
@@ -51,6 +52,14 @@ export interface DateTimeValue {
   date: Date | null;
   startTime: string; // "HH:MM" of "" als niet gekozen
   endTime: string;
+  /**
+   * Optionele einddatum voor boekingen die over de daggrens lopen (uur-item
+   * 23:00–00:00, of een meerdaags dag/week-item). Leeg/null = zelfde dag als
+   * `date`. De single-day kalender bewerkt alleen de startdag; deze waarde
+   * blijft behouden zodat de einddatum van bestaande boekingen niet stil
+   * gewist of ingekrompen wordt.
+   */
+  endDate?: Date | null;
 }
 
 interface Props {
@@ -73,11 +82,11 @@ function hhmmToMin(s: string): number {
   return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
 }
 
+// Wall-clock → epoch-ms in de tenant-tijdzone (Europe/Amsterdam), zodat de
+// slot-overlap matcht met de absolute NL-epoch-ms van bestaande boekingen —
+// ook als de gebruiker in een andere tijdzone zit.
 function atTimeMs(day: Date, hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date(day);
-  d.setHours(h, m, 0, 0);
-  return d.getTime();
+  return tenantDayTimeToMs(day, hhmm);
 }
 
 function rangeOverlaps(

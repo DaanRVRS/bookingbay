@@ -102,6 +102,20 @@ export async function updateCategoryAction(input: CategoryUpdateInput): Promise<
     return { ok: false, error: "Een categorie kan niet zijn eigen bovenliggende zijn" };
   }
 
+  // Bovenliggende categorie MOET tot dezelfde org horen — net als bij create.
+  // Zonder deze check kon een parentId van een andere tenant worden
+  // weggeschreven (cross-tenant referentie → categorie kon zelfs op de
+  // publieke site van een andere org verschijnen).
+  if (parsed.data.parentId) {
+    const parent = await db.category.findFirst({
+      where: { id: parsed.data.parentId, organizationId: ctx.organization.id },
+      select: { id: true },
+    });
+    if (!parent) {
+      return { ok: false, error: "Bovenliggende categorie niet gevonden" };
+    }
+  }
+
   await db.category.update({
     where: { id: parsed.data.id },
     data: {

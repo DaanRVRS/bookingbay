@@ -14,7 +14,13 @@ type CardItem = {
 async function loadCards(
   organizationId: string,
   block: SliderBlock,
+  basePath: string,
+  tenantSlug: string,
 ): Promise<CardItem[]> {
+  // Boek-widget-URL is absoluut (/book/<slug>) en werkt op zowel subdomein
+  // als /site/<slug>-toegang — de categorie-kaart bracht je vroeger naar
+  // "/#aanbod", een anker dat op een custom homepagina niet bestaat.
+  const bookHref = tenantSlug ? `/book/${tenantSlug}` : basePath || "/";
   if (block.source === "categories") {
     const where = block.categoryId
       ? { organizationId, parentId: block.categoryId }
@@ -25,7 +31,7 @@ async function loadCards(
       select: { id: true, name: true, description: true, imageUrl: true },
     });
     return cats.map((c) => ({
-      href: `/#aanbod`,
+      href: bookHref,
       title: c.name,
       imageUrl: c.imageUrl,
       subtitle: c.description,
@@ -55,7 +61,9 @@ async function loadCards(
       ? `€ ${Number(i.pricePerUnit).toFixed(2)} / ${unitLabel(i.bookingIntervalMinutes)}`
       : null;
     return {
-      href: `/item/${i.id}`,
+      // Base-path-bewust: op /site/<slug>-toegang moet de item-link daaronder
+      // vallen, niet naar de app-root wijzen.
+      href: `${basePath}/item/${i.id}`,
       title: i.name,
       imageUrl: i.imageUrl,
       subtitle: price,
@@ -67,12 +75,16 @@ export async function SliderBlockView({
   block,
   organizationId,
   accent,
+  basePath = "",
+  tenantSlug = "",
 }: {
   block: SliderBlock;
   organizationId: string;
   accent: string;
+  basePath?: string;
+  tenantSlug?: string;
 }) {
-  const cards = await loadCards(organizationId, block);
+  const cards = await loadCards(organizationId, block, basePath, tenantSlug);
   if (cards.length === 0) return null;
 
   return (

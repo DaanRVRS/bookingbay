@@ -19,6 +19,13 @@ import {
   type ActionResult,
 } from "./schemas";
 import { gateTwoFactor } from "@/lib/twofa/actions";
+import {
+  checkRateLimit,
+  recordFailure,
+  clearAttempts,
+  LOGIN_LIMIT,
+  tooManyAttemptsMessage,
+} from "@/lib/security/rate-limit";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -119,6 +126,13 @@ export async function loginAction(
 
   const email = parsed.data.email.toLowerCase();
 
+  // Brute-force-throttle per e-mailadres — blokkeer credential-stuffing.
+  const rlKey = `login:${email}`;
+  const rl = await checkRateLimit(rlKey);
+  if (rl.limited) {
+    return { ok: false, error: tooManyAttemptsMessage(rl.retryAfterSec) };
+  }
+
   // Validate password BEFORE signIn so we can branch on 2FA without
   // leaking a half-authenticated session cookie.
   const user = await db.user.findUnique({
@@ -132,12 +146,16 @@ export async function loginAction(
     },
   });
   if (!user?.passwordHash) {
+    await recordFailure(rlKey, LOGIN_LIMIT);
     return { ok: false, error: "E-mail of wachtwoord onjuist" };
   }
   const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!valid) {
+    await recordFailure(rlKey, LOGIN_LIMIT);
     return { ok: false, error: "E-mail of wachtwoord onjuist" };
   }
+  // Wachtwoord klopt → teller resetten (ook als er nog een 2FA-stap volgt).
+  await clearAttempts(rlKey);
 
   // Gate: TOTP-verified user → "verify" step. Admin without 2FA yet →
   // "setup" step (forced). Anyone else → normal signIn.

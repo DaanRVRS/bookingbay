@@ -178,3 +178,30 @@ export function sumFlatFees(item: ItemFlatFees, units = 1): number {
   const total = flatFeeLines(item, units).reduce((s, l) => s + l.amount, 0);
   return Math.round(total * 100) / 100;
 }
+
+/**
+ * Snapshot van de fee-relevante item-velden op het moment van boeken. Wordt
+ * als JSON op Booking.feeSnapshot bewaard zodat de prijsopbouw in exports/
+ * facturen klopt, óók als de eigenaar de item-fees later wijzigt.
+ */
+export interface FeeSnapshot {
+  bookingIntervalMinutes: number;
+  cleaningFee: number;
+  captainFee: number;
+  fuelFee: number;
+}
+
+export function makeFeeSnapshot(item: {
+  bookingIntervalMinutes: number;
+  cleaningFee?: unknown;
+  captainFee?: unknown;
+  fuelFee?: unknown;
+}): FeeSnapshot {
+  const num = (v: unknown) => (v ? Number(v) : 0);
+  return {
+    bookingIntervalMinutes: item.bookingIntervalMinutes,
+    cleaningFee: num(item.cleaningFee),
+    captainFee: num(item.captainFee),
+    fuelFee: num(item.fuelFee),
+  };
+}

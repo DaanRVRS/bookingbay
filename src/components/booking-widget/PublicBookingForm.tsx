@@ -36,6 +36,7 @@ import {
   type BookingAddonLine,
 } from "@/lib/bookings/price";
 import { windowForDay } from "@/lib/bookings/slot-window";
+import { tenantDayTimeToMs } from "@/lib/bookings/timezone";
 import type { BusinessHours } from "@/lib/business-hours/schemas";
 
 // CSS-vars gezet door themeStyle() op een ouder; nette fallbacks.
@@ -114,11 +115,11 @@ function generateSlots(cfg: SlotConfig, day: Date | null): string[] {
   return out;
 }
 
+// Wall-clock → epoch-ms in de TENANT-tijdzone (Europe/Amsterdam), niet die
+// van de bezoeker. Zo matchen de bezet-markeringen met de boekingen die de
+// server als absolute NL-epoch-ms teruggeeft, ook voor bezoekers buiten NL.
 function atTimeMs(day: Date, hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date(day);
-  d.setHours(h, m, 0, 0);
-  return d.getTime();
+  return tenantDayTimeToMs(day, hhmm);
 }
 
 /**

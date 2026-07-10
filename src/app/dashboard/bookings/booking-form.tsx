@@ -195,10 +195,15 @@ export function BookingForm({
       s.d.getFullYear() === e.d.getFullYear() &&
       s.d.getMonth() === e.d.getMonth() &&
       s.d.getDate() === e.d.getDate();
+    // Einddatum behouden — óók als de boeking over de daggrens loopt
+    // (uur-item 23:00–00:00 of een meerdaags dag/week-item). Vroeger werd
+    // endTime dan op "" gezet, waardoor het opslaan blokkeerde of de boeking
+    // stil naar één dag inkromp.
     return {
       date: s.d,
       startTime: s.t,
-      endTime: sameDay ? e.t : "",
+      endTime: e.t,
+      endDate: sameDay ? null : e.d,
     };
   });
 
@@ -207,8 +212,9 @@ export function BookingForm({
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const sIso =
       dt.date && dt.startTime ? `${fmtDay(dt.date)}T${dt.startTime}` : "";
-    const eIso =
-      dt.date && dt.endTime ? `${fmtDay(dt.date)}T${dt.endTime}` : "";
+    // Einddatum = expliciete endDate (over de daggrens) of anders de startdag.
+    const endDay = dt.endDate ?? dt.date;
+    const eIso = endDay && dt.endTime ? `${fmtDay(endDay)}T${dt.endTime}` : "";
     // Stille setValue tijdens het kiezen — anders zet zod's cross-field
     // refine een "Ongeldige datum" terwijl de tegenhanger nog leeg is,
     // en die foutmelding blijft soms hangen. Pas bij submit valideren;

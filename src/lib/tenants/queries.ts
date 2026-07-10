@@ -62,6 +62,10 @@ export const getTenantCatalog = cache(async (organizationId: string) => {
         },
       },
       children: {
+        // Expliciet org-scopen: een child mag nooit uit een andere tenant
+        // komen, ook niet als er ooit een cross-tenant parentId in de data
+        // is beland.
+        where: { organizationId },
         orderBy: { sortOrder: "asc" },
         include: {
           items: {

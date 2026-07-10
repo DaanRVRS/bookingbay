@@ -78,7 +78,10 @@ export async function POST(req: Request) {
     session = await fetchStripeSession({ apiKey: cfg.stripeKey, sessionId });
   } catch (err) {
     console.error("[stripe-webhook] session-fetch mislukt:", err);
-    return NextResponse.json({ ok: true });
+    // 500 → Stripe retryt de webhook. Een transiënte API-hik mag een betaalde
+    // boeking niet permanent op PENDING/UNPAID laten staan (geen
+    // reconciliatie-cron); de PSP-retry ís de reconciliatie.
+    return NextResponse.json({ ok: false, error: "fetch failed" }, { status: 500 });
   }
 
   const next = mapStripeStatus(session.payment_status, session.status);

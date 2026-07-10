@@ -76,6 +76,7 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
           organizationId={org.id}
           accent={accent}
           contactBasePath={base}
+          tenantSlug={slug}
         />
       ) : (
         <>

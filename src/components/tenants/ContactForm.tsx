@@ -9,8 +9,8 @@ import { FormField } from "@/components/auth/FormField";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { createLeadAction } from "@/lib/leads/actions";
 import { leadSchema, type LeadInput } from "@/lib/leads/schemas";
+import type { ActionResult } from "@/lib/auth/schemas";
 
 interface Props {
   organizationId: string;
@@ -43,7 +43,20 @@ export function ContactForm({ organizationId, accent }: Props) {
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
-      const res = await createLeadAction(values);
+      // Publieke API-route i.p.v. Server Action — deploy-stabiel in een
+      // cross-domain iframe (geen action-ID version-skew).
+      let res: ActionResult;
+      try {
+        const r = await fetch("/api/public/lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        res = (await r.json()) as ActionResult;
+      } catch {
+        toast.error("Verbinding mislukt. Probeer het opnieuw.");
+        return;
+      }
       if (!res.ok) {
         if (res.fieldErrors) {
           for (const [k, v] of Object.entries(res.fieldErrors)) {

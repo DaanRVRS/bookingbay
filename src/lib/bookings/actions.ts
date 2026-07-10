@@ -6,12 +6,18 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth/session";
 import { assertCan } from "@/lib/auth/permissions";
-import { checkAvailability } from "./conflicts";
+import {
+  checkAvailability,
+  withBookingConflictGuard,
+  bookingConflictError,
+} from "./conflicts";
 import {
   sumAddons,
   sumFlatFees,
   rentalUnitCount,
+  estimateRentalSubtotal,
   addonAppliesToCategory,
+  makeFeeSnapshot,
   type BookingAddonLine,
 } from "./price";
 import {
@@ -157,24 +163,45 @@ export async function createBookingAction(
     ) +
     sumAddons(addonLines);
 
-  const created = await db.booking.create({
-    data: {
-      organizationId: ctx.organization.id,
-      itemId: parsed.data.itemId,
-      customerId: parsed.data.customerId,
-      startAt: parsed.data.startAt,
-      endAt: parsed.data.endAt,
-      status: parsed.data.status,
-      totalPrice: grandTotal,
-      notes: parsed.data.notes || null,
-      addons:
-        addonLines.length > 0
-          ? (addonLines as unknown as Prisma.InputJsonValue)
-          : undefined,
-      createdById: ctx.user.id,
-    },
-    select: { id: true },
-  });
+  const bookingData = {
+    organizationId: ctx.organization.id,
+    itemId: parsed.data.itemId,
+    customerId: parsed.data.customerId,
+    startAt: parsed.data.startAt,
+    endAt: parsed.data.endAt,
+    status: parsed.data.status,
+    totalPrice: grandTotal,
+    notes: parsed.data.notes || null,
+    addons:
+      addonLines.length > 0
+        ? (addonLines as unknown as Prisma.InputJsonValue)
+        : undefined,
+    feeSnapshot: makeFeeSnapshot(item) as unknown as Prisma.InputJsonValue,
+    createdById: ctx.user.id,
+  };
+
+  // Race-vrije create: dezelfde Serializable-guard als de publieke flow, zodat
+  // twee gelijktijdige acties (twee tabs, of dashboard + widget) niet allebei
+  // hetzelfde exemplaar kunnen boeken. Geannuleerde boekingen bezetten geen
+  // slot en hoeven niet door de guard.
+  let created: { id: string };
+  try {
+    created =
+      parsed.data.status === "CANCELED"
+        ? await db.booking.create({ data: bookingData, select: { id: true } })
+        : await withBookingConflictGuard({
+            organizationId: ctx.organization.id,
+            itemId: item.id,
+            itemQuantity: item.quantity,
+            startAt: parsed.data.startAt,
+            endAt: parsed.data.endAt,
+            write: (tx) => tx.booking.create({ data: bookingData, select: { id: true } }),
+          });
+  } catch (err) {
+    const conflict = bookingConflictError(err);
+    if (conflict) return { ok: false, error: conflict };
+    throw err;
+  }
 
   await audit({
     organizationId: ctx.organization.id,
@@ -263,22 +290,41 @@ export async function updateBookingAction(input: BookingUpdateInput): Promise<Ac
     ) +
     sumAddons(addonLines);
 
-  await db.booking.update({
-    where: { id: parsed.data.id },
-    data: {
-      itemId: parsed.data.itemId,
-      customerId: parsed.data.customerId,
-      startAt: parsed.data.startAt,
-      endAt: parsed.data.endAt,
-      status: parsed.data.status,
-      totalPrice: grandTotal,
-      notes: parsed.data.notes || null,
-      addons:
-        addonLines.length > 0
-          ? (addonLines as unknown as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-    },
-  });
+  const updateData = {
+    itemId: parsed.data.itemId,
+    customerId: parsed.data.customerId,
+    startAt: parsed.data.startAt,
+    endAt: parsed.data.endAt,
+    status: parsed.data.status,
+    totalPrice: grandTotal,
+    notes: parsed.data.notes || null,
+    addons:
+      addonLines.length > 0
+        ? (addonLines as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull,
+    // Fee-snapshot herzetten — item/duur kunnen bij een edit gewijzigd zijn.
+    feeSnapshot: makeFeeSnapshot(item) as unknown as Prisma.InputJsonValue,
+  };
+
+  try {
+    if (parsed.data.status === "CANCELED") {
+      await db.booking.update({ where: { id: parsed.data.id }, data: updateData });
+    } else {
+      await withBookingConflictGuard({
+        organizationId: ctx.organization.id,
+        itemId: item.id,
+        itemQuantity: item.quantity,
+        startAt: parsed.data.startAt,
+        endAt: parsed.data.endAt,
+        excludeBookingId: parsed.data.id,
+        write: (tx) => tx.booking.update({ where: { id: parsed.data.id }, data: updateData }),
+      });
+    }
+  } catch (err) {
+    const conflict = bookingConflictError(err);
+    if (conflict) return { ok: false, error: conflict };
+    throw err;
+  }
 
   await audit({
     organizationId: ctx.organization.id,
@@ -394,22 +440,28 @@ export async function setBookingStatusAction(
   });
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
-  // If reactivating from canceled, check conflicts
-  if (status !== "CANCELED") {
-    const availability = await checkAvailability({
-      organizationId: ctx.organization.id,
-      itemId: existing.itemId,
-      itemQuantity: existing.item.quantity,
-      startAt: existing.startAt,
-      endAt: existing.endAt,
-      excludeBookingId: id,
-    });
-    if (!availability.available) {
-      return { ok: false, error: availability.message ?? "Conflict — niet te reactiveren" };
+  // If reactivating from canceled, check conflicts race-safe: de guard
+  // her-telt binnen een Serializable-transactie zodat twee gelijktijdige
+  // reactiveringen niet allebei het slot kunnen claimen.
+  try {
+    if (status === "CANCELED") {
+      await db.booking.update({ where: { id }, data: { status } });
+    } else {
+      await withBookingConflictGuard({
+        organizationId: ctx.organization.id,
+        itemId: existing.itemId,
+        itemQuantity: existing.item.quantity,
+        startAt: existing.startAt,
+        endAt: existing.endAt,
+        excludeBookingId: id,
+        write: (tx) => tx.booking.update({ where: { id }, data: { status } }),
+      });
     }
+  } catch (err) {
+    const conflict = bookingConflictError(err);
+    if (conflict) return { ok: false, error: conflict };
+    throw err;
   }
-
-  await db.booking.update({ where: { id }, data: { status } });
 
   await audit({
     organizationId: ctx.organization.id,
@@ -458,6 +510,8 @@ export async function moveBookingAction(input: {
       startAt: true,
       endAt: true,
       status: true,
+      totalPrice: true,
+      addons: true,
     },
   });
   if (!existing) return { ok: false, error: "Boeking niet gevonden" };
@@ -480,32 +534,77 @@ export async function moveBookingAction(input: {
 
   const item = await db.item.findFirst({
     where: { id: newItemId, organizationId: ctx.organization.id, isAddon: false },
-    select: { id: true, quantity: true, name: true },
+    select: {
+      id: true,
+      quantity: true,
+      name: true,
+      pricePerUnit: true,
+      bookingIntervalMinutes: true,
+      cleaningFee: true,
+      captainFee: true,
+      fuelFee: true,
+    },
   });
   if (!item) return { ok: false, error: "Item niet gevonden" };
 
-  if (existing.status !== "CANCELED") {
-    const availability = await checkAvailability({
-      organizationId: ctx.organization.id,
-      itemId: item.id,
-      itemQuantity: item.quantity,
-      startAt: newStartAt,
-      endAt: newEndAt,
-      excludeBookingId: existing.id,
-    });
-    if (!availability.available) {
-      return { ok: false, error: availability.message ?? "Conflict in deze periode" };
-    }
+  // Verplaatsing naar een ánder item: de oude totalPrice hoort bij het oude
+  // item (ander tarief + andere fees). Herbereken op basis van het nieuwe item
+  // over de (behouden) duur; add-on-regels blijven hun gesnapshotte prijs
+  // houden. Bij een verplaatsing binnen hetzelfde item is de duur identiek en
+  // dus de prijs ongewijzigd.
+  const movedToOtherItem = newItemId !== existing.itemId;
+  let recomputedTotal: number | undefined;
+  if (movedToOtherItem) {
+    const units = rentalUnitCount(
+      newStartAt.getTime(),
+      newEndAt.getTime(),
+      item.bookingIntervalMinutes,
+    );
+    const subtotal =
+      estimateRentalSubtotal({
+        startMs: newStartAt.getTime(),
+        endMs: newEndAt.getTime(),
+        pricePerUnit: item.pricePerUnit != null ? Number(item.pricePerUnit) : null,
+        bookingIntervalMinutes: item.bookingIntervalMinutes,
+      }) ?? 0;
+    const addonLines = Array.isArray(existing.addons)
+      ? (existing.addons as unknown as BookingAddonLine[])
+      : [];
+    recomputedTotal =
+      Math.round((subtotal + sumFlatFees(item, units) + sumAddons(addonLines)) * 100) / 100;
   }
 
-  await db.booking.update({
-    where: { id: existing.id },
-    data: {
-      itemId: newItemId,
-      startAt: newStartAt,
-      endAt: newEndAt,
-    },
-  });
+  const moveData = {
+    itemId: newItemId,
+    startAt: newStartAt,
+    endAt: newEndAt,
+    ...(recomputedTotal !== undefined ? { totalPrice: recomputedTotal } : {}),
+    // Bij een verplaatsing naar een ander item hoort ook de fee-snapshot bij
+    // het nieuwe item.
+    ...(movedToOtherItem
+      ? { feeSnapshot: makeFeeSnapshot(item) as unknown as Prisma.InputJsonValue }
+      : {}),
+  };
+
+  try {
+    if (existing.status === "CANCELED") {
+      await db.booking.update({ where: { id: existing.id }, data: moveData });
+    } else {
+      await withBookingConflictGuard({
+        organizationId: ctx.organization.id,
+        itemId: item.id,
+        itemQuantity: item.quantity,
+        startAt: newStartAt,
+        endAt: newEndAt,
+        excludeBookingId: existing.id,
+        write: (tx) => tx.booking.update({ where: { id: existing.id }, data: moveData }),
+      });
+    }
+  } catch (err) {
+    const conflict = bookingConflictError(err);
+    if (conflict) return { ok: false, error: conflict };
+    throw err;
+  }
 
   await audit({
     organizationId: ctx.organization.id,
