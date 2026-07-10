@@ -428,7 +428,7 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   gallery: "Galerij van 1 tot 12 afbeeldingen, 2/3/4 kolommen",
   faq: "Inklapbare vraag-en-antwoord-lijst",
   video: "YouTube- of Vimeo-video embedded",
-  priceTable: "Prijslijst van je verhuur-items met dag/week/uur tarief",
+  priceTable: "Prijslijst van je verhuur-items met hun tarief",
   testimonials: "Reviews — auto uit lijst, handmatig of inline",
   openingHours: "Tabel met openingstijden per dag",
   map: "Embedded kaart met adres",

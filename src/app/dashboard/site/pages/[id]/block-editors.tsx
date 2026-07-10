@@ -857,20 +857,16 @@ function BlockTypeFields({
 
           <Field label="Kolommen">
             <div className="flex flex-wrap gap-3">
+              {/* Eén prijs per item (met z'n eigen eenheid: uur/dag/week) —
+                  de drie oude losse tarief-kolommen zijn samengevouwen tot
+                  deze ene "Prijs"-toggle. showHour/showDay/showWeek worden
+                  samen gezet voor backward-compat met bestaande blokken. */}
               <Checkbox
-                label="Per uur"
-                checked={block.showHour}
-                onChange={(v) => onChange({ showHour: v } as Partial<Block>)}
-              />
-              <Checkbox
-                label="Per dag"
-                checked={block.showDay}
-                onChange={(v) => onChange({ showDay: v } as Partial<Block>)}
-              />
-              <Checkbox
-                label="Per week"
-                checked={block.showWeek}
-                onChange={(v) => onChange({ showWeek: v } as Partial<Block>)}
+                label="Prijs"
+                checked={block.showHour || block.showDay || block.showWeek}
+                onChange={(v) =>
+                  onChange({ showHour: v, showDay: v, showWeek: v } as Partial<Block>)
+                }
               />
               <Checkbox
                 label="Borg"
