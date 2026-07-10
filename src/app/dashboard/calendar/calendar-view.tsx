@@ -164,19 +164,23 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
 
   // Zodra de server-props de verplaatsing bevestigen, mag de optimistic
   // entry weg (match-aware, zodat een tweede sleep niet terugflitst).
-  useEffect(() => {
-    setOptimistic((prev) => {
-      if (prev.size === 0) return prev;
-      const next = new Map(prev);
+  // "Adjust state during render"-patroon i.p.v. een effect — geen extra
+  // render-cascade, en de pruning gebeurt exact op het moment dat er
+  // nieuwe props binnenkomen.
+  const [prunedFor, setPrunedFor] = useState(bookings);
+  if (prunedFor !== bookings) {
+    setPrunedFor(bookings);
+    if (optimistic.size > 0) {
+      const next = new Map(optimistic);
       for (const b of bookings) {
         const opt = next.get(b.id);
         if (opt && b.startAt === opt.startAt && b.itemId === opt.itemId) {
           next.delete(b.id);
         }
       }
-      return next.size === prev.size ? prev : next;
-    });
-  }, [bookings]);
+      if (next.size !== optimistic.size) setOptimistic(next);
+    }
+  }
 
   const effectiveBookings = useMemo(() => {
     if (optimistic.size === 0) return bookings;
