@@ -938,7 +938,7 @@ function WeekTimeGrid({
     .join(" ")}`;
 
   return (
-    <div className="bb-thin-scroll overflow-x-auto rounded-xl border border-border bg-card">
+    <div className="bb-hide-scrollbar overflow-x-auto rounded-xl border border-border bg-card">
       <div className="min-w-[840px]">
         {/* Header row */}
         <div
@@ -1340,7 +1340,7 @@ function ItemsGrid({
   }
 
   return (
-    <div className="bb-thin-scroll overflow-x-auto rounded-xl border border-border bg-card">
+    <div className="bb-hide-scrollbar overflow-x-auto rounded-xl border border-border bg-card">
       <div className="min-w-[760px]">
       <div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] border-b border-border bg-muted/30 text-xs">
         <div className="px-4 py-2 font-semibold text-muted-foreground">Item</div>

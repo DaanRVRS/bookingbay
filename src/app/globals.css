@@ -364,24 +364,15 @@
   }
 }
 
-/* Nette, dunne scrollbar voor scroll-containers (bv. het planning-rooster) —
-   vervangt de lompe standaard OS-scrollbar. Blijft bruikbaar, maar valt
-   nauwelijks op. Thumb-kleur is thema-neutraal (werkt licht én donker). */
-.bb-thin-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(120, 120, 128, 0.35) transparent;
+/* Scrollbar volledig verbergen in scroll-containers (bv. het planning-
+   rooster) — geen lelijke balk, scrollen blijft werken via trackpad,
+   shift+muiswiel of slepen. */
+.bb-hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* oude Edge/IE */
 }
-.bb-thin-scroll::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-.bb-thin-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.bb-thin-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(120, 120, 128, 0.35);
-  border-radius: 9999px;
-}
-.bb-thin-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(120, 120, 128, 0.55);
+.bb-hide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome/Safari/nieuwe Edge */
 }
