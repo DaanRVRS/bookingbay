@@ -67,6 +67,9 @@ interface Props {
   weekStart: string;
   items: ItemRow[];
   bookings: BookingRow[];
+  /** Zichtbaar tijdvenster (uren), afgeleid uit openingstijden + boekingen. */
+  hourStart?: number;
+  hourEnd?: number;
 }
 
 type ViewMode = "week" | "day" | "items";
@@ -80,12 +83,19 @@ const itemAccents = [
   "from-[oklch(0.6_0.14_340)] to-[oklch(0.5_0.17_320)]",
 ];
 
-const HOUR_START = 7;
-const HOUR_END = 22;
+// Fallback-venster wanneer er geen openingstijden/boekingen zijn om uit af te
+// leiden. Het echte zichtbare venster komt via props (hourStart/hourEnd),
+// berekend uit de openingstijden + de boekingen van de week — zodat het
+// rooster strak om de werkdag past i.p.v. altijd 07:00–23:00 te tonen.
+const DEFAULT_HOUR_START = 8;
+const DEFAULT_HOUR_END = 19;
 // Slepen snapt op kwartieren — fijn genoeg voor echte planningen, grof
 // genoeg om moeiteloos te raken.
 const SNAP_MIN = 15;
-const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+/** Uur-labels van start t/m end (inclusief). */
+function hoursRange(start: number, end: number): number[] {
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
 const HOUR_HEIGHT = 56;
 const SNAP_PX = HOUR_HEIGHT * (SNAP_MIN / 60); // 14px per kwartier
 
@@ -141,7 +151,14 @@ function parseDropTarget(id: string): DropTarget | null {
   return null;
 }
 
-export function CalendarView({ focusedDate, weekStart, items, bookings }: Props) {
+export function CalendarView({
+  focusedDate,
+  weekStart,
+  items,
+  bookings,
+  hourStart = DEFAULT_HOUR_START,
+  hourEnd = DEFAULT_HOUR_END,
+}: Props) {
   const router = useRouter();
   const focused = parseISO(focusedDate);
   const start = parseISO(weekStart);
@@ -275,8 +292,8 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
     const deltaMin = Math.round(deltaY / SNAP_PX) * SNAP_MIN;
     const startOfDayMin = oldStart.getHours() * 60 + oldStart.getMinutes();
     const newMin = Math.min(
-      Math.max(startOfDayMin + deltaMin, HOUR_START * 60),
-      (HOUR_END + 1) * 60 - SNAP_MIN,
+      Math.max(startOfDayMin + deltaMin, hourStart * 60),
+      (hourEnd + 1) * 60 - SNAP_MIN,
     );
     const newStart = new Date(targetDay);
     newStart.setHours(Math.floor(newMin / 60), newMin % 60, 0, 0);
@@ -318,7 +335,7 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
       target.day,
       delta.y,
     );
-    const top = ((newMin - HOUR_START * 60) / 60) * HOUR_HEIGHT;
+    const top = ((newMin - hourStart * 60) / 60) * HOUR_HEIGHT;
     const height = Math.max(22, (durationMin / 60) * HOUR_HEIGHT);
     setDropHint({
       dayKey: format(target.day, "yyyy-MM-dd"),
@@ -573,6 +590,8 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
               items={items}
               accentByItemId={accentByItemId}
               dropHint={dropHint}
+              hourStart={hourStart}
+              hourEnd={hourEnd}
             />
           )}
           {view === "day" && (
@@ -582,6 +601,8 @@ export function CalendarView({ focusedDate, weekStart, items, bookings }: Props)
               items={items}
               accentByItemId={accentByItemId}
               dropHint={dropHint}
+              hourStart={hourStart}
+              hourEnd={hourEnd}
             />
           )}
           {view === "items" && (
@@ -663,12 +684,18 @@ function ViewSelector({
   );
 }
 
-function bookingPosition(start: Date, end: Date, day: Date) {
+function bookingPosition(
+  start: Date,
+  end: Date,
+  day: Date,
+  hourStart: number,
+  hourEnd: number,
+) {
   const dayStart = startOfDay(day);
   const dayBoundaryStart = new Date(dayStart);
-  dayBoundaryStart.setHours(HOUR_START, 0, 0, 0);
+  dayBoundaryStart.setHours(hourStart, 0, 0, 0);
   const dayBoundaryEnd = new Date(dayStart);
-  dayBoundaryEnd.setHours(HOUR_END + 1, 0, 0, 0);
+  dayBoundaryEnd.setHours(hourEnd + 1, 0, 0, 0);
 
   const visibleStart = start < dayBoundaryStart ? dayBoundaryStart : start;
   const visibleEnd = end > dayBoundaryEnd ? dayBoundaryEnd : end;
@@ -740,12 +767,14 @@ function assignLanes(
 function positionDayBookings(
   dayBookings: BookingRow[],
   day: Date,
+  hourStart: number,
+  hourEnd: number,
 ): { positioned: PositionedBooking[]; lanes: Map<string, { lane: number; lanes: number }> } {
   const positioned: PositionedBooking[] = [];
   for (const b of dayBookings) {
     const start = parseISO(b.startAt);
     const end = parseISO(b.endAt);
-    const pos = bookingPosition(start, end, day);
+    const pos = bookingPosition(start, end, day, hourStart, hourEnd);
     if (!pos) continue;
     positioned.push({
       b,
@@ -758,10 +787,10 @@ function positionDayBookings(
 }
 
 /** Rode "nu"-lijn in de kolom van vandaag. */
-function NowLine() {
+function NowLine({ hourStart, hourEnd }: { hourStart: number; hourEnd: number }) {
   const now = new Date();
-  const mins = (now.getHours() - HOUR_START) * 60 + now.getMinutes();
-  const maxMins = (HOUR_END + 1 - HOUR_START) * 60;
+  const mins = (now.getHours() - hourStart) * 60 + now.getMinutes();
+  const maxMins = (hourEnd + 1 - hourStart) * 60;
   if (mins < 0 || mins > maxMins) return null;
   const top = (mins / 60) * HOUR_HEIGHT;
   return (
@@ -793,13 +822,18 @@ function WeekTimeGrid({
   items,
   accentByItemId,
   dropHint,
+  hourStart,
+  hourEnd,
 }: {
   days: Date[];
   bookings: BookingRow[];
   items: ItemRow[];
   accentByItemId: Map<string, string>;
   dropHint: DropHint | null;
+  hourStart: number;
+  hourEnd: number;
 }) {
+  const hours = hoursRange(hourStart, hourEnd);
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
@@ -818,7 +852,7 @@ function WeekTimeGrid({
       const e = parseISO(b.endAt);
       return s < addDays(startOfDay(d), 1) && e > startOfDay(d);
     });
-    const { positioned, lanes } = positionDayBookings(dayBookings, d);
+    const { positioned, lanes } = positionDayBookings(dayBookings, d, hourStart, hourEnd);
     let maxLanes = 1;
     for (const v of lanes.values()) maxLanes = Math.max(maxLanes, v.lanes);
     return { d, positioned, lanes, maxLanes };
@@ -861,13 +895,13 @@ function WeekTimeGrid({
         <div
           className="relative grid"
           style={{
-            height: HOURS.length * HOUR_HEIGHT,
+            height: hours.length * HOUR_HEIGHT,
             gridTemplateColumns: gridTemplate,
           }}
         >
           {/* Hour labels */}
           <div className="relative border-r border-border">
-            {HOURS.map((h, i) => (
+            {hours.map((h, i) => (
               <div
                 key={h}
                 className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground tabular-nums"
@@ -889,7 +923,7 @@ function WeekTimeGrid({
                 )}
               >
                 {/* Hour grid lines + per-hour drop slots */}
-                {HOURS.map((h, i) => (
+                {hours.map((h, i) => (
                   <div
                     key={h}
                     className="absolute right-0 left-0 border-t border-border/60"
@@ -954,7 +988,7 @@ function WeekTimeGrid({
                 {dropHint && dropHint.dayKey === format(d, "yyyy-MM-dd") && (
                   <DropGhost hint={dropHint} />
                 )}
-                {isToday(d) && <NowLine />}
+                {isToday(d) && <NowLine hourStart={hourStart} hourEnd={hourEnd} />}
               </div>
             );
           })}
@@ -970,13 +1004,18 @@ function DayTimeView({
   items,
   accentByItemId,
   dropHint,
+  hourStart,
+  hourEnd,
 }: {
   day: Date;
   bookings: BookingRow[];
   items: ItemRow[];
   accentByItemId: Map<string, string>;
   dropHint: DropHint | null;
+  hourStart: number;
+  hourEnd: number;
 }) {
+  const hours = hoursRange(hourStart, hourEnd);
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center text-sm text-muted-foreground">
@@ -1011,11 +1050,11 @@ function DayTimeView({
         </div>
         <div
           className="relative grid grid-cols-[60px_1fr]"
-          style={{ height: HOURS.length * HOUR_HEIGHT }}
+          style={{ height: hours.length * HOUR_HEIGHT }}
         >
           {/* Hour labels */}
           <div className="relative border-r border-border">
-            {HOURS.map((h, i) => (
+            {hours.map((h, i) => (
               <div
                 key={h}
                 className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground tabular-nums"
@@ -1027,7 +1066,7 @@ function DayTimeView({
           </div>
           {/* Booking column */}
           <div className="relative">
-            {HOURS.map((h, i) => (
+            {hours.map((h, i) => (
               <div
                 key={h}
                 className="absolute right-0 left-0 border-t border-border/60"
@@ -1042,7 +1081,7 @@ function DayTimeView({
               </div>
             ))}
             {(() => {
-              const { positioned, lanes } = positionDayBookings(dayBookings, day);
+              const { positioned, lanes } = positionDayBookings(dayBookings, day, hourStart, hourEnd);
               return positioned.map(({ b, top, height }) => {
                 const li = lanes.get(b.id) ?? { lane: 0, lanes: 1 };
                 const compact = height < 44;
@@ -1093,7 +1132,7 @@ function DayTimeView({
             {dropHint && dropHint.dayKey === format(day, "yyyy-MM-dd") && (
               <DropGhost hint={dropHint} />
             )}
-            {isToday(day) && <NowLine />}
+            {isToday(day) && <NowLine hourStart={hourStart} hourEnd={hourEnd} />}
           </div>
         </div>
       </div>
