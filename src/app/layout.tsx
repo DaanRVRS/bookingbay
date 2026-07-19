@@ -33,6 +33,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <head>
+        <script
+          defer
+          data-domain="bookingbay.nl"
+          src="https://stats.fourwrd.nl/js/script.file-downloads.outbound-links.tagged-events.js"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }",
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col">
         {children}
         <Toaster richColors closeButton position="top-right" />
