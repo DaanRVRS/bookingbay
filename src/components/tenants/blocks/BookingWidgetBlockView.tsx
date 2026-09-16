@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
-import { themeStyle } from "@/lib/widget/theme";
+import { widgetStyle } from "@/lib/widget/theme";
 import type { BookingWidgetBlock } from "@/lib/pages/blocks";
 import type { InlineWidgetData } from "@/lib/tenants/inline-widget";
 
@@ -25,7 +25,7 @@ export function BookingWidgetBlockView({
             {block.heading}
           </h2>
         ) : null}
-        <div style={themeStyle(data.theme) as CSSProperties}>
+        <div style={widgetStyle(data.theme, data.accent) as CSSProperties}>
           <SmartBookingWidget
             slug={data.slug}
             orgName={data.orgName}
@@ -36,6 +36,7 @@ export function BookingWidgetBlockView({
             usps={data.usps}
             tagline={data.tagline}
             defaultLocale={data.defaultLocale}
+            legal={data.legal}
           />
         </div>
       </div>

@@ -2,7 +2,7 @@ import "server-only";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { db } from "@/lib/db";
-import { sendEmail, emailLayout, escapeHtml } from "@/lib/email";
+import { sendEmail, emailLayout, escapeHtml, btn } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
 import {
@@ -147,10 +147,11 @@ export async function sendBookingConfirmationMail(
         Bekijk of annuleer je boeking via de knop hieronder. Geen account
         of wachtwoord nodig — je link werkt direct.
       </p>
+      <p style="margin:0 0 4px 0;color:#6b7280;font-size:13px">
+        Deze bevestiging sturen wij namens ${safeOrg}; ${safeOrg} is verantwoordelijk voor je boeking en je gegevens.
+      </p>
       <p style="margin:24px 0">
-        <a href="${portalUrl}" style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
-          Bekijk mijn boeking
-        </a>
+        ${btn(portalUrl, "Bekijk mijn boeking")}
       </p>
       ${contactLine ? `<p style="margin:24px 0 0 0;color:#6b7280;font-size:13px">${contactLine}</p>` : ""}
     `),

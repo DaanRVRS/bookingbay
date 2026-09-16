@@ -12,12 +12,19 @@ import { Button } from "@/components/ui/button";
 import { leadSchema, type LeadInput } from "@/lib/leads/schemas";
 import type { ActionResult } from "@/lib/auth/schemas";
 
+const ON_ACCENT = "var(--tenant-on-accent, #fff)";
+const BOOKINGBAY_PRIVACY_URL = "https://www.bookingbay.nl/privacy#eindklanten";
+
 interface Props {
   organizationId: string;
   accent: string;
+  /** Naam van de verhuurder voor de privacyregel onder het formulier. */
+  orgName: string;
+  /** Eigen privacyverklaring van de verhuurder (optioneel). */
+  privacyUrl?: string | null;
 }
 
-export function ContactForm({ organizationId, accent }: Props) {
+export function ContactForm({ organizationId, accent, orgName, privacyUrl }: Props) {
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
 
@@ -74,8 +81,8 @@ export function ContactForm({ organizationId, accent }: Props) {
     return (
       <div className="flex flex-col items-center gap-4 py-6 text-center">
         <span
-          className="grid size-14 place-items-center rounded-full text-white"
-          style={{ background: accent }}
+          className="grid size-14 place-items-center rounded-full"
+          style={{ background: accent, color: ON_ACCENT }}
         >
           <CheckCircle2 className="size-7" />
         </span>
@@ -156,11 +163,41 @@ export function ContactForm({ organizationId, accent }: Props) {
         )}
       </div>
 
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Door te versturen ga je ermee akkoord dat {orgName} je gegevens gebruikt
+        om je bericht te beantwoorden
+        {privacyUrl ? (
+          <>
+            {" "}
+            (zie de{" "}
+            <a
+              href={privacyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              privacyverklaring
+            </a>{" "}
+            van {orgName})
+          </>
+        ) : null}
+        .{" "}
+        <a
+          href={BOOKINGBAY_PRIVACY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          BookingBay
+        </a>{" "}
+        verwerkt je gegevens in opdracht van {orgName}.
+      </p>
+
       <Button
         type="submit"
         disabled={pending}
-        className="h-12 w-full text-white sm:w-auto sm:self-start"
-        style={{ background: accent }}
+        className="h-12 w-full sm:w-auto sm:self-start"
+        style={{ background: accent, color: ON_ACCENT }}
       >
         {pending && <Loader2 className="size-4 animate-spin" />}
         Verstuur bericht

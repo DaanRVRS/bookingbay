@@ -29,7 +29,17 @@ export const deleteOrgSchema = z.object({
   confirmation: z.string().min(1, "Typ de naam ter bevestiging"),
 });
 
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, "Wachtwoord is verplicht"),
+});
+
+export const emailPreferencesSchema = z.object({
+  marketingOptIn: z.boolean(),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type UpdateOrgInput = z.infer<typeof updateOrgSchema>;
 export type DeleteOrgInput = z.infer<typeof deleteOrgSchema>;
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+export type EmailPreferencesInput = z.infer<typeof emailPreferencesSchema>;

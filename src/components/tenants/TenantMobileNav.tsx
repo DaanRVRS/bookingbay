@@ -59,8 +59,8 @@ export function TenantMobileNav({
               <Link
                 href={contactHref}
                 onClick={() => setOpen(false)}
-                className="mt-4 inline-flex h-12 items-center justify-center rounded-lg px-5 text-base font-medium text-white shadow-sm"
-                style={{ background: accent }}
+                className="mt-4 inline-flex h-12 items-center justify-center rounded-lg px-5 text-base font-medium shadow-sm"
+                style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
               >
                 Contact
               </Link>

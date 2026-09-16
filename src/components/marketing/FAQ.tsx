@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus } from "lucide-react";
 
@@ -15,7 +15,7 @@ const items = [
   },
   {
     q: "Hoe werkt de eigen klantsite?",
-    a: "Elke organisatie krijgt automatisch een sub-domein op bookingbay.nl. Op een betaald plan kan je je eigen domein koppelen. Je past kleur, logo en teksten aan in de dashboard-customizer.",
+    a: "Elke organisatie krijgt automatisch een sub-domein op bookingbay.nl. Op Professional en Business kan je je eigen domein koppelen. Je past kleur, logo en teksten aan in de dashboard-customizer.",
   },
   {
     q: "Ik heb al een eigen website. Kan ik BookingBay daar inbouwen?",
@@ -23,15 +23,15 @@ const items = [
   },
   {
     q: "Kunnen klanten direct online betalen?",
-    a: "Klanten sturen een aanvraag via je site; jij bevestigt en factureert via je eigen werkwijze. Directe online betaling werken we momenteel uit.",
+    a: "Ja. Koppel je eigen Mollie- of Stripe-account in Instellingen → Betalen; klanten rekenen dan bij het boeken direct af (Mollie: o.a. iDEAL) en het geld komt rechtstreeks bij jou binnen. Je kunt ook (of alleen) betalen op locatie aanbieden.",
   },
   {
     q: "Wat als ik wil stoppen?",
-    a: "Geen contracten, geen opzegtermijn. Je exporteert je data in CSV/JSON-formaat en je account is per direct stopgezet.",
+    a: "Geen jaarcontract. Je zegt op in het dashboard; het abonnement stopt aan het einde van de lopende betaalde maand en tot die tijd blijft alles werken. Je data exporteer je als CSV en je organisatie kun je zelf verwijderen.",
   },
   {
     q: "Hoe zit het met de AVG?",
-    a: "Hosting in Europa (Hetzner, Duitsland), dagelijkse encrypted back-ups, en een verwerkersovereenkomst die je in je dashboard kan downloaden.",
+    a: "Hosting in Europa (Hetzner, Duitsland), dagelijkse back-ups, en een verwerkersovereenkomst die onderdeel is van onze voorwaarden — je vindt 'm op bookingbay.nl/verwerkersovereenkomst.",
   },
 ];
 
@@ -58,24 +58,37 @@ export function FAQ() {
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
+  const id = useId();
+  const buttonId = `${id}-button`;
+  const panelId = `${id}-panel`;
   return (
     <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
-      >
-        <span className="text-base font-medium">{q}</span>
-        <motion.span
-          animate={{ rotate: open ? 45 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-border text-muted-foreground"
+      <h3>
+        <button
+          type="button"
+          id={buttonId}
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
         >
-          <Plus className="size-4" />
-        </motion.span>
-      </button>
+          <span className="text-base font-medium">{q}</span>
+          <motion.span
+            aria-hidden
+            animate={{ rotate: open ? 45 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="grid size-7 shrink-0 place-items-center rounded-md border border-border text-muted-foreground"
+          >
+            <Plus className="size-4" />
+          </motion.span>
+        </button>
+      </h3>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
+            id={panelId}
+            role="region"
+            aria-labelledby={buttonId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

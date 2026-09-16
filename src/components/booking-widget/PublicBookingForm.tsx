@@ -6,7 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
-import { useWidgetI18n } from "./widget-i18n";
+import { renderTemplate, useWidgetI18n } from "./widget-i18n";
+import { DEFAULT_WIDGET_LEGAL, type WidgetLegal } from "@/lib/widget/legal";
 import {
   ArrowRight,
   CalendarDays,
@@ -73,7 +74,12 @@ interface Props {
   /** Wordt aangeroepen bij elke interne fase-overgang zodat de buiten-
    *  voortgangsbalk de juiste stap kan oplichten. */
   onPhaseChange?: (phase: "when" | "extras" | "details" | "confirm") => void;
+  /** Juridische instellingen van de verhuurder (voorwaarden, privacy,
+   *  telefoon verplicht, leeftijdsvinkje, review-opt-in). */
+  legal?: WidgetLegal;
 }
+
+const BOOKINGBAY_PRIVACY_URL = "https://www.bookingbay.nl/privacy#eindklanten";
 
 interface SlotConfig {
   intervalMinutes: number;
@@ -182,8 +188,15 @@ export function PublicBookingForm({
   itemOptions,
   addons = [],
   onPhaseChange,
+  legal = DEFAULT_WIDGET_LEGAL,
 }: Props) {
   const { t, df } = useWidgetI18n();
+
+  // Juridische vinkjes — bewust NIET vooraf aangevinkt.
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [reviewOptIn, setReviewOptIn] = useState(false);
+  const [legalError, setLegalError] = useState<string | null>(null);
 
   // Beginstand: meld dat we in fase "wanneer" zijn zodat de outer
   // voortgangsbalk meteen correct uitlicht.
@@ -495,10 +508,29 @@ export function PublicBookingForm({
       toast.error(t("pay.chooseFirst"));
       return;
     }
-    void values;
+    // Telefoon verplicht per verhuurder (schema laat 'm optioneel; de
+    // server dwingt dezelfde regel af).
+    if (legal.phoneRequired && !(values.customerPhone ?? "").trim()) {
+      setError("customerPhone", { message: t("field.phoneHint") });
+      return;
+    }
     setReviewing(true);
     onPhaseChange?.("confirm");
   });
+
+  /** Voorwaarden/leeftijd aangevinkt waar de verhuurder dat vereist? */
+  const legalOk = (): boolean => {
+    if (legal.termsUrl && !acceptTerms) {
+      setLegalError(t("consent.required"));
+      return false;
+    }
+    if (legal.ageCheck && !ageConfirmed) {
+      setLegalError(t("age.required"));
+      return false;
+    }
+    setLegalError(null);
+    return true;
+  };
 
   // Stap 2: op de review-stap "Bevestigen" geklikt → boeking echt aanmaken.
   const confirmBooking = () => {
@@ -508,6 +540,7 @@ export function PublicBookingForm({
       onPhaseChange?.("details");
       return;
     }
+    if (!legalOk()) return;
     startTransition(async () => {
       let res: {
         ok: boolean;
@@ -527,6 +560,9 @@ export function PublicBookingForm({
               itemId: l.itemId,
               quantity: l.quantity,
             })),
+            acceptTerms,
+            ageConfirmed,
+            reviewRequestOptIn: reviewOptIn,
           }),
         });
         res = await r.json();
@@ -724,6 +760,86 @@ export function PublicBookingForm({
             accent={accent}
           />
         </dl>
+
+        {/* Juridisch — direct boven de knop die de boeking (en de
+            betaalverplichting) aangaat. Vinkjes nooit vooraf aangevinkt. */}
+        <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 [&_label]:text-muted-foreground">
+          {legal.termsUrl && (
+            <LegalCheckbox
+              id="bb-accept-terms"
+              checked={acceptTerms}
+              onChange={(v) => {
+                setAcceptTerms(v);
+                if (v) setLegalError(null);
+              }}
+              required
+            >
+              {renderTemplate(t("consent.checkbox"), {
+                terms: (
+                  <LegalLink href={legal.termsUrl}>{t("consent.termsLabel")}</LegalLink>
+                ),
+                org: orgName,
+              })}
+            </LegalCheckbox>
+          )}
+          {legal.ageCheck && (
+            <LegalCheckbox
+              id="bb-age-confirm"
+              checked={ageConfirmed}
+              onChange={(v) => {
+                setAgeConfirmed(v);
+                if (v) setLegalError(null);
+              }}
+              required
+            >
+              {t("age.checkbox")}
+            </LegalCheckbox>
+          )}
+          {legal.reviewOptIn && (
+            <LegalCheckbox
+              id="bb-review-optin"
+              checked={reviewOptIn}
+              onChange={setReviewOptIn}
+            >
+              {t("review.optIn")}
+            </LegalCheckbox>
+          )}
+          {legalError && (
+            <p className="text-xs font-medium text-destructive" role="alert">
+              {legalError}
+            </p>
+          )}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {renderTemplate(
+              t(
+                legal.termsUrl && legal.privacyUrl
+                  ? "consent.both"
+                  : legal.termsUrl
+                    ? "consent.termsOnly"
+                    : legal.privacyUrl
+                      ? "consent.privacyOnly"
+                      : "consent.none",
+              ),
+              {
+                org: orgName,
+                terms: legal.termsUrl ? (
+                  <LegalLink href={legal.termsUrl}>{t("consent.termsLabel")}</LegalLink>
+                ) : (
+                  t("consent.termsLabel")
+                ),
+                privacy: legal.privacyUrl ? (
+                  <LegalLink href={legal.privacyUrl}>{t("consent.privacyLabel")}</LegalLink>
+                ) : (
+                  t("consent.privacyLabel")
+                ),
+              },
+            )}{" "}
+            {renderTemplate(t("consent.processor"), {
+              bb: <LegalLink href={BOOKINGBAY_PRIVACY_URL}>BookingBay</LegalLink>,
+              org: orgName,
+            })}
+          </p>
+        </div>
 
         <button
           type="button"
@@ -1108,10 +1224,12 @@ export function PublicBookingForm({
           </div>
 
           <FormField
-            label={t("field.phone")}
+            label={legal.phoneRequired ? t("field.phone") : t("field.phoneOptional")}
             type="tel"
             autoComplete="tel"
             placeholder="06 12345678"
+            required={legal.phoneRequired}
+            hint={legal.phoneRequired ? t("field.phoneHint") : undefined}
             error={errors.customerPhone?.message}
             {...register("customerPhone")}
           />
@@ -1196,6 +1314,49 @@ export function PublicBookingForm({
         </>
       )}
     </form>
+  );
+}
+
+function LegalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2 hover:text-foreground"
+    >
+      {children}
+    </a>
+  );
+}
+
+function LegalCheckbox({
+  id,
+  checked,
+  onChange,
+  required,
+  children,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-required={required || undefined}
+        className="mt-0.5 size-4 shrink-0 rounded border-border accent-[var(--tenant-accent,currentColor)]"
+      />
+      <label htmlFor={id} className="cursor-pointer text-xs leading-relaxed">
+        {children}
+      </label>
+    </div>
   );
 }
 

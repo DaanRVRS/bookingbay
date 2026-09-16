@@ -63,17 +63,14 @@ export async function createInteractionAction(
     where: { id: parsed.data.organizationId },
     select: { name: true },
   });
+  // Discord: alleen organisatienaam, type en id — geen inhoud/actor-mail.
   await notifyInteractionLogged({
     kind: "org",
     interactionId: created.id,
     type: parsed.data.type,
-    subject: parsed.data.subject,
-    body: parsed.data.body || null,
     occurredAt,
     contextLabel: `Klant · ${org?.name ?? parsed.data.organizationId}`,
     contextUrl: `${env.APP_URL}/admin/organizations/${parsed.data.organizationId}`,
-    actorName: me.name,
-    actorEmail: me.email,
   });
 
   revalidatePath(`/admin/organizations/${parsed.data.organizationId}`);
@@ -145,29 +142,17 @@ export async function createReminderAction(
     metadata: { title: parsed.data.title, dueAt: dueAt.toISOString() },
   });
 
-  const [org, assignee] = await Promise.all([
-    db.organization.findUnique({
-      where: { id: parsed.data.organizationId },
-      select: { name: true },
-    }),
-    parsed.data.assignedToUserId
-      ? db.user.findUnique({
-          where: { id: parsed.data.assignedToUserId },
-          select: { name: true, email: true },
-        })
-      : Promise.resolve(null),
-  ]);
+  const org = await db.organization.findUnique({
+    where: { id: parsed.data.organizationId },
+    select: { name: true },
+  });
+  // Discord: alleen organisatienaam, datum en id — geen titel/notities/actor.
   await notifyReminderCreated({
     kind: "org",
     reminderId: created.id,
-    title: parsed.data.title,
-    notes: parsed.data.notes || null,
     dueAt,
     contextLabel: `Klant · ${org?.name ?? parsed.data.organizationId}`,
     contextUrl: `${env.APP_URL}/admin/organizations/${parsed.data.organizationId}`,
-    actorName: me.name,
-    actorEmail: me.email,
-    assigneeLabel: assignee ? (assignee.name ?? assignee.email) : null,
   });
 
   revalidatePath(`/admin/organizations/${parsed.data.organizationId}`);

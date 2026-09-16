@@ -25,8 +25,10 @@ model User {
   // wordt na 7 dagen door booking-pulse cron gewist samen met de demo-org.
   isDemo Boolean @default(false)
 
-  // Two-factor authentication (TOTP). Secret is base32-encoded, stored
-  // in plaintext (encryption-at-rest is the DB-level concern). Required
+  // Two-factor authentication (TOTP). Secret is base32-encoded en wordt
+  // versleuteld opgeslagen (AES-256-GCM met INTEGRATION_ENCRYPTION_KEY,
+  // formaat "v1:…" — zie lib/twofa/secret.ts; oudere plaintext-waarden
+  // worden bij opstart en bij eerste gebruik omgezet). Required
   // for admins; optional for everyone else. `twoFactorEnabledAt` is null
   // when setup hasn't been confirmed yet — secret may already be set but
   // not active. Backup codes are stored as bcrypt hashes in
@@ -39,6 +41,14 @@ model User {
   // Null = nog niet gevraagd; gevuld = prompt is verstuurd (en blijft in
   // de notification-bell tot ingevuld of weggeklikt).
   feedbackRequestedAt DateTime?
+
+  // E-mailvoorkeuren. marketingOptIn = expliciete opt-in (profiel) voor
+  // productnieuws/aanbiedingen; zonder opt-in gaan marketing-broadcasts
+  // alleen naar de dashboard-notificaties. broadcastEmailOptOutAt = gebruiker
+  // heeft zich via de afmeldlink afgemeld voor broadcast-e-mails (service-
+  // mededelingen blijven wél in de notificatie-bel verschijnen).
+  marketingOptIn         Boolean   @default(false)
+  broadcastEmailOptOutAt DateTime?
 
   pollsCreated Poll[]         @relation("PollByCreator")
   pollVotes    PollVote[]
@@ -155,6 +165,25 @@ model Organization {
   businessCity     String?
   kvkNumber        String?
   vatNumber        String? // BTW-nummer
+  // Juridische pagina's van de verhuurder zelf. Worden gelinkt in de footer
+  // van de klantsite en in de boekwidget ("Door te boeken ga je akkoord met
+  // de voorwaarden en privacyverklaring van {org}"). Leeg = standaardtekst.
+  privacyUrl       String?
+  termsUrl         String?
+  // Boekwidget: telefoonnummer verplicht (standaard aan, "nodig voor de
+  // ophaalafspraak") en optioneel leeftijdsvinkje "Ik ben 18 jaar of ouder".
+  widgetPhoneRequired   Boolean @default(true)
+  widgetAgeCheckEnabled Boolean @default(false)
+  // Facturatiegegevens van de klant (verhuurder) voor de BookingBay-
+  // abonnementsfactuur. Bedrijfsnaam + adres zijn verplicht vóór de checkout;
+  // btw-nummer is optioneel (geen verlegging).
+  billingCompanyName String?
+  billingAddress     String?
+  billingPostcode    String?
+  billingCity        String?
+  billingCountry     String  @default("NL")
+  billingEmail       String?
+  billingVatNumber   String?
   itemDisplayStyle ItemDisplayStyle @default(GRID)
   // Standaard openingstijden voor de hele organisatie. Null = geen
   // openingstijden ingesteld (24/7 beschikbaar). Schema: array van 7
@@ -287,6 +316,7 @@ model Organization {
   calendarBlocks         CalendarBlock[]
   calendarSyncStates     CalendarSyncState[]
   paymentEvents          PaymentEvent[]
+  invoices               Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -483,6 +513,12 @@ model Customer {
   email          String?
   phone          String?
   notes          String?
+  // Klant heeft zich via de afmeldlink afgemeld voor review-uitvraagmails.
+  reviewRequestOptOutAt DateTime?
+  // Gezet door de retentie-cron zodra naam/e-mail/telefoon/notities zijn
+  // gewist (7 jaar na de laatste boeking). Boekingen blijven als anonieme
+  // regels bestaan voor de omzethistorie.
+  anonymizedAt          DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bookings     Booking[]
@@ -548,6 +584,9 @@ model Booking {
   // gegaan; cron skipt bookings waar dit al gevuld is. Null = nog niet
   // gestuurd OF feature stond uit toen booking voltooide.
   reviewRequestedAt DateTime?
+  // Klant heeft in de widget het (niet vooraf aangevinkte) vinkje "Stuur mij
+  // na afloop een reviewverzoek" aangezet. Zonder opt-in geen uitvraagmail.
+  reviewRequestOptIn Boolean @default(false)
 
   // Pre-authenticated portal-token. Wordt mee in de bevestigingsmail
   // gestuurd als /portal/[slug]/booking/[id]?token=… link. Geen
@@ -795,6 +834,10 @@ model Review {
   rating         Int     @default(5)
   isPublished    Boolean @default(true)
   sortOrder      Int     @default(0)
+  // Datum waarop de verhuurder toestemming van de genoemde persoon heeft
+  // ontvangen om het citaat met naam te tonen. Verplicht bij nieuwe reviews
+  // (UI + schema); null bij reviews van vóór deze vastlegging.
+  consentReceivedAt DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1098,6 +1141,53 @@ model PaymentEvent {
   @@unique([externalId, eventType])
   @@index([organizationId, createdAt])
   @@index([subscriptionId])
+}
+
+// ----------------------------------------------------------------------------
+// Facturen voor het BookingBay-abonnement. Eén factuur per geslaagde Mollie-
+// betaling (eerste betaling, maandelijkse verlenging, pro-rata upgrade).
+// Nummering is opeenvolgend per kalenderjaar (BB-2026-0001); de unieke index
+// op (year, sequence) plus een Postgres advisory lock in createInvoice()
+// garanderen dat er nooit een gat of dubbel nummer ontstaat.
+//
+// Verkoper- en klantgegevens zijn een snapshot (JSON) van het moment van
+// factureren — een latere adreswijziging verandert een uitgegeven factuur
+// niet. organizationId is nullable + SetNull: facturen blijven 7 jaar
+// bewaard (fiscale bewaarplicht), ook als de organisatie zichzelf verwijdert.
+// ----------------------------------------------------------------------------
+
+model Invoice {
+  id             String  @id @default(cuid())
+  organizationId String?
+  // Volledig factuurnummer, bv. "BB-2026-0001".
+  number         String  @unique
+  year           Int
+  sequence       Int
+  issuedAt       DateTime @default(now())
+  periodStart    DateTime
+  periodEnd      DateTime
+  description    String
+  netCents       Int
+  vatCents       Int
+  grossCents     Int
+  // Btw-percentage als geheel getal (21).
+  vatRate        Int     @default(21)
+  currency       String  @default("EUR")
+  // Snapshot: { name, address, postalCode, city, country, kvk, vat, email }
+  seller         Json
+  // Snapshot: { companyName, address, postalCode, city, country, email, vatNumber }
+  customer       Json
+  // Mollie payment-id (tr_xxx) — uniek zodat een webhook-retry geen tweede
+  // factuur voor dezelfde betaling kan maken.
+  paymentId      String  @unique
+  paymentMethod  String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([year, sequence])
+  @@index([organizationId, issuedAt])
 }
 
 model AuditLog {

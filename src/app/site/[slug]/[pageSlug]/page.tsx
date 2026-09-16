@@ -43,6 +43,8 @@ export default async function TenantBuilderPage({ params }: PageProps) {
     <PageRenderer
       blocks={page.blocks}
       organizationId={org.id}
+      orgName={org.name}
+      privacyUrl={org.privacyUrl}
       accent={accent}
       contactBasePath={base}
       tenantSlug={slug}

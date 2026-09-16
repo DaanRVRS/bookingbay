@@ -12,6 +12,7 @@ import { UspIcon } from "./usp-icons";
 import { unitLabel } from "@/lib/bookings/price";
 import type { Translator } from "@/lib/widget/i18n";
 import type { WidgetUsp } from "@/lib/widget/theme";
+import { DEFAULT_WIDGET_LEGAL, type WidgetLegal } from "@/lib/widget/legal";
 
 // Door themeStyle() op een ouder gezette CSS-vars; met nette fallbacks
 // zodat niets verandert als de tenant geen kleur koos.
@@ -62,6 +63,8 @@ interface Props {
   defaultLocale?: string;
   /** Item meteen voorselecteren en direct naar de tijd-keuze springen. */
   initialItemId?: string | null;
+  /** Juridische instellingen van de verhuurder (zie lib/widget/legal). */
+  legal?: WidgetLegal;
 }
 
 type Step = "category" | "item" | "form";
@@ -77,6 +80,7 @@ export function SmartBookingWidget({
   tagline = null,
   defaultLocale = "nl",
   initialItemId = null,
+  legal = DEFAULT_WIDGET_LEGAL,
 }: Props) {
   return (
     <WidgetI18nProvider defaultLocale={defaultLocale}>
@@ -90,6 +94,7 @@ export function SmartBookingWidget({
         usps={usps}
         tagline={tagline}
         initialItemId={initialItemId}
+        legal={legal}
       />
     </WidgetI18nProvider>
   );
@@ -187,6 +192,7 @@ function WidgetInner({
   usps,
   tagline,
   initialItemId,
+  legal,
 }: {
   slug: string;
   orgName: string;
@@ -197,6 +203,7 @@ function WidgetInner({
   usps: WidgetUsp[];
   tagline: string | null;
   initialItemId: string | null;
+  legal: WidgetLegal;
 }) {
   const { t } = useWidgetI18n();
   const onlyCategory = categories.length === 1 ? categories[0] : null;
@@ -345,6 +352,7 @@ function WidgetInner({
           accent={accent}
           item={selectedItem}
           addons={relevantAddons}
+          legal={legal}
           onBack={() => {
             setItemId(null);
             setStep("item");
@@ -652,6 +660,7 @@ function FormStep({
   accent,
   item,
   addons,
+  legal,
   onBack,
   onPhaseChange,
 }: {
@@ -660,6 +669,7 @@ function FormStep({
   accent: string;
   item: ItemRow;
   addons: AddonOption[];
+  legal: WidgetLegal;
   onBack: () => void;
   onPhaseChange?: (phase: "when" | "extras" | "details" | "confirm") => void;
 }) {
@@ -717,6 +727,7 @@ function FormStep({
           fuelFee: item.fuelFee,
         }}
         addons={addons}
+        legal={legal}
         onPhaseChange={onPhaseChange}
       />
     </div>

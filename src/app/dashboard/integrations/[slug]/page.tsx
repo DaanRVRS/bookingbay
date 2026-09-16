@@ -14,6 +14,7 @@ import { readPaymentConfig, isActivePaymentProvider } from "@/lib/payments/confi
 import type { CalendarListEntry } from "@/lib/integrations/google-calendar";
 import { ActivationActions } from "./activation-actions";
 import { GoogleCalendarSetup } from "./google-calendar-setup";
+import { COMPANY } from "@/lib/company";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -339,7 +340,7 @@ export default async function IntegrationDetailPage({
               Vragen?{" "}
               <a
                 className="underline underline-offset-2 hover:text-foreground"
-                href="mailto:hallo@bookingbay.nl"
+                href={`mailto:${COMPANY.email}`}
               >
                 Mail ons
               </a>{" "}

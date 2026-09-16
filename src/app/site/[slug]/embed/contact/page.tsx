@@ -33,7 +33,12 @@ export default async function EmbedContactPage({ params }: PageProps) {
       </p>
 
       <div className="mt-5 rounded-xl border border-border bg-card p-5">
-        <ContactForm organizationId={org.id} accent={accent} />
+        <ContactForm
+          organizationId={org.id}
+          accent={accent}
+          orgName={org.name}
+          privacyUrl={org.privacyUrl}
+        />
       </div>
     </div>
   );

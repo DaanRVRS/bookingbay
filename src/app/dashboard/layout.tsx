@@ -15,6 +15,7 @@ import {
   listNotificationsForUser,
 } from "@/lib/notifications/queries";
 import { maybeFireSignupFeedbackPrompt } from "@/lib/feedback/actions";
+import { PlausibleScript } from "@/components/analytics/PlausibleScript";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrg();
@@ -56,6 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-svh flex-col">
+      <PlausibleScript />
       <ImpersonationBanner />
       {ctx.user.isDemo && <DemoBanner />}
       <SubscriptionBanner

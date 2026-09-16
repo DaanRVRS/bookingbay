@@ -32,7 +32,7 @@ import {
 import {
   WIDGET_THEME_TOKENS,
   USP_ICON_KEYS,
-  themeStyle,
+  widgetStyle,
   type WidgetTheme,
   type WidgetThemeKey,
   type WidgetUsp,
@@ -512,7 +512,7 @@ export function WidgetCustomizer({
             </div>
             <div
               className="p-4 sm:p-6"
-              style={themeStyle(theme) as CSSProperties}
+              style={widgetStyle(theme, accent) as CSSProperties}
             >
               <WidgetPreview
                 orgName={orgName}

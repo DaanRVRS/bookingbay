@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { PLAN_LIMITS, exclVat, formatEuroNL } from "@/lib/plans";
 
+// Prijzen komen uit src/lib/plans.ts (één bron, ook voor de checkout en de
+// factuur). Incl. btw is leidend op de site; excl. btw staat erbij omdat
+// BookingBay alleen aan ondernemers levert.
 const plans = [
   {
-    name: "Starter",
-    price: "€24,99",
-    period: "per maand incl. btw",
+    name: PLAN_LIMITS.STARTER.label,
+    price: PLAN_LIMITS.STARTER.monthlyPriceEuro,
     description: "Voor wie net begint of klein blijft.",
     cta: "Start trial",
     href: "/register?plan=starter",
@@ -24,9 +27,8 @@ const plans = [
     ],
   },
   {
-    name: "Professional",
-    price: "€59,99",
-    period: "per maand incl. btw",
+    name: PLAN_LIMITS.PROFESSIONAL.label,
+    price: PLAN_LIMITS.PROFESSIONAL.monthlyPriceEuro,
     description: "Voor groeiende verhuurbedrijven.",
     cta: "Start trial",
     href: "/register?plan=professional",
@@ -41,9 +43,8 @@ const plans = [
     ],
   },
   {
-    name: "Business",
-    price: "€109,99",
-    period: "per maand incl. btw",
+    name: PLAN_LIMITS.BUSINESS.label,
+    price: PLAN_LIMITS.BUSINESS.monthlyPriceEuro,
     description: "Voor wie volume draait.",
     cta: "Start trial",
     href: "/register?plan=business",
@@ -69,7 +70,7 @@ export function Pricing() {
             Eerlijk geprijsd. Geen verrassingen.
           </h2>
           <p className="mt-4 text-lg text-muted-foreground text-pretty">
-            14 dagen gratis proberen. Daarna stop wanneer je wil — geen jaarcontracten.
+            14 dagen gratis proberen. Daarna per maand opzegbaar — geen jaarcontracten.
           </p>
         </div>
 
@@ -88,21 +89,21 @@ export function Pricing() {
                   : "border-border",
               )}
             >
-              {plan.highlighted && (
-                <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  <Sparkles className="size-3" />
-                  Meest gekozen
-                </span>
-              )}
-
               <div>
                 <h3 className="text-xl font-semibold tracking-tight">{plan.name}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-semibold tracking-tight">{plan.price}</span>
-                <span className="text-sm text-muted-foreground">/ {plan.period}</span>
+              <div className="mt-6">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-semibold tracking-tight">
+                    {formatEuroNL(plan.price)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ maand incl. btw</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatEuroNL(exclVat(plan.price))} excl. 21% btw
+                </p>
               </div>
 
               <ul className="mt-6 space-y-2.5 text-sm">
@@ -134,7 +135,8 @@ export function Pricing() {
         <p className="mt-8 text-center text-xs text-muted-foreground">
           Alle plannen bevatten de <strong className="text-foreground">boekings-widget</strong>{" "}
           en je <strong className="text-foreground">eigen klantsite</strong> op bookingbay.nl —
-          ook op Starter.
+          ook op Starter. Uitsluitend voor ondernemers; je betaalt per maand vooraf via
+          automatische incasso en zegt op wanneer je wilt.
         </p>
         <p className="mt-3 text-center text-sm text-muted-foreground">
           Meer dan 500 items of speciale eisen?{" "}

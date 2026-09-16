@@ -56,6 +56,7 @@ export async function createReviewAction(
       rating: parsed.data.rating,
       isPublished: parsed.data.isPublished,
       sortOrder: (last?.sortOrder ?? -1) + 1,
+      consentReceivedAt: new Date(`${parsed.data.consentReceivedAt}T00:00:00Z`),
     },
     select: { id: true },
   });
@@ -66,7 +67,7 @@ export async function createReviewAction(
     action: "review.create",
     resource: "review",
     resourceId: created.id,
-    metadata: { author: parsed.data.author },
+    metadata: { author: parsed.data.author, consentReceivedAt: parsed.data.consentReceivedAt },
   });
 
   revalidatePath("/dashboard/reviews");
@@ -100,6 +101,7 @@ export async function updateReviewAction(
       role: parsed.data.role || null,
       rating: parsed.data.rating,
       isPublished: parsed.data.isPublished,
+      consentReceivedAt: new Date(`${parsed.data.consentReceivedAt}T00:00:00Z`),
     },
   });
 
@@ -109,7 +111,7 @@ export async function updateReviewAction(
     action: "review.update",
     resource: "review",
     resourceId: parsed.data.id,
-    metadata: { author: parsed.data.author },
+    metadata: { author: parsed.data.author, consentReceivedAt: parsed.data.consentReceivedAt },
   });
 
   revalidatePath("/dashboard/reviews");

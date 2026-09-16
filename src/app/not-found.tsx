@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
+import { COMPANY } from "@/lib/company";
 
 export const metadata = { title: "Niet gevonden — BookingBay" };
 
@@ -61,10 +62,10 @@ export default function NotFound() {
         <p className="mt-10 text-[11px] text-muted-foreground">
           Hulp nodig? Mail{" "}
           <a
-            href="mailto:hallo@bookingbay.nl"
+            href={`mailto:${COMPANY.email}`}
             className="font-medium text-foreground hover:underline"
           >
-            hallo@bookingbay.nl
+            {COMPANY.email}
           </a>
         </p>
       </div>

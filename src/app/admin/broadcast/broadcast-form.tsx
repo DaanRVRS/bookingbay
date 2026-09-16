@@ -18,7 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { broadcastNotificationAction } from "@/lib/notifications/actions";
 
-export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
+export function BroadcastForm({
+  recipientCount,
+  marketingCount,
+}: {
+  recipientCount: number;
+  marketingCount: number;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -27,6 +33,8 @@ export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
   const [ctaUrl, setCtaUrl] = useState("");
   const [ctaLabel, setCtaLabel] = useState("");
   const [shouldSendEmail, setShouldSendEmail] = useState(true);
+  const [marketing, setMarketing] = useState(false);
+  const targetCount = marketing ? marketingCount : recipientCount;
 
   const submit = () => {
     setConfirmOpen(false);
@@ -37,13 +45,14 @@ export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
         ctaUrl,
         ctaLabel,
         sendEmail: shouldSendEmail,
+        marketing,
       });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       toast.success(
-        `Verstuurd naar ${res.data?.recipients ?? recipientCount} ontvangers${
+        `Verstuurd naar ${res.data?.recipients ?? targetCount} ontvangers${
           res.data?.emailsAttempted ? ` (incl. ${res.data.emailsAttempted} e-mails)` : ""
         }`,
       );
@@ -123,13 +132,33 @@ export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
           <div className="min-w-0">
             <p className="text-sm font-medium">Ook per e-mail versturen</p>
             <p className="text-xs text-muted-foreground">
-              Uitvinken = bericht alleen in dashboard-notificaties.
+              Uitvinken = bericht alleen in dashboard-notificaties. E-mails
+              krijgen altijd een afmeldlink; wie zich heeft afgemeld krijgt
+              alleen de dashboard-notificatie.
+            </p>
+          </div>
+        </label>
+        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3 hover:bg-accent">
+          <input
+            type="checkbox"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+            className="mt-0.5 size-4 rounded border-border accent-primary"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Marketingbericht</p>
+            <p className="text-xs text-muted-foreground">
+              Aanvinken voor productnieuws, aanbiedingen of andere niet-
+              noodzakelijke berichten: gaat dan uitsluitend naar de{" "}
+              <strong>{marketingCount}</strong> gebruikers met opt-in in hun
+              profiel. Uitgevinkt = servicemededeling over het platform of
+              het account, naar alle gebruikers.
             </p>
           </div>
         </label>
         <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">
-            Wordt verstuurd naar <strong>{recipientCount}</strong> gebruikers.
+            Wordt verstuurd naar <strong>{targetCount}</strong> gebruikers.
           </p>
           <Button type="submit" disabled={pending || !title || !body}>
             {pending && <Loader2 className="size-4 animate-spin" />}
@@ -144,9 +173,9 @@ export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
           <DialogHeader>
             <DialogTitle>Bericht versturen?</DialogTitle>
             <DialogDescription>
-              Dit stuurt &ldquo;{title}&rdquo; naar <strong>{recipientCount}</strong>{" "}
-              gebruikers. {shouldSendEmail && "Ook als e-mail."} Niet
-              terug te draaien.
+              Dit stuurt &ldquo;{title}&rdquo; naar <strong>{targetCount}</strong>{" "}
+              gebruikers{marketing && " met marketing-opt-in"}.{" "}
+              {shouldSendEmail && "Ook als e-mail."} Niet terug te draaien.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -74,6 +74,8 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
         <PageRenderer
           blocks={customHome!.blocks}
           organizationId={org.id}
+          orgName={org.name}
+          privacyUrl={org.privacyUrl}
           accent={accent}
           contactBasePath={base}
           tenantSlug={slug}
@@ -100,8 +102,8 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Link
                     href="#aanbod"
-                    className="inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-                    style={{ background: accent }}
+                    className="inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium shadow-sm transition-opacity hover:opacity-90"
+                    style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
                   >
                     Bekijk het aanbod
                   </Link>
@@ -194,8 +196,8 @@ export default async function TenantHomePage({ params, searchParams }: PageProps
               {org.contactEmail && (
                 <a
                   href={`mailto:${org.contactEmail}`}
-                  className="mt-5 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
-                  style={{ background: accent }}
+                  className="mt-5 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium"
+                  style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
                 >
                   Contact opnemen
                 </a>

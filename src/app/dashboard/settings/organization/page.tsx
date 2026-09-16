@@ -6,6 +6,7 @@ import { BusinessHoursSection } from "./business-hours-section";
 import { PaymentSection } from "./payment-section";
 import { ReviewRequestSection } from "./review-request-section";
 import { CustomerPortalSection } from "./customer-portal-section";
+import { BookingLegalSection } from "./booking-legal-section";
 import { can } from "@/lib/auth/permissions";
 import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { readPaymentConfig, maskKey } from "@/lib/payments/config";
@@ -30,6 +31,10 @@ export default async function OrgSettingsPage() {
       reviewRequestDelayDays: true,
       customerPortalEnabled: true,
       customerPortalCancelHoursMin: true,
+      privacyUrl: true,
+      termsUrl: true,
+      widgetPhoneRequired: true,
+      widgetAgeCheckEnabled: true,
     },
   });
   if (!org) throw new Error("Organization missing");
@@ -114,6 +119,33 @@ export default async function OrgSettingsPage() {
         </div>
       </section>
 
+      <section id="juridisch" className="scroll-mt-20 rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">Boeken &amp; juridisch</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Jij bent verantwoordelijk voor de afspraken met je klanten. Koppel je
+          eigen voorwaarden en privacyverklaring; die verschijnen in de
+          boekwidget en de footer van je klantsite. Bepaal ook welke gegevens
+          je bij een boeking vraagt.
+        </p>
+        <div className="mt-5">
+          <BookingLegalSection
+            initial={{
+              privacyUrl: org.privacyUrl ?? "",
+              termsUrl: org.termsUrl ?? "",
+              phoneRequired: org.widgetPhoneRequired,
+              ageCheckEnabled: org.widgetAgeCheckEnabled,
+            }}
+            orgName={org.name}
+            disabled={!isOwner}
+          />
+          {!isOwner && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Alleen Eigenaren mogen deze instellingen wijzigen.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold">Klant-portaal</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -142,7 +174,9 @@ export default async function OrgSettingsPage() {
         <p className="mt-1 text-xs text-muted-foreground">
           Stuur klanten automatisch een mail met je review-link nadat hun
           boeking is voltooid. Google, Trustpilot, of je eigen pagina —
-          alles kan.
+          alles kan. De mail gaat alleen naar klanten die bij het boeken het
+          vinkje &ldquo;Stuur mij na afloop een reviewverzoek&rdquo; hebben
+          aangezet, en bevat een afmeldlink.
         </p>
         <div className="mt-5">
           <ReviewRequestSection

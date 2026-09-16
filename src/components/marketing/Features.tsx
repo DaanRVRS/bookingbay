@@ -68,7 +68,7 @@ export function Features() {
           icon={MousePointerClick}
           eyebrow="Op je eigen site"
           title="Boek-widget op je site"
-          body="Plak één regel code op je eigen website. Klanten kiezen datum en tijd, zien meteen wat vrij is en boeken direct — met iDEAL. Jouw merk, jouw kleuren, geen platform ertussen."
+          body="Plak één regel code op je eigen website. Klanten kiezen datum en tijd, zien meteen wat vrij is en boeken direct — online betalen via je eigen Mollie- (o.a. iDEAL) of Stripe-account, of betalen op locatie. Jouw merk, jouw kleuren, geen platform ertussen."
           mock={<WidgetMock />}
           frameUrl="verhuurdehoeve.nl/boeken"
           mediaFirst
@@ -80,7 +80,7 @@ export function Features() {
           <Pill icon={Layers} label="Geneste categorieën" delay={0.1} />
           <Pill icon={Users} label="4 rollen fijn-grain" delay={0.15} />
           <Pill icon={Zap} label="Mobile-first" delay={0.2} />
-          <Pill icon={ShieldCheck} label="EU-hosted · AVG" delay={0.25} />
+          <Pill icon={ShieldCheck} label="Hosting in de EU" delay={0.25} />
           <Pill icon={Globe} label="Custom domein" delay={0.3} />
         </div>
       </div>

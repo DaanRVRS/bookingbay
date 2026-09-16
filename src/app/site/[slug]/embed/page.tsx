@@ -65,7 +65,7 @@ export default async function EmbedHomePage({ params, searchParams }: PageProps)
           </p>
           <Link
             href="/embed/contact"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white"
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-(--tenant-on-accent)"
             style={{ background: accent }}
           >
             Contact opnemen

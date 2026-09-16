@@ -33,6 +33,9 @@ export function IntegrationsStrip() {
   ]
     .map((slug) => INTEGRATIONS.find((i) => i.slug === slug))
     .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const availableNames = INTEGRATIONS.filter((i) => i.status === "available")
+    .map((i) => i.name)
+    .join(", ");
 
   return (
     <section
@@ -51,6 +54,8 @@ export function IntegrationsStrip() {
               Sync met je agenda, laat klanten direct online betalen, push
               facturen naar je boekhouding. Kies de koppelingen die je nodig
               hebt — vaste maandprijs per stuk, opzegbaar wanneer je wil.
+              Vandaag beschikbaar: {availableNames}. De overige staan op de
+              planning en zijn gemarkeerd met &ldquo;binnenkort&rdquo;.
             </p>
 
             <ul className="mt-6 flex flex-col gap-2 text-sm">
@@ -97,8 +102,13 @@ export function IntegrationsStrip() {
               >
                 <Link
                   href={`/koppelingen/${i.categorySlug}/${i.slug}`}
-                  className="group flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_8px_20px_-12px_color-mix(in_oklch,var(--primary)_40%,transparent)]"
+                  className="group relative flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_8px_20px_-12px_color-mix(in_oklch,var(--primary)_40%,transparent)]"
                 >
+                  {i.status !== "available" && (
+                    <span className="absolute top-1.5 right-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                      binnenkort
+                    </span>
+                  )}
                   <IntegrationLogo integration={i} size="sm" />
                   <span className="text-center text-[10px] text-muted-foreground transition-colors group-hover:text-foreground">
                     {i.name}

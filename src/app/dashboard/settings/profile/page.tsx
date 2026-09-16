@@ -4,14 +4,21 @@ import { db } from "@/lib/db";
 import { ProfileForm } from "./profile-form";
 import { PasswordForm } from "./password-form";
 import { TwoFactorSection } from "./two-factor-section";
+import { EmailPreferencesForm } from "./email-preferences-form";
+import { DeleteAccountSection } from "./delete-account-section";
 
 export const metadata = { title: "Profiel" };
 
 export default async function ProfileSettingsPage() {
   const user = await requireUser();
-  const twofa = await db.user.findUnique({
+  const account = await db.user.findUnique({
     where: { id: user.id },
-    select: { twoFactorEnabledAt: true, isAdmin: true },
+    select: {
+      twoFactorEnabledAt: true,
+      isAdmin: true,
+      marketingOptIn: true,
+      broadcastEmailOptOutAt: true,
+    },
   });
 
   return (
@@ -48,6 +55,16 @@ export default async function ProfileSettingsPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">E-mailvoorkeuren</h2>
+        <div className="mt-4">
+          <EmailPreferencesForm
+            initialMarketingOptIn={account?.marketingOptIn ?? false}
+            broadcastOptedOut={Boolean(account?.broadcastEmailOptOutAt)}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold">Wachtwoord</h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Wijzig je wachtwoord. Je blijft ingelogd op deze sessie.
@@ -58,10 +75,12 @@ export default async function ProfileSettingsPage() {
       </section>
 
       <TwoFactorSection
-        enabled={!!twofa?.twoFactorEnabledAt}
-        enabledAt={twofa?.twoFactorEnabledAt?.toISOString() ?? null}
-        isAdmin={!!twofa?.isAdmin}
+        enabled={!!account?.twoFactorEnabledAt}
+        enabledAt={account?.twoFactorEnabledAt?.toISOString() ?? null}
+        isAdmin={!!account?.isAdmin}
       />
+
+      <DeleteAccountSection isAdmin={!!account?.isAdmin} />
     </div>
   );
 }

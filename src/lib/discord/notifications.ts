@@ -1,10 +1,17 @@
 import "server-only";
 import { env } from "@/lib/env";
-import { notifyDiscord, truncate, DISCORD_COLORS } from "./webhook";
+import { notifyDiscord, DISCORD_COLORS } from "./webhook";
 
 /**
  * High-level Discord helpers — one per surface so callers don't need to
  * remember the right shape/color. All are best-effort: they never throw.
+ *
+ * PRIVACY: Discord Inc. (VS) is géén subverwerker. Deze berichten bevatten
+ * daarom bewust GEEN persoonsgegevens van klanten, eindklanten, prospects
+ * of ticketauteurs — geen namen, e-mailadressen, telefoonnummers of
+ * berichtinhoud. Alleen organisatie-/bedrijfsnaam, id's, categorieën,
+ * aantallen en een link naar de admin-pagina waar de details staan. De
+ * privacyverklaring en de DPA beloven precies dat; houd het zo.
  *
  * Routing:
  *  - tickets + replies     → "support" channel
@@ -21,13 +28,9 @@ import { notifyDiscord, truncate, DISCORD_COLORS } from "./webhook";
 
 interface NewTicketArgs {
   ticketId: string;
-  subject: string;
-  body: string;
   category: string;
   priority: string;
   orgName: string;
-  authorName: string | null;
-  authorEmail: string;
 }
 
 export function notifyNewSupportTicket(args: NewTicketArgs) {
@@ -36,8 +39,8 @@ export function notifyNewSupportTicket(args: NewTicketArgs) {
       username: "BookingBay · Support",
       embeds: [
         {
-          title: `🎫 Nieuwe ticket — ${args.subject}`,
-          description: truncate(args.body, 1900),
+          title: `🎫 Nieuwe ticket — ${args.orgName}`,
+          description: "Inhoud en afzender staan in het admin-paneel.",
           color:
             args.priority === "URGENT"
               ? DISCORD_COLORS.danger
@@ -47,13 +50,6 @@ export function notifyNewSupportTicket(args: NewTicketArgs) {
           url: `${env.APP_URL}/admin/support/${args.ticketId}`,
           fields: [
             { name: "Organisatie", value: args.orgName, inline: true },
-            {
-              name: "Van",
-              value: args.authorName
-                ? `${args.authorName} (${args.authorEmail})`
-                : args.authorEmail,
-              inline: true,
-            },
             { name: "Categorie", value: args.category, inline: true },
             { name: "Prioriteit", value: args.priority, inline: true },
           ],
@@ -68,11 +64,7 @@ export function notifyNewSupportTicket(args: NewTicketArgs) {
 
 interface TicketReplyArgs {
   ticketId: string;
-  subject: string;
-  body: string;
   orgName: string;
-  authorName: string | null;
-  authorEmail: string;
   isStaff: boolean;
 }
 
@@ -87,20 +79,11 @@ export function notifyTicketReply(args: TicketReplyArgs) {
       username: "BookingBay · Support",
       embeds: [
         {
-          title: `💬 Reply op ticket — ${args.subject}`,
-          description: truncate(args.body, 1900),
+          title: `💬 Nieuwe reactie van klant — ${args.orgName}`,
+          description: "Bekijk de reactie in het admin-paneel.",
           color: DISCORD_COLORS.info,
           url: `${env.APP_URL}/admin/support/${args.ticketId}`,
-          fields: [
-            { name: "Organisatie", value: args.orgName, inline: true },
-            {
-              name: "Van",
-              value: args.authorName
-                ? `${args.authorName} (${args.authorEmail})`
-                : args.authorEmail,
-              inline: true,
-            },
-          ],
+          fields: [{ name: "Organisatie", value: args.orgName, inline: true }],
           footer: { text: `ticket-id: ${args.ticketId}` },
           timestamp: new Date().toISOString(),
         },
@@ -114,11 +97,8 @@ export function notifyTicketReply(args: TicketReplyArgs) {
 
 interface NewLeadArgs {
   leadId: string;
+  orgId: string;
   orgName: string;
-  orgSlug: string;
-  customerName: string;
-  customerEmail: string;
-  message: string;
   itemName?: string | null;
 }
 
@@ -129,19 +109,12 @@ export function notifyNewLead(args: NewLeadArgs) {
       embeds: [
         {
           title: `📥 Nieuwe lead voor ${args.orgName}`,
-          description: truncate(args.message, 1900),
+          description: "Contactgegevens en bericht staan alleen in het dashboard van de organisatie.",
           color: DISCORD_COLORS.success,
-          url: `${env.APP_URL}/admin/organizations/${args.orgSlug}`,
-          fields: [
-            {
-              name: "Van",
-              value: `${args.customerName} (${args.customerEmail})`,
-              inline: true,
-            },
-            ...(args.itemName
-              ? [{ name: "Item", value: args.itemName, inline: true }]
-              : []),
-          ],
+          url: `${env.APP_URL}/admin/organizations/${args.orgId}`,
+          fields: args.itemName
+            ? [{ name: "Item", value: args.itemName, inline: true }]
+            : [],
           footer: { text: `lead-id: ${args.leadId}` },
           timestamp: new Date().toISOString(),
         },
@@ -156,8 +129,6 @@ interface NewSignupArgs {
   orgName: string;
   orgSlug: string;
   industry?: string | null;
-  userEmail: string;
-  userName: string | null;
 }
 
 export function notifyNewSignup(args: NewSignupArgs) {
@@ -174,13 +145,6 @@ export function notifyNewSignup(args: NewSignupArgs) {
             ...(args.industry
               ? [{ name: "Branche", value: args.industry, inline: true }]
               : []),
-            {
-              name: "Owner",
-              value: args.userName
-                ? `${args.userName} (${args.userEmail})`
-                : args.userEmail,
-              inline: false,
-            },
           ],
           footer: { text: `org-id: ${args.orgId}` },
           timestamp: new Date().toISOString(),
@@ -237,41 +201,29 @@ export function notifyPaymentIssue(args: PaymentIssueArgs) {
   );
 }
 
+/** Label voor een prospect zonder persoonsgegevens: bedrijfsnaam of id. */
+function prospectLabel(args: { prospectId: string; companyName?: string | null }): string {
+  return args.companyName?.trim() || `prospect ${args.prospectId.slice(-6)}`;
+}
+
 interface NewProspectArgs {
   prospectId: string;
-  name: string;
   companyName?: string | null;
-  email?: string | null;
   source?: string | null;
-  ownerName: string | null;
-  ownerEmail: string;
 }
 
 export function notifyNewProspect(args: NewProspectArgs) {
-  const who = args.companyName ? `${args.name} (${args.companyName})` : args.name;
   return notifyDiscord(
     {
       username: "BookingBay · CRM",
       embeds: [
         {
-          title: `🆕 Nieuwe prospect — ${who}`,
+          title: `🆕 Nieuwe prospect — ${prospectLabel(args)}`,
           color: DISCORD_COLORS.info,
           url: `${env.APP_URL}/admin/crm/${args.prospectId}`,
-          fields: [
-            ...(args.email
-              ? [{ name: "E-mail", value: args.email, inline: true }]
-              : []),
-            ...(args.source
-              ? [{ name: "Bron", value: args.source, inline: true }]
-              : []),
-            {
-              name: "Owner",
-              value: args.ownerName
-                ? `${args.ownerName} (${args.ownerEmail})`
-                : args.ownerEmail,
-              inline: false,
-            },
-          ],
+          fields: args.source
+            ? [{ name: "Bron", value: args.source, inline: true }]
+            : [],
           footer: { text: `prospect-id: ${args.prospectId}` },
           timestamp: new Date().toISOString(),
         },
@@ -283,12 +235,9 @@ export function notifyNewProspect(args: NewProspectArgs) {
 
 interface ProspectStatusChangeArgs {
   prospectId: string;
-  name: string;
   companyName?: string | null;
   fromStatus: string;
   toStatus: string;
-  actorName: string | null;
-  actorEmail: string;
 }
 
 const STATUS_EMOJI: Record<string, string> = {
@@ -302,14 +251,13 @@ const STATUS_EMOJI: Record<string, string> = {
 };
 
 export function notifyProspectStatusChange(args: ProspectStatusChangeArgs) {
-  const who = args.companyName ? `${args.name} (${args.companyName})` : args.name;
   const emoji = STATUS_EMOJI[args.toStatus] ?? "🔄";
   return notifyDiscord(
     {
       username: "BookingBay · CRM",
       embeds: [
         {
-          title: `${emoji} ${who} → ${args.toStatus}`,
+          title: `${emoji} ${prospectLabel(args)} → ${args.toStatus}`,
           description: `Pipeline-status: \`${args.fromStatus}\` → \`${args.toStatus}\``,
           color:
             args.toStatus === "gewonnen"
@@ -318,15 +266,6 @@ export function notifyProspectStatusChange(args: ProspectStatusChangeArgs) {
                 ? DISCORD_COLORS.neutral
                 : DISCORD_COLORS.info,
           url: `${env.APP_URL}/admin/crm/${args.prospectId}`,
-          fields: [
-            {
-              name: "Door",
-              value: args.actorName
-                ? `${args.actorName} (${args.actorEmail})`
-                : args.actorEmail,
-              inline: false,
-            },
-          ],
           footer: { text: `prospect-id: ${args.prospectId}` },
           timestamp: new Date().toISOString(),
         },
@@ -339,14 +278,10 @@ export function notifyProspectStatusChange(args: ProspectStatusChangeArgs) {
 interface ReminderCreatedArgs {
   kind: "org" | "prospect";
   reminderId: string;
-  title: string;
-  notes?: string | null;
   dueAt: Date;
+  /** Organisatienaam of bedrijfsnaam — geen persoonsnamen. */
   contextLabel: string;
   contextUrl: string;
-  actorName: string | null;
-  actorEmail: string;
-  assigneeLabel?: string | null;
 }
 
 export function notifyReminderCreated(args: ReminderCreatedArgs) {
@@ -355,24 +290,12 @@ export function notifyReminderCreated(args: ReminderCreatedArgs) {
       username: "BookingBay · CRM",
       embeds: [
         {
-          title: `📌 Follow-up gepland — ${args.title}`,
-          description: args.notes ? truncate(args.notes, 1900) : undefined,
+          title: `📌 Follow-up gepland — ${args.contextLabel}`,
           color: DISCORD_COLORS.info,
           url: args.contextUrl,
           fields: [
             { name: "Type", value: args.kind === "org" ? "Klant" : "Prospect", inline: true },
-            { name: "Context", value: args.contextLabel, inline: true },
-            { name: "Due", value: args.dueAt.toISOString(), inline: false },
-            ...(args.assigneeLabel
-              ? [{ name: "Toegewezen aan", value: args.assigneeLabel, inline: true }]
-              : []),
-            {
-              name: "Door",
-              value: args.actorName
-                ? `${args.actorName} (${args.actorEmail})`
-                : args.actorEmail,
-              inline: true,
-            },
+            { name: "Due", value: args.dueAt.toISOString(), inline: true },
           ],
           footer: { text: `reminder-id: ${args.reminderId}` },
           timestamp: new Date().toISOString(),
@@ -387,13 +310,10 @@ interface InteractionLoggedArgs {
   kind: "org" | "prospect";
   interactionId: string;
   type: string; // "call" | "email" | "meeting" | "note"
-  subject: string;
-  body?: string | null;
   occurredAt: Date;
+  /** Organisatienaam of bedrijfsnaam — geen persoonsnamen. */
   contextLabel: string;
   contextUrl: string;
-  actorName: string | null;
-  actorEmail: string;
 }
 
 const INTERACTION_EMOJI: Record<string, string> = {
@@ -410,21 +330,12 @@ export function notifyInteractionLogged(args: InteractionLoggedArgs) {
       username: "BookingBay · CRM",
       embeds: [
         {
-          title: `${emoji} ${args.subject}`,
-          description: args.body ? truncate(args.body, 1900) : undefined,
+          title: `${emoji} Interactie gelogd — ${args.contextLabel}`,
           color: DISCORD_COLORS.neutral,
           url: args.contextUrl,
           fields: [
             { name: "Type", value: args.type, inline: true },
-            { name: "Context", value: args.contextLabel, inline: true },
-            {
-              name: "Door",
-              value: args.actorName
-                ? `${args.actorName} (${args.actorEmail})`
-                : args.actorEmail,
-              inline: true,
-            },
-            { name: "Wanneer", value: args.occurredAt.toISOString(), inline: false },
+            { name: "Wanneer", value: args.occurredAt.toISOString(), inline: true },
           ],
           footer: { text: `interaction-id: ${args.interactionId}` },
           timestamp: new Date().toISOString(),
@@ -498,13 +409,11 @@ export function notifyCrmDailyDigest(args: CrmDailyDigestArgs) {
 interface ReminderDueArgs {
   kind: "org" | "prospect";
   reminderId: string;
-  title: string;
-  notes?: string | null;
   dueAt: Date;
   overdue: boolean;
+  /** Organisatienaam of bedrijfsnaam — geen persoonsnamen. */
   contextLabel: string;
   contextUrl: string;
-  assigneeLabel: string | null;
 }
 
 export function notifyReminderDue(args: ReminderDueArgs) {
@@ -515,26 +424,12 @@ export function notifyReminderDue(args: ReminderDueArgs) {
       username: "BookingBay · CRM",
       embeds: [
         {
-          title: `${emoji} ${titlePrefix}: ${args.title}`,
-          description: truncate(
-            [
-              args.contextLabel,
-              args.notes ? `\n${args.notes}` : "",
-            ].join(""),
-            1900,
-          ),
+          title: `${emoji} ${titlePrefix}: follow-up — ${args.contextLabel}`,
           color: args.overdue ? DISCORD_COLORS.danger : DISCORD_COLORS.warning,
           url: args.contextUrl,
           fields: [
             { name: "Type", value: args.kind === "org" ? "Klant" : "Prospect", inline: true },
-            ...(args.assigneeLabel
-              ? [{ name: "Owner", value: args.assigneeLabel, inline: true }]
-              : []),
-            {
-              name: "Due",
-              value: args.dueAt.toISOString(),
-              inline: false,
-            },
+            { name: "Due", value: args.dueAt.toISOString(), inline: true },
           ],
           footer: { text: `reminder-id: ${args.reminderId}` },
           timestamp: new Date().toISOString(),

@@ -12,7 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = env.APP_URL.replace(/\/$/, "");
   // Vaste datum i.p.v. `new Date()`: de sitemap moet niet bij elke request
   // "zojuist gewijzigd" claimen. Bijwerken wanneer de marketing-content wijzigt.
-  const lastModified = new Date("2026-07-11");
+  const lastModified = new Date("2026-09-16");
 
   const staticPages: {
     path: string;
@@ -27,6 +27,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/privacy", priority: 0.3, changeFrequency: "yearly" },
     { path: "/voorwaarden", priority: 0.3, changeFrequency: "yearly" },
     { path: "/verwerkersovereenkomst", priority: 0.3, changeFrequency: "yearly" },
+    { path: "/toegankelijkheid", priority: 0.2, changeFrequency: "yearly" },
+    { path: "/melding", priority: 0.2, changeFrequency: "yearly" },
   ];
 
   const staticEntries: MetadataRoute.Sitemap = staticPages.map((p) => ({

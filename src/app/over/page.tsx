@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
+import { COMPANY } from "@/lib/company";
 
 export const metadata = {
   title: "Over BookingBay",
@@ -20,11 +21,12 @@ export default function OverPage() {
             Verhuur zonder gedoe — daar zijn wij van.
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-            BookingBay is een Nederlands platform voor verhuurbedrijven. We
-            zagen dat veel ondernemers worstelen met losse Excel-bestanden,
-            onhandige boekingsystemen en website-bouwers die niet voor verhuur
-            zijn ontworpen. Daarom hebben we BookingBay gemaakt: één plek voor
-            je planning, je klanten, en een eigen boekingssite die past bij je
+            BookingBay is een Nederlands platform voor verhuurbedrijven,
+            gemaakt door {COMPANY.legalName} uit {COMPANY.city}. We zagen dat
+            veel ondernemers worstelen met losse Excel-bestanden, onhandige
+            boekingsystemen en website-bouwers die niet voor verhuur zijn
+            ontworpen. Daarom hebben we BookingBay gemaakt: één plek voor je
+            planning, je klanten, en een eigen boekingssite die past bij je
             merk.
           </p>
 
@@ -38,8 +40,8 @@ export default function OverPage() {
               body="Geen jaarcontracten, geen verborgen kosten. Je betaalt vooraf voor de komende maand, en stopt wanneer je wil."
             />
             <Block
-              title="Privacy-first"
-              body="Hosting in Europa (Hetzner, Duitsland), AVG-proof, dagelijkse encrypted back-ups. Jouw data is van jou."
+              title="Privacy als uitgangspunt"
+              body="Hosting in Europa (Hetzner, Duitsland), gebouwd met de AVG als uitgangspunt, dagelijkse back-ups. Jouw data is van jou."
             />
             <Block
               title="Nederlands"

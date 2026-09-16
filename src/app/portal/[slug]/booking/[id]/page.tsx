@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { COMPANY } from "@/lib/company";
 import {
   flatFeeLines,
   sumFlatFees,
@@ -97,8 +98,9 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
   const org = booking.organization;
   // Het portaal is BookingBay-infrastructuur (net als de bevestigingsmail),
   // geen tenant-site — dus altijd het BookingBay-oranje, bewust losgekoppeld
-  // van de accent-kleur van de klantensite.
-  const accent = "#ef5934";
+  // van de accent-kleur van de klantensite. Zelfde tint als in e-mail
+  // (EMAIL_ACCENT): witte tekst haalt hierop WCAG AA.
+  const accent = "#c8431f";
   const now = new Date();
   const isUpcoming =
     booking.startAt > now &&
@@ -341,15 +343,33 @@ export default async function PortalBookingPage({ params, searchParams }: PagePr
           </section>
         )}
 
-        <p className="mt-8 text-center text-[11px] text-muted-foreground">
+        <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground">
           Boeking-id <code className="font-mono">{booking.id.slice(-8)}</code>
           {" · "}Powered by{" "}
           <a
-            href="https://www.bookingbay.nl"
+            href={COMPANY.website}
             className="font-medium hover:text-foreground"
           >
             BookingBay
           </a>
+          {" · "}
+          <a
+            href={`${COMPANY.website}/privacy#eindklanten`}
+            className="hover:text-foreground"
+          >
+            Privacy
+          </a>
+          {" · "}
+          <a
+            href={`${COMPANY.website}/melding?site=${encodeURIComponent(slug)}`}
+            className="hover:text-foreground"
+          >
+            Melding over deze site
+          </a>
+        </p>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          {org.name} is verantwoordelijk voor je boeking en je gegevens;
+          BookingBay verwerkt ze in opdracht van {org.name}.
         </p>
       </div>
     </main>

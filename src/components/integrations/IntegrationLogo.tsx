@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Icon, loadIcon } from "@iconify/react";
 import type { IntegrationDef } from "@/lib/integrations/catalog";
+import { BrandIcon, hasBrandIcon } from "./BrandIcon";
 
 /**
- * Tegel-logo voor catalogus en detail-pagina. Probeert het brand-icoon via
- * Iconify te laden (CDN-fetch op eerste render, daarna cached). Lukt dat
- * niet — omdat Iconify geen logo heeft voor deze vendor of de CDN dicht
- * staat — dan tonen we een nette fallback met de eerste letter van de
- * naam in een gekleurde tegel.
+ * Tegel-logo voor catalogus en detail-pagina. Het brand-icoon komt uit de
+ * lokaal gebundelde icon-data (geen runtime-call naar een Iconify-CDN, dus
+ * geen IP-adres van de bezoeker naar een derde). Ontbreekt het icoon in de
+ * bundel, dan tonen we een nette fallback met de eerste letter van de naam
+ * in een gekleurde tegel.
  *
  * Brand-kleur voor de fallback bepalen we deterministisch uit de slug
  * (zelfde slug → zelfde kleur, scheelt er een mappingtabel bijhouden).
@@ -46,33 +45,7 @@ export function IntegrationLogo({
   integration: IntegrationDef;
   size?: "sm" | "md" | "lg";
 }) {
-  // We tracken welk icoon successvol of failed geladen is — niet een
-  // simpele 'loading'-flag, omdat we anders setState in een effect zouden
-  // moeten doen bij iconifyId-wisselingen. Status wordt afgeleid door de
-  // huidige iconifyId tegen 'loadedId' / 'failedId' te vergelijken.
-  const [loadedId, setLoadedId] = useState<string | null>(null);
-  const [failedId, setFailedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadIcon(integration.iconifyId)
-      .then(() => {
-        if (!cancelled) setLoadedId(integration.iconifyId);
-      })
-      .catch(() => {
-        if (!cancelled) setFailedId(integration.iconifyId);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [integration.iconifyId]);
-
-  const isOk = loadedId === integration.iconifyId;
-  const isFail = failedId === integration.iconifyId;
-  // Tijdens de eerste paar ms (vóór loadIcon resolved) tonen we óók de
-  // fallback ipv een leeg gat. Bij een cache-hit resolved loadIcon op de
-  // volgende tick, dus geen merkbare flicker.
-  const useFallback = !isOk || isFail;
+  const useFallback = !hasBrandIcon(integration.iconifyId);
 
   return (
     <div
@@ -84,6 +57,7 @@ export function IntegrationLogo({
           ? { backgroundColor: brandHue(integration.slug) }
           : undefined
       }
+      role="img"
       aria-label={`${integration.name} logo`}
     >
       {useFallback ? (
@@ -93,8 +67,8 @@ export function IntegrationLogo({
           {brandInitial(integration.name)}
         </span>
       ) : (
-        <Icon
-          icon={integration.iconifyId}
+        <BrandIcon
+          iconifyId={integration.iconifyId}
           className={`${ICON_SIZE[size]} text-zinc-900`}
         />
       )}

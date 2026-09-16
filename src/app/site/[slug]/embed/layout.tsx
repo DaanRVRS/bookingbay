@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "../../../globals.css";
 import { getOrgBySlug } from "@/lib/tenants/queries";
+import { onAccentColor } from "@/lib/widget/contrast";
 import { EmbedHeightReporter } from "@/components/embed/EmbedHeightReporter";
 
 // Zelfde huisletter als de rest van BookingBay. CSS-var-naam blijft
@@ -42,7 +43,11 @@ export default async function EmbedLayout({
   return (
     <div
       className={`${geist.variable} font-sans antialiased`}
-      style={{ ["--tenant-accent" as string]: accent, background: "transparent" }}
+      style={{
+        ["--tenant-accent" as string]: accent,
+        ["--tenant-on-accent" as string]: onAccentColor(accent),
+        background: "transparent",
+      }}
     >
       <EmbedHeightReporter />
       <div className="bg-background">{children}</div>

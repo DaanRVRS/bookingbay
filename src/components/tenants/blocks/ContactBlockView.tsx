@@ -4,10 +4,14 @@ import { ContactForm } from "@/components/tenants/ContactForm";
 export function ContactBlockView({
   block,
   organizationId,
+  orgName,
+  privacyUrl,
   accent,
 }: {
   block: ContactBlock;
   organizationId: string;
+  orgName: string;
+  privacyUrl: string | null;
   accent: string;
 }) {
   return (
@@ -28,7 +32,12 @@ export function ContactBlockView({
           </div>
         )}
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-          <ContactForm organizationId={organizationId} accent={accent} />
+          <ContactForm
+            organizationId={organizationId}
+            accent={accent}
+            orgName={orgName}
+            privacyUrl={privacyUrl}
+          />
         </div>
       </div>
     </section>

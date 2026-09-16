@@ -33,6 +33,69 @@ export const TWOFA_LIMIT: RateLimitConfig = {
   lockoutMs: 10 * 60_000,
 };
 
+/** Publieke formulieren (boeking, lead, melding) — per IP-adres. */
+export const PUBLIC_FORM_IP_LIMIT: RateLimitConfig = {
+  max: 12,
+  windowMs: 10 * 60_000,
+  lockoutMs: 10 * 60_000,
+};
+
+/** Publieke formulieren — per opgegeven e-mailadres (strenger). */
+export const PUBLIC_FORM_EMAIL_LIMIT: RateLimitConfig = {
+  max: 5,
+  windowMs: 10 * 60_000,
+  lockoutMs: 15 * 60_000,
+};
+
+/**
+ * Client-IP achter Caddy: eerste waarde van X-Forwarded-For, anders
+ * X-Real-IP, anders "unknown" (dan delen alle onbekende bronnen één bucket).
+ */
+export function clientIpFromHeaders(headers: Headers): string {
+  const xff = headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first.slice(0, 64);
+  }
+  const real = headers.get("x-real-ip")?.trim();
+  return real ? real.slice(0, 64) : "unknown";
+}
+
+/**
+ * Telt élke aanroep (niet alleen mislukkingen) — voor publieke endpoints
+ * waar een geslaagde POST net zo goed misbruikt kan worden. Boven `max`
+ * binnen het venster gaat de sleutel `lockoutMs` op slot.
+ */
+export async function consumeRateLimit(
+  key: string,
+  cfg: RateLimitConfig,
+): Promise<{ limited: boolean; retryAfterSec: number }> {
+  const now = Date.now();
+  const row = await db.loginThrottle.upsert({
+    where: { key },
+    create: { key, count: 0, windowStart: new Date(now) },
+    update: {},
+  });
+  if (row.lockedUntil && row.lockedUntil.getTime() > now) {
+    return {
+      limited: true,
+      retryAfterSec: Math.ceil((row.lockedUntil.getTime() - now) / 1000),
+    };
+  }
+  const windowExpired = now - row.windowStart.getTime() > cfg.windowMs;
+  const count = windowExpired ? 1 : row.count + 1;
+  const windowStart = windowExpired ? new Date(now) : row.windowStart;
+  const lockedUntil = count > cfg.max ? new Date(now + cfg.lockoutMs) : null;
+  await db.loginThrottle.update({
+    where: { key },
+    data: { count, windowStart, lockedUntil },
+  });
+  if (lockedUntil) {
+    return { limited: true, retryAfterSec: Math.ceil(cfg.lockoutMs / 1000) };
+  }
+  return { limited: false, retryAfterSec: 0 };
+}
+
 /** Is deze sleutel momenteel op slot? */
 export async function checkRateLimit(
   key: string,

@@ -1,3 +1,5 @@
+import { onAccentColor } from "./contrast";
+
 /**
  * Vrij instelbaar kleur-thema voor de boek-widget. Elk token mapt op een
  * CSS-variabele; door die op de widget-wrapper te zetten herthema-en
@@ -91,6 +93,18 @@ export function themeStyle(theme: WidgetTheme): Record<string, string> {
     const c = theme[tk.key];
     if (c) s[tk.cssVar] = c;
   }
+  return s;
+}
+
+/**
+ * themeStyle() + automatische knoptekstkleur: heeft de tenant geen eigen
+ * "Knoptekst"-kleur gekozen, dan zetten we --bb-on-accent op wit of donker
+ * afhankelijk van het contrast met de accentkleur (WCAG AA, 4,5:1). Zo
+ * blijft "Boeken" leesbaar op lichte accenten zoals het standaard-koraal.
+ */
+export function widgetStyle(theme: WidgetTheme, accent: string): Record<string, string> {
+  const s = themeStyle(theme);
+  if (!theme.buttonText) s["--bb-on-accent"] = onAccentColor(accent);
   return s;
 }
 

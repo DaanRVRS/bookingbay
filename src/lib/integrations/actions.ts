@@ -15,6 +15,7 @@ import { getIntegration } from "./catalog";
 import { isGoogleConfigured, revokeToken } from "./google-calendar";
 import { unsealConfig } from "./crypto";
 import { syncSubscriptionAmount } from "@/lib/billing/subscription";
+import { COMPANY } from "@/lib/company";
 
 /**
  * Per-koppeling slug → wat doet 'Activeer' op de detail-pagina?
@@ -28,7 +29,7 @@ function activationKind(slug: string): "oauth-redirect" | "ticket" {
   return "ticket";
 }
 
-const SUPPORT_NOTIFY_EMAIL = "hallo@bookingbay.nl";
+const SUPPORT_NOTIFY_EMAIL = COMPANY.email;
 
 const slugSchema = z.object({
   slug: z.string().min(1).max(120),
@@ -166,13 +167,9 @@ export async function registerInterestAction(
 
   await notifyNewSupportTicket({
     ticketId: result.ticketId,
-    subject: `Interesse in koppeling: ${def.name}`,
-    body: parsed.data.note ?? `(Geen extra toelichting — interesse in ${def.name}.)`,
     category: "feature",
     priority: "LOW",
     orgName: ctx.organization.name,
-    authorName: ctx.user.name,
-    authorEmail: ctx.user.email,
   });
 
   await sendEmail({
@@ -334,13 +331,9 @@ export async function requestActivationAction(
 
   await notifyNewSupportTicket({
     ticketId: result.ticketId,
-    subject: `Activatie-verzoek: ${def.name}`,
-    body: parsed.data.note ?? `Klant wil ${def.name} activeren.`,
     category: "general",
     priority: "NORMAL",
     orgName: ctx.organization.name,
-    authorName: ctx.user.name,
-    authorEmail: ctx.user.email,
   });
 
   await sendEmail({

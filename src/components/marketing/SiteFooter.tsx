@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { StatusIndicator } from "./StatusIndicator";
+import { COMPANY, companyAddressLine, companyPhoneHref } from "@/lib/company";
 
 const cols = [
   {
@@ -18,6 +20,7 @@ const cols = [
       { href: "/over", label: "Over ons" },
       { href: "/blog", label: "Blog" },
       { href: "/contact", label: "Contact" },
+      { href: "/melding", label: "Melding over inhoud" },
     ],
   },
   {
@@ -26,6 +29,7 @@ const cols = [
       { href: "/voorwaarden", label: "Algemene voorwaarden" },
       { href: "/privacy", label: "Privacy" },
       { href: "/verwerkersovereenkomst", label: "Verwerkersovereenkomst" },
+      { href: "/toegankelijkheid", label: "Toegankelijkheid" },
     ],
   },
 ];
@@ -41,7 +45,22 @@ export function SiteFooter() {
               Verhuur-administratie zonder gedoe. Eén plek voor je planning, klanten en eigen
               boekingssite.
             </p>
-            <p className="mt-6 text-xs text-muted-foreground">
+            <address className="mt-6 text-xs not-italic leading-relaxed text-muted-foreground">
+              {COMPANY.brand} is een dienst van {COMPANY.legalName}
+              <br />
+              {companyAddressLine()}
+              <br />
+              KvK {COMPANY.kvk} · btw {COMPANY.vat}
+              <br />
+              <a href={`mailto:${COMPANY.email}`} className="hover:text-foreground">
+                {COMPANY.email}
+              </a>{" "}
+              ·{" "}
+              <a href={companyPhoneHref()} className="hover:text-foreground">
+                {COMPANY.phone}
+              </a>
+            </address>
+            <p className="mt-4 text-xs text-muted-foreground">
               Gemaakt in Nederland · Hosting in Europa
             </p>
           </div>
@@ -65,13 +84,14 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
-          <p>© {new Date().getFullYear()} BookingBay. Alle rechten voorbehouden.</p>
+          <p>
+            © {new Date().getFullYear()} {COMPANY.legalName}. Alle rechten voorbehouden.
+          </p>
           <div className="flex items-center gap-4">
             <Link href="/api/health" className="hover:text-foreground">
               Status
             </Link>
-            <span className="size-1.5 rounded-full bg-[oklch(0.7_0.13_150)]" aria-hidden />
-            <span>Alle systemen operationeel</span>
+            <StatusIndicator />
           </div>
         </div>
       </div>

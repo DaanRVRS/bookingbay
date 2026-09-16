@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { sendEmail, emailLayout } from "@/lib/email";
 import { env } from "@/lib/env";
+import { COMPANY } from "@/lib/company";
 
-const SUPPORT_INBOX = "hallo@bookingbay.nl";
+const SUPPORT_INBOX = COMPANY.email;
 
 const schema = z.object({
   name: z.string().min(2, "Naam is te kort").max(120),

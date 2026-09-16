@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getOrgBySlug, getTenantCatalog, getTenantAddons } from "@/lib/tenants/queries";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 import { resolveWidgetDesign } from "@/lib/widget/design";
-import { themeStyle } from "@/lib/widget/theme";
+import { widgetStyle } from "@/lib/widget/theme";
+import { widgetLegalFromOrg } from "@/lib/widget/legal";
+import { COMPANY } from "@/lib/company";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -107,7 +109,7 @@ export default async function BookPage({ params, searchParams }: PageProps) {
   return (
     <main
       className="relative min-h-dvh"
-      style={themeStyle(design.theme) as CSSProperties}
+      style={widgetStyle(design.theme, accent) as CSSProperties}
     >
       {/* Accent achtergrond — gradient bovenin */}
       <div
@@ -141,16 +143,24 @@ export default async function BookPage({ params, searchParams }: PageProps) {
             tagline={design.tagline}
             defaultLocale={design.defaultLocale}
             initialItemId={sp.item ?? null}
+            legal={widgetLegalFromOrg(org)}
           />
         </div>
 
         <p className="mt-6 text-center text-[11px] text-muted-foreground">
           Powered by{" "}
           <a
-            href="https://www.bookingbay.nl"
+            href={COMPANY.website}
             className="font-medium hover:text-foreground"
           >
             BookingBay
+          </a>
+          {" · "}
+          <a
+            href={`${COMPANY.website}/melding?site=${encodeURIComponent(slug)}`}
+            className="hover:text-foreground"
+          >
+            Melding over deze site
           </a>
         </p>
       </div>

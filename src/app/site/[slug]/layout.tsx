@@ -14,6 +14,8 @@ import { getTenantBasePath, tenantHref } from "@/lib/tenants/base-path";
 import { safeParseSiteTheme, type SiteFontKey } from "@/lib/orgs/site-schemas";
 import { getNavPages } from "@/lib/pages/queries";
 import { planLimits } from "@/lib/plans";
+import { onAccentColor } from "@/lib/widget/contrast";
+import { COMPANY } from "@/lib/company";
 import { TenantMobileNav } from "@/components/tenants/TenantMobileNav";
 
 // Alle kiesbare site-lettertypes. Ze zetten allemaal dezelfde CSS-var
@@ -90,11 +92,20 @@ export default async function TenantLayout({
   const navPages = await getNavPages(org.id);
   const base = await getTenantBasePath(slug);
 
+  // Tekstkleur op accent-knoppen: wit of donker, afhankelijk van het
+  // contrast (WCAG AA) — blokken lezen --tenant-on-accent.
+  const onAccent = onAccentColor(accent);
+  const legalPrivacyUrl = /^https?:\/\//i.test(org.privacyUrl ?? "") ? org.privacyUrl : null;
+  const legalTermsUrl = /^https?:\/\//i.test(org.termsUrl ?? "") ? org.termsUrl : null;
+  const reportUrl = `${COMPANY.website}/melding?site=${encodeURIComponent(slug)}`;
+  const footerLinkStyle = theme.footerText ? { color: theme.footerText } : undefined;
+
   return (
     <div
       className={`${siteFont.variable} flex min-h-svh flex-col font-sans antialiased`}
       style={{
         ["--tenant-accent" as string]: accent,
+        ["--tenant-on-accent" as string]: onAccent,
         ...(theme.pageBg ? { background: theme.pageBg } : {}),
       }}
     >
@@ -115,8 +126,8 @@ export default async function TenantLayout({
               <img src={org.logoUrl} alt={org.name} className="h-9 w-auto" />
             ) : (
               <span
-                className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold text-white shadow-sm"
-                style={{ background: accent }}
+                className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold shadow-sm"
+                style={{ background: accent, color: onAccent }}
               >
                 {org.name.slice(0, 1).toUpperCase()}
               </span>
@@ -273,7 +284,48 @@ export default async function TenantLayout({
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col items-start justify-between gap-2 border-t border-border/60 pt-4 text-xs sm:flex-row sm:items-center">
+          {/* Juridisch: eigen voorwaarden/privacy van de verhuurder (of de
+              standaardtekst), en het DSA-meldpunt van het platform. */}
+          <div className="mt-8 border-t border-border/60 pt-4 text-xs">
+            <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              {legalTermsUrl && (
+                <li>
+                  <a
+                    href={legalTermsUrl}
+                    className="hover:underline"
+                    style={footerLinkStyle}
+                  >
+                    Voorwaarden
+                  </a>
+                </li>
+              )}
+              <li>
+                <a
+                  href={legalPrivacyUrl ?? `${COMPANY.website}/privacy#eindklanten`}
+                  className="hover:underline"
+                  style={footerLinkStyle}
+                >
+                  {legalPrivacyUrl ? "Privacyverklaring" : "Privacy"}
+                </a>
+              </li>
+              <li>
+                <a href={reportUrl} className="hover:underline" style={footerLinkStyle}>
+                  Melding over deze site
+                </a>
+              </li>
+            </ul>
+            {!legalPrivacyUrl && (
+              <p className="mt-2 max-w-2xl leading-relaxed opacity-80">
+                {org.name} is verantwoordelijk voor de gegevens die je op deze
+                site achterlaat (boekingen, contactaanvragen). BookingBay
+                verwerkt ze in opdracht van {org.name}. Neem voor vragen over
+                je gegevens contact op met {org.name}
+                {org.contactEmail ? ` via ${org.contactEmail}` : ""}.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-col items-start justify-between gap-2 text-xs sm:flex-row sm:items-center">
             <p>
               © {new Date().getFullYear()} {org.name}
             </p>
@@ -281,9 +333,9 @@ export default async function TenantLayout({
               <p>
                 Powered by{" "}
                 <a
-                  href={`http://${process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "") ?? "bookingbay.nl"}`}
+                  href={COMPANY.website}
                   className="text-foreground hover:underline"
-                  style={theme.footerText ? { color: theme.footerText } : undefined}
+                  style={footerLinkStyle}
                 >
                   BookingBay
                 </a>

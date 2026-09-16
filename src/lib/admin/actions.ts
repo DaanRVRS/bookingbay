@@ -341,8 +341,31 @@ export async function startImpersonationAction(targetUserId: string): Promise<Ac
     resourceId: target.id,
     metadata: { targetEmail: target.email },
   });
+  // Ook in de audit-log van elke organisatie van de gebruiker, zodat de
+  // klant zelf kan zien dat een beheerder heeft meegekeken (DPA §8).
+  await auditForUserOrgs(target.id, me.id, "admin.impersonate.start");
 
   return { ok: true };
+}
+
+async function auditForUserOrgs(
+  targetUserId: string,
+  actorUserId: string,
+  action: "admin.impersonate.start" | "admin.impersonate.stop",
+) {
+  const memberships = await db.membership.findMany({
+    where: { userId: targetUserId },
+    select: { organizationId: true },
+  });
+  for (const m of memberships) {
+    await audit({
+      organizationId: m.organizationId,
+      actorUserId,
+      action,
+      resource: "user",
+      resourceId: targetUserId,
+    });
+  }
 }
 
 export async function stopImpersonationAction(): Promise<ActionResult> {
@@ -360,6 +383,7 @@ export async function stopImpersonationAction(): Promise<ActionResult> {
         resource: "user",
         resourceId: targetUserId,
       });
+      await auditForUserOrgs(targetUserId, realUserId, "admin.impersonate.stop");
     }
   }
 

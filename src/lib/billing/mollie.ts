@@ -124,10 +124,34 @@ export interface MolliePayment {
   mandateId?: string;
   subscriptionId?: string;
   description?: string;
+  /** Betaalmethode zoals Mollie 'm rapporteert (ideal, creditcard, directdebit, …). */
+  method?: string | null;
+  createdAt?: string;
+  paidAt?: string;
   metadata?: Record<string, string>;
   sequenceType?: "oneoff" | "first" | "recurring";
   _links?: {
     checkout?: { href: string };
+  };
+}
+
+/**
+ * Beperkte snapshot voor PaymentEvent.payload: alleen wat we voor
+ * diagnostiek en de factuur nodig hebben — geen consumentgegevens (naam,
+ * IBAN-fragment, adres) die Mollie in de volledige payload meestuurt.
+ */
+export function paymentEventSnapshot(p: MolliePayment): Record<string, unknown> {
+  return {
+    id: p.id,
+    status: p.status,
+    amount: p.amount,
+    method: p.method ?? null,
+    sequenceType: p.sequenceType ?? null,
+    subscriptionId: p.subscriptionId ?? null,
+    mandateId: p.mandateId ?? null,
+    createdAt: p.createdAt ?? null,
+    paidAt: p.paidAt ?? null,
+    kind: p.metadata?.kind ?? null,
   };
 }
 

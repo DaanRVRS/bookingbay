@@ -8,11 +8,16 @@ export const publicBookingSchema = z
     endAt: z.string().min(1, "Vul een einddatum in"),
     customerName: z.string().min(2, "Naam te kort").max(120),
     customerEmail: z.email("Ongeldig e-mailadres"),
+    // Of het telefoonnummer verplicht is bepaalt de verhuurder
+    // (Organization.widgetPhoneRequired); de server dwingt dat af in
+    // createPublicBooking. Hier alleen vorm/lengte.
     customerPhone: z
       .string()
       .trim()
-      .min(5, "Telefoonnummer is verplicht")
-      .max(40, "Telefoonnummer te lang"),
+      .max(40, "Telefoonnummer te lang")
+      .refine((v) => v === "" || v.length >= 5, "Telefoonnummer te kort")
+      .optional()
+      .or(z.literal("")),
     notes: z.string().max(2000).optional().or(z.literal("")),
     // Hoe de klant wil betalen. "online" = direct via tenant's Mollie/Stripe;
     // alles anders (incl. afwezig) = "location" → bij ophalen, booking PENDING.
@@ -28,6 +33,13 @@ export const publicBookingSchema = z
         }),
       )
       .optional(),
+    // Juridische vinkjes uit de widget. Verplicht wanneer de verhuurder
+    // voorwaarden (termsUrl) resp. het leeftijdsvinkje heeft ingesteld —
+    // server-side afgedwongen. reviewRequestOptIn = niet vooraf aangevinkt
+    // vinkje "Stuur mij na afloop een reviewverzoek".
+    acceptTerms: z.boolean().optional(),
+    ageConfirmed: z.boolean().optional(),
+    reviewRequestOptIn: z.boolean().optional(),
   })
   .refine(
     (d) => {

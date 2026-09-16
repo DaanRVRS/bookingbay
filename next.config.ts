@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+// Eigen domeinen (marketingsite, dashboard, tenant-subdomeinen). Hierop
+// mag HSTS mét includeSubDomains; op custom-domeinen van klanten sturen we
+// HSTS zónder includeSubDomains, zodat we niet ongevraagd de overige
+// subdomeinen van een klant naar HTTPS dwingen.
+const OWN_HOST_PATTERN = "(.*\\.)?bookingbay\\.(nl|eu)";
+
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+];
+
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
@@ -23,6 +34,43 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // ── Beveiligingsheaders op alles ─────────────────────────────────
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: OWN_HOST_PATTERN }],
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+        ],
+      },
+      {
+        source: "/:path*",
+        missing: [{ type: "host", value: OWN_HOST_PATTERN }],
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
+      },
+      // Clickjacking: alles DENY, behalve wat legitiem in een iframe moet:
+      //  - /book/*                → boekpagina (widget-link / dashboard-preview)
+      //  - /embed/*               → embed op de tenant-host (rewrite → /site/…/embed)
+      //  - /site/<slug>/embed/*   → embed via het pad-alias
+      //  - /site/<slug>[/…]       → klantsite-preview in het dashboard (SAMEORIGIN)
+      // Config-headers matchen op het oorspronkelijke pad (vóór de host-
+      // rewrite in proxy.ts), vandaar zowel /embed/* als /site/*/embed/*.
+      {
+        source: "/((?!book(?:/|$)|embed(?:/|$)|site(?:/|$)).*)",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
+        source: "/site/((?!.*embed(?:/|$)).*)",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
       {
         // De embed-loader mag NOOIT lang gecachet worden: anders blijven
         // externe sites maandenlang oude widget-code draaien na een deploy.

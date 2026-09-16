@@ -5,8 +5,9 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireUser, requireAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit/log";
-import { sendEmail, emailLayout, btn } from "@/lib/email";
+import { sendEmail, emailLayout, btn, escapeHtml, EMAIL_ACCENT } from "@/lib/email";
 import { env } from "@/lib/env";
+import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/mail-unsubscribe";
 import type { ActionResult } from "@/lib/auth/schemas";
 
 /**
@@ -110,6 +111,9 @@ const broadcastSchema = z.object({
   ctaUrl: z.string().max(400).default(""),
   ctaLabel: z.string().max(60).default(""),
   sendEmail: z.boolean().default(true),
+  // false = servicemededeling (alle gebruikers, e-mail afmeldbaar).
+  // true  = marketing (alleen gebruikers met marketingOptIn).
+  marketing: z.boolean().default(false),
 });
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
@@ -121,28 +125,46 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
   return out;
 }
 
+/**
+ * Broadcast naar gebruikers. Standaard een servicemededeling: iedereen met
+ * een organisatie krijgt een dashboard-notificatie; de e-mail gaat alleen
+ * naar wie zich niet voor broadcast-mails heeft afgemeld. Met `marketing`
+ * aan gaat het bericht uitsluitend naar gebruikers die in hun profiel
+ * hebben gekozen voor productnieuws (opt-in, Tw art. 11.7). Elke mail
+ * heeft een afmeldlink én List-Unsubscribe-headers.
+ */
 export async function broadcastNotificationAction(input: {
   title: string;
   body: string;
   ctaUrl?: string;
   ctaLabel?: string;
   sendEmail?: boolean;
+  marketing?: boolean;
 }): Promise<ActionResult<{ recipients: number; emailsAttempted: number }>> {
   const me = await requireAdmin();
   const parsed = broadcastSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Ongeldige invoer", fieldErrors: fieldErrors(parsed.error) };
   }
+  const marketing = parsed.data.marketing;
 
   // Recipients = every user with at least one membership (i.e. an actual
-  // BookingBay customer, not an orphan account).
+  // BookingBay customer, not an orphan account). Marketing: alleen opt-in.
   const recipients = await db.user.findMany({
-    where: { memberships: { some: {} } },
-    select: { id: true, email: true, name: true },
+    where: {
+      memberships: { some: {} },
+      ...(marketing ? { marketingOptIn: true } : {}),
+    },
+    select: { id: true, email: true, name: true, broadcastEmailOptOutAt: true },
   });
 
   if (recipients.length === 0) {
-    return { ok: false, error: "Geen gebruikers om naar te sturen" };
+    return {
+      ok: false,
+      error: marketing
+        ? "Geen gebruikers met opt-in voor marketing"
+        : "Geen gebruikers om naar te sturen",
+    };
   }
 
   // Fan out: one Notification row per recipient. Done in chunks to stay
@@ -162,32 +184,54 @@ export async function broadcastNotificationAction(input: {
 
   let emailsAttempted = 0;
   if (parsed.data.sendEmail) {
-    emailsAttempted = recipients.length;
+    // Servicemails: respecteer de afmelding voor broadcast-e-mail.
+    const mailTo = marketing
+      ? recipients
+      : recipients.filter((r) => !r.broadcastEmailOptOutAt);
+    emailsAttempted = mailTo.length;
+    const safeTitle = escapeHtml(parsed.data.title);
+    const safeBody = escapeHtml(parsed.data.body);
     const ctaBlock =
       parsed.data.ctaUrl && parsed.data.ctaLabel
-        ? `<p style="margin:24px 0">${btn(parsed.data.ctaUrl, parsed.data.ctaLabel)}</p>`
+        ? `<p style="margin:24px 0">${btn(parsed.data.ctaUrl, escapeHtml(parsed.data.ctaLabel))}</p>`
         : "";
+    const kind = marketing ? "marketing" : "broadcast";
     // Best-effort: fire all emails in parallel, swallow individual errors.
     await Promise.all(
-      recipients.map((r) =>
-        sendEmail({
+      mailTo.map((r) => {
+        const unsub = unsubscribeUrl(kind, r.id);
+        return sendEmail({
           to: r.email,
           subject: parsed.data.title,
-          html: emailLayout(`
-            <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">${parsed.data.title}</h1>
-            <div style="margin:0 0 16px 0;white-space:pre-line">${parsed.data.body}</div>
+          headers: unsubscribeHeaders(kind, r.id),
+          html: emailLayout(
+            `
+            <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">${safeTitle}</h1>
+            <div style="margin:0 0 16px 0;white-space:pre-line">${safeBody}</div>
             ${ctaBlock}
             <p style="margin:24px 0 0 0;font-size:12px;color:#6b7280">
-              Je krijgt deze e-mail als BookingBay-gebruiker. Bekijk al je
-              berichten in
-              <a href="${env.APP_URL}/dashboard/notifications" style="color:#ef5934">
+              ${
+                marketing
+                  ? "Je krijgt deze e-mail omdat je in je profiel hebt gekozen voor productnieuws van BookingBay."
+                  : "Je krijgt deze e-mail als BookingBay-gebruiker."
+              }
+              Bekijk al je berichten in
+              <a href="${env.APP_URL}/dashboard/notifications" style="color:${EMAIL_ACCENT}">
                 je dashboard
               </a>.
             </p>
-          `),
-          text: `${parsed.data.title}\n\n${parsed.data.body}${parsed.data.ctaUrl ? "\n\n" + parsed.data.ctaUrl : ""}`,
-        }),
-      ),
+          `,
+            {
+              footerNote: `<a href="${unsub}" style="color:#6b7280">${
+                marketing
+                  ? "Afmelden voor productnieuws"
+                  : "Afmelden voor deze e-mails (berichten blijven zichtbaar in je dashboard)"
+              }</a>`,
+            },
+          ),
+          text: `${parsed.data.title}\n\n${parsed.data.body}${parsed.data.ctaUrl ? "\n\n" + parsed.data.ctaUrl : ""}\n\nAfmelden: ${unsub}`,
+        });
+      }),
     );
   }
 
@@ -199,6 +243,7 @@ export async function broadcastNotificationAction(input: {
       title: parsed.data.title,
       recipients: recipients.length,
       emailsAttempted,
+      marketing,
     },
   });
 

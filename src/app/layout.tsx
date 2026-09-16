@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { SkipLink } from "@/components/a11y/SkipLink";
 import "./globals.css";
 
 // Plus Jakarta Sans — meer karakter dan het neutrale Geist, zonder in te
@@ -26,6 +27,10 @@ export const metadata: Metadata = {
     "Het boekingsplatform voor botenverhuur, sup, kano, e-bikes en recreatie. Laat klanten online reserveren via je eigen site — met planning, borg en facturatie, zonder commissie aan platforms.",
 };
 
+// Plausible staat bewust NIET hier in de root-layout: die zou dan ook op
+// klantsites, /book, het klantportaal en de embed-iframes laden. Het script
+// zit in <PlausibleScript /> en wordt alleen door de marketing-header, de
+// inlog-layout, het dashboard en de admin gerenderd.
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,20 +38,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <head>
-        <script
-          defer
-          data-domain="bookingbay.nl"
-          src="https://stats.fourwrd.nl/js/script.file-downloads.outbound-links.tagged-events.js"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }",
-          }}
-        />
-      </head>
       <body className="flex min-h-full flex-col">
+        <SkipLink />
         {children}
         <Toaster richColors closeButton position="top-right" />
       </body>

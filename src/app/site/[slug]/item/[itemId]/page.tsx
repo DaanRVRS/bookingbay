@@ -72,7 +72,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
 
           <Link
             href={tenantHref(base, `/embed/book?item=${item.id}`)}
-            className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:w-auto"
+            className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-lg px-6 font-medium text-(--tenant-on-accent) shadow-sm transition-opacity hover:opacity-90 sm:w-auto"
             style={{ background: accent }}
           >
             Reserveer

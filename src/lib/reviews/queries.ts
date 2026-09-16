@@ -10,7 +10,20 @@ export type ReviewRecord = {
   rating: number;
   isPublished: boolean;
   sortOrder: number;
+  /** Datum van ontvangen toestemming (null bij reviews van vóór de vastlegging). */
+  consentReceivedAt: Date | null;
 };
+
+const REVIEW_SELECT = {
+  id: true,
+  quote: true,
+  author: true,
+  role: true,
+  rating: true,
+  isPublished: true,
+  sortOrder: true,
+  consentReceivedAt: true,
+} as const;
 
 export async function listReviewsForOrg(
   organizationId: string,
@@ -18,15 +31,7 @@ export async function listReviewsForOrg(
   const rows = await db.review.findMany({
     where: { organizationId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      quote: true,
-      author: true,
-      role: true,
-      rating: true,
-      isPublished: true,
-      sortOrder: true,
-    },
+    select: REVIEW_SELECT,
   });
   return rows;
 }
@@ -36,15 +41,7 @@ export const getPublishedReviews = cache(
     const rows = await db.review.findMany({
       where: { organizationId, isPublished: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        quote: true,
-        author: true,
-        role: true,
-        rating: true,
-        isPublished: true,
-        sortOrder: true,
-      },
+      select: REVIEW_SELECT,
     });
     return rows;
   },
@@ -57,15 +54,7 @@ export async function getReviewsByIds(
   if (ids.length === 0) return [];
   const rows = await db.review.findMany({
     where: { organizationId, id: { in: ids }, isPublished: true },
-    select: {
-      id: true,
-      quote: true,
-      author: true,
-      role: true,
-      rating: true,
-      isPublished: true,
-      sortOrder: true,
-    },
+    select: REVIEW_SELECT,
   });
   // Preserve the order requested by the caller.
   const byId = new Map(rows.map((r) => [r.id, r]));

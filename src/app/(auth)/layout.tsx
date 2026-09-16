@@ -1,9 +1,11 @@
 import { Logo } from "@/components/marketing/Logo";
 import Link from "next/link";
+import { PlausibleScript } from "@/components/analytics/PlausibleScript";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-svh flex-col">
+      <PlausibleScript />
       <div
         aria-hidden
         className="bg-grid bg-radial-fade pointer-events-none absolute inset-0 -z-10 opacity-40"

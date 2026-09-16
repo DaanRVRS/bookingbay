@@ -77,6 +77,10 @@ export async function createPublicBooking(
       suspendedAt: true,
       businessHours: true,
       customerPortalEnabled: true,
+      termsUrl: true,
+      widgetPhoneRequired: true,
+      widgetAgeCheckEnabled: true,
+      reviewRequestEnabled: true,
     },
   });
   if (!org) return { ok: false, error: "Organisatie niet gevonden" };
@@ -86,6 +90,32 @@ export async function createPublicBooking(
       error: "Deze verhuurder accepteert momenteel geen online boekingen.",
     };
   }
+
+  // Juridische eisen van de verhuurder — de widget toont ze, hier dwingen we
+  // ze af zodat een directe API-call er niet omheen kan.
+  const phoneTrimmed = data.customerPhone?.trim() ?? "";
+  if (org.widgetPhoneRequired && phoneTrimmed.length < 5) {
+    return {
+      ok: false,
+      error: "Telefoonnummer is verplicht (nodig voor de ophaalafspraak).",
+      fieldErrors: { customerPhone: "Telefoonnummer is verplicht" },
+    };
+  }
+  if (org.termsUrl && !data.acceptTerms) {
+    return {
+      ok: false,
+      error: "Ga akkoord met de voorwaarden van de verhuurder om te kunnen boeken.",
+      fieldErrors: { acceptTerms: "Akkoord met de voorwaarden is verplicht" },
+    };
+  }
+  if (org.widgetAgeCheckEnabled && !data.ageConfirmed) {
+    return {
+      ok: false,
+      error: "Je moet 18 jaar of ouder zijn om te boeken.",
+      fieldErrors: { ageConfirmed: "Bevestig dat je 18 jaar of ouder bent" },
+    };
+  }
+  const reviewRequestOptIn = Boolean(data.reviewRequestOptIn) && org.reviewRequestEnabled;
 
   // isAddon: false — extra's zijn nooit zelfstandig boekbaar, ook niet via
   // een directe API-call met het add-on-itemId.
@@ -192,7 +222,7 @@ export async function createPublicBooking(
   }
 
   const emailLower = data.customerEmail.trim().toLowerCase();
-  const phone = data.customerPhone?.trim() || null;
+  const phone = phoneTrimmed || null;
 
   let customer = await db.customer.findFirst({
     where: { organizationId: org.id, email: emailLower },
@@ -207,6 +237,12 @@ export async function createPublicBooking(
         phone,
       },
       select: { id: true },
+    });
+  } else if (reviewRequestOptIn) {
+    // Een nieuwe, expliciete opt-in heft een eerdere afmelding op.
+    await db.customer.update({
+      where: { id: customer.id },
+      data: { reviewRequestOptOutAt: null },
     });
   }
 
@@ -325,6 +361,7 @@ export async function createPublicBooking(
                 : undefined,
             feeSnapshot: makeFeeSnapshot(item) as unknown as Prisma.InputJsonValue,
             portalToken,
+            reviewRequestOptIn,
           },
           select: { id: true },
         });
@@ -358,6 +395,11 @@ export async function createPublicBooking(
       customerId: customer.id,
       startAt: startAt.toISOString(),
       endAt: endAt.toISOString(),
+      // Bewijs van de akkoorden (AVG art. 7 lid 1 / art. 6:230v BW).
+      acceptedTerms: Boolean(org.termsUrl && data.acceptTerms),
+      termsUrl: org.termsUrl ?? null,
+      ageConfirmed: Boolean(org.widgetAgeCheckEnabled && data.ageConfirmed),
+      reviewRequestOptIn,
     },
   });
 

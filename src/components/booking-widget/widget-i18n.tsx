@@ -50,7 +50,12 @@ export function WidgetI18nProvider({
 
   return (
     <WidgetI18nContext.Provider value={value}>
-      {children}
+      {/* lang-attribuut volgt de gekozen taal, zodat schermlezers en
+          vertaalfuncties de widget in de juiste taal behandelen (de host-
+          pagina staat op lang="nl"). display:contents = geen layout-effect. */}
+      <div lang={locale} className="contents">
+        {children}
+      </div>
     </WidgetI18nContext.Provider>
   );
 }
@@ -61,6 +66,33 @@ export function useWidgetI18n(): Ctx {
     throw new Error("useWidgetI18n must be used within WidgetI18nProvider");
   }
   return ctx;
+}
+
+/**
+ * Vervangt {placeholders} in een vertaalde string door React-nodes (bv.
+ * links). Placeholders zonder waarde blijven letterlijk staan.
+ */
+export function renderTemplate(
+  template: string,
+  vars: Record<string, ReactNode>,
+): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /\{(\w+)\}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(template)) !== null) {
+    if (m.index > last) out.push(template.slice(last, m.index));
+    const key = m[1];
+    if (key in vars) {
+      out.push(<span key={`${key}-${i++}`}>{vars[key]}</span>);
+    } else {
+      out.push(m[0]);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < template.length) out.push(template.slice(last));
+  return out;
 }
 
 /**

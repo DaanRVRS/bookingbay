@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { sendEmail, emailLayout } from "@/lib/email";
+import { sendEmail, emailLayout, EMAIL_ACCENT } from "@/lib/email";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { leadSchema, type LeadInput } from "./schemas";
 import { isEmailBlocked } from "./blocklist";
@@ -75,13 +75,11 @@ export async function submitLead(input: LeadInput): Promise<ActionResult> {
     metadata: { name: parsed.data.name, email: parsed.data.email.toLowerCase() },
   });
 
+  // Discord krijgt bewust géén naam/e-mail/bericht (geen subverwerker).
   await notifyNewLead({
     leadId: lead.id,
+    orgId: org.id,
     orgName: org.name,
-    orgSlug: org.slug,
-    customerName: parsed.data.name,
-    customerEmail: parsed.data.email.toLowerCase(),
-    message: parsed.data.message,
     itemName: itemRef?.name ?? null,
   });
 
@@ -134,7 +132,7 @@ export async function submitLead(input: LeadInput): Promise<ActionResult> {
         <p style="margin:0 0 8px 0">Iemand stuurde een aanvraag via je BookingBay-site.</p>
         <p style="margin:0 0 16px 0">
           <strong>${escape(parsed.data.name)}</strong><br>
-          <a href="mailto:${escape(parsed.data.email)}" style="color:#ef5934">${escape(parsed.data.email)}</a>
+          <a href="mailto:${escape(parsed.data.email)}" style="color:${EMAIL_ACCENT}">${escape(parsed.data.email)}</a>
         </p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px 0">
           ${detailRows.join("")}

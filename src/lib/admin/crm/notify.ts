@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { sendEmail, emailLayout, btn } from "@/lib/email";
+import { sendEmail, emailLayout, btn, EMAIL_ACCENT } from "@/lib/email";
 import { env } from "@/lib/env";
 import { audit } from "@/lib/audit/log";
 import {
@@ -94,16 +94,14 @@ export async function runCrmNotifications(
       resourceId: r.id,
       metadata: { recipients: recipients.length, overdue },
     });
+    // Discord: alleen organisatienaam en id — geen titel/notities.
     await notifyReminderDue({
       kind: "org",
       reminderId: r.id,
-      title: r.title,
-      notes: r.notes,
       dueAt: r.dueAt,
       overdue,
       contextLabel: `Klant · ${r.organization.name}`,
       contextUrl: ctaUrl,
-      assigneeLabel: null,
     });
   }
 
@@ -147,16 +145,14 @@ export async function runCrmNotifications(
       resourceId: r.id,
       metadata: { recipients: recipients.length, overdue },
     });
+    // Discord: alleen bedrijfsnaam (of id) — geen persoonsnaam/notities.
     await notifyReminderDue({
       kind: "prospect",
       reminderId: r.id,
-      title: r.title,
-      notes: r.notes,
       dueAt: r.dueAt,
       overdue,
-      contextLabel: `Prospect · ${contextLabel}`,
+      contextLabel: `Prospect · ${r.prospect.companyName?.trim() || `prospect ${r.prospectId.slice(-6)}`}`,
       contextUrl: ctaUrl,
-      assigneeLabel: null,
     });
   }
 
@@ -332,7 +328,7 @@ function renderSummaryEmail(rows: SummaryRow[], now: Date): string {
               ${overdue ? "🔴 " : ""}${escapeHtml(r.title)}
             </div>
             <div style="font-size:12px;color:#6b7280;margin-top:2px">
-              <a href="${r.url}" style="color:#ef5934;text-decoration:none">${escapeHtml(r.contextLabel)}</a>
+              <a href="${r.url}" style="color:${EMAIL_ACCENT};text-decoration:none">${escapeHtml(r.contextLabel)}</a>
               · ${escapeHtml(dateLabel)} · ${escapeHtml(r.assigneeLabel)}
             </div>
           </td>

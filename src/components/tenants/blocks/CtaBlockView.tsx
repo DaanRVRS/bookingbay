@@ -20,8 +20,8 @@ export function CtaBlockView({ block, accent }: { block: CtaBlock; accent: strin
           {block.buttonText && block.buttonHref && (
             <Link
               href={block.buttonHref}
-              className="mt-2 inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-              style={{ background: accent }}
+              className="mt-2 inline-flex h-12 items-center justify-center rounded-lg px-6 font-medium shadow-sm transition-opacity hover:opacity-90"
+              style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
             >
               {block.buttonText}
             </Link>

@@ -1,6 +1,7 @@
-import { Mail, MessageCircle, Phone } from "lucide-react";
+import { Building2, Mail, MessageCircle, Phone } from "lucide-react";
 import { SiteHeader } from "@/components/marketing/SiteHeader";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
+import { COMPANY, companyAddressLine, companyPhoneHref } from "@/lib/company";
 import { MarketingContactForm } from "./contact-form";
 
 export const metadata = {
@@ -8,9 +9,6 @@ export const metadata = {
   description:
     "Vragen, demo aanvragen, of even sparren? Stuur ons een bericht of bel.",
 };
-
-const SUPPORT_EMAIL = "hallo@bookingbay.nl";
-const SUPPORT_PHONE = "+31 6 12 34 56 78";
 
 interface PageProps {
   searchParams: Promise<{ topic?: string }>;
@@ -49,14 +47,15 @@ export default async function ContactPage({ searchParams }: PageProps) {
               <ContactMethod
                 icon={Mail}
                 label="E-mail"
-                value={SUPPORT_EMAIL}
-                href={`mailto:${SUPPORT_EMAIL}`}
+                value={COMPANY.email}
+                href={`mailto:${COMPANY.email}`}
+                hint="Ook voor privacyverzoeken, meldingen over inhoud en beveiligingsmeldingen."
               />
               <ContactMethod
                 icon={Phone}
                 label="Telefoon"
-                value={SUPPORT_PHONE}
-                href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+                value={COMPANY.phone}
+                href={companyPhoneHref()}
                 hint="Op werkdagen 9:00 – 17:00"
               />
               <ContactMethod
@@ -66,6 +65,25 @@ export default async function ContactPage({ searchParams }: PageProps) {
                 href="/dashboard/support"
                 hint="Bestaande klant? Log in en open direct een support-ticket — we reageren binnen één werkdag."
               />
+              <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                    <Building2 className="size-4" />
+                  </span>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Bedrijfsgegevens
+                  </p>
+                </div>
+                <address className="text-sm not-italic leading-relaxed">
+                  <span className="font-semibold">{COMPANY.legalName}</span>
+                  <br />
+                  {companyAddressLine()}
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    KvK {COMPANY.kvk} · btw {COMPANY.vat}
+                  </span>
+                </address>
+              </div>
             </aside>
           </div>
         </div>

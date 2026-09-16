@@ -28,6 +28,8 @@ interface InitialReview {
   role: string | null;
   rating: number;
   isPublished: boolean;
+  /** yyyy-mm-dd of null (reviews van vóór de verplichte vastlegging). */
+  consentReceivedAt: string | null;
 }
 
 /**
@@ -59,6 +61,10 @@ export function ReviewDialog({
     (initial?.rating as 0 | 1 | 2 | 3 | 4 | 5) ?? 5,
   );
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? true);
+  const [consentReceivedAt, setConsentReceivedAt] = useState(
+    initial?.consentReceivedAt ?? "",
+  );
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   // Reset fields when opening (esp. for "new" use after a successful create)
   useEffect(() => {
@@ -68,11 +74,14 @@ export function ReviewDialog({
       setRole(initial?.role ?? "");
       setRating((initial?.rating as 0 | 1 | 2 | 3 | 4 | 5) ?? 5);
       setIsPublished(initial?.isPublished ?? true);
+      setConsentReceivedAt(initial?.consentReceivedAt ?? "");
+      setConsentError(null);
     }
   }, [open, initial]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setConsentError(null);
     startTransition(async () => {
       const res = initial
         ? await updateReviewAction({
@@ -82,9 +91,20 @@ export function ReviewDialog({
             role,
             rating,
             isPublished,
+            consentReceivedAt,
           })
-        : await createReviewAction({ quote, author, role, rating, isPublished });
+        : await createReviewAction({
+            quote,
+            author,
+            role,
+            rating,
+            isPublished,
+            consentReceivedAt,
+          });
       if (!res.ok) {
+        if (res.fieldErrors?.consentReceivedAt) {
+          setConsentError(res.fieldErrors.consentReceivedAt);
+        }
         toast.error(res.error);
         return;
       }
@@ -168,6 +188,31 @@ export function ReviewDialog({
                 </button>
               </div>
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="rev-consent">Toestemming ontvangen op</Label>
+              <Input
+                id="rev-consent"
+                type="date"
+                value={consentReceivedAt}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => {
+                  setConsentReceivedAt(e.target.value);
+                  if (consentError) setConsentError(null);
+                }}
+                aria-invalid={consentError ? "true" : undefined}
+                required
+              />
+              {consentError ? (
+                <p className="text-xs font-medium text-destructive">{consentError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Verplicht: de datum waarop {author.trim() || "de klant"} je
+                  toestemming gaf om dit citaat met naam te tonen (bijv. per
+                  e-mail of via de reviewlink). Toon alleen echte reviews van
+                  echte klanten.
+                </p>
+              )}
+            </div>
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-background p-3 hover:bg-accent">
               <input
                 type="checkbox"
@@ -187,7 +232,10 @@ export function ReviewDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuleren
             </Button>
-            <Button type="submit" disabled={pending || !quote || !author}>
+            <Button
+              type="submit"
+              disabled={pending || !quote || !author || !consentReceivedAt}
+            >
               {pending ? "Opslaan…" : initial ? "Bijwerken" : "Toevoegen"}
             </Button>
           </DialogFooter>

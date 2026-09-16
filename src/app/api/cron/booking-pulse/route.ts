@@ -3,8 +3,9 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { timingSafeEqualStr } from "@/lib/security/timing-safe";
 import { notifyOrgMembers } from "@/lib/notifications/send";
-import { sendEmail, emailLayout, escapeHtml } from "@/lib/email";
+import { sendEmail, emailLayout, escapeHtml, btn } from "@/lib/email";
 import { audit } from "@/lib/audit/log";
+import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/mail-unsubscribe";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { nl } from "date-fns/locale";
 
@@ -241,12 +242,10 @@ async function runKlantEmailReminder() {
     // de portal-feature hebben dat niet).
     const portalBlock =
       b.organization.customerPortalEnabled && b.portalToken
-        ? `<p style="margin:24px 0">
-            <a href="${env.APP_URL.replace(/\/$/, "")}/portal/${b.organization.slug}/booking/${b.id}?token=${encodeURIComponent(b.portalToken)}"
-               style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
-              Bekijk mijn boeking
-            </a>
-          </p>`
+        ? `<p style="margin:24px 0">${btn(
+            `${env.APP_URL.replace(/\/$/, "")}/portal/${b.organization.slug}/booking/${b.id}?token=${encodeURIComponent(b.portalToken)}`,
+            "Bekijk mijn boeking",
+          )}</p>`
         : "";
 
     const result = await sendEmail({
@@ -261,6 +260,9 @@ async function runKlantEmailReminder() {
         <p style="margin:0 0 8px 0"><strong>Wanneer:</strong> ${start} — tot ${end}</p>
         ${portalBlock}
         ${contact ? `<p style="margin:16px 0 0 0">${contact}</p>` : ""}
+        <p style="margin:16px 0 0 0;color:#6b7280;font-size:13px">
+          Deze herinnering sturen wij namens ${safeOrg}.
+        </p>
       `),
       text: `Herinnering ${b.customer.name}! Je hebt ${b.item.name} geboekt bij ${b.organization.name} ${when} (${start} tot ${end}).`,
     });
@@ -295,11 +297,15 @@ async function runReviewRequests() {
   // die intussen voltooid raakte.
   const windowStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
+  // Alleen boekingen waarbij de klant in de widget het (niet vooraf
+  // aangevinkte) reviewverzoek-vinkje heeft aangezet én zich daarna niet
+  // via de afmeldlink heeft afgemeld (Tw 11.7 / AVG art. 21).
   const eligible = await db.booking.findMany({
     where: {
       completedAt: { gte: windowStart, lte: now },
       reviewRequestedAt: null,
-      customer: { email: { not: null } },
+      reviewRequestOptIn: true,
+      customer: { email: { not: null }, reviewRequestOptOutAt: null },
       organization: {
         reviewRequestEnabled: true,
         reviewRequestUrl: { not: null },
@@ -309,7 +315,7 @@ async function runReviewRequests() {
       id: true,
       organizationId: true,
       completedAt: true,
-      customer: { select: { name: true, email: true } },
+      customer: { select: { id: true, name: true, email: true } },
       item: { select: { name: true } },
       organization: {
         select: {
@@ -334,24 +340,36 @@ async function runReviewRequests() {
       continue;
     }
 
+    const safeName = escapeHtml(b.customer.name);
+    const safeItem = escapeHtml(b.item.name);
+    const safeOrg = escapeHtml(b.organization.name);
+    const reviewUrl = b.organization.reviewRequestUrl;
+    const unsub = unsubscribeUrl("review", b.customer.id);
+
     const result = await sendEmail({
       to: b.customer.email,
       subject: `Hoe was het bij ${b.organization.name}?`,
-      html: emailLayout(`
-        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Hoi ${b.customer.name},</h1>
+      headers: unsubscribeHeaders("review", b.customer.id),
+      html: emailLayout(
+        `
+        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Hoi ${safeName},</h1>
         <p style="margin:0 0 12px 0">
-          Bedankt dat je <strong>${b.item.name}</strong> bij
-          <strong>${b.organization.name}</strong> hebt gehuurd. We zijn benieuwd
+          Bedankt dat je <strong>${safeItem}</strong> bij
+          <strong>${safeOrg}</strong> hebt gehuurd. ${safeOrg} is benieuwd
           hoe het was.
         </p>
         <p style="margin:0 0 24px 0">Heb je 30 seconden? Laat een review achter:</p>
-        <p style="margin:24px 0">
-          <a href="${b.organization.reviewRequestUrl}" style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
-            Laat een review achter
-          </a>
+        <p style="margin:24px 0">${btn(escapeHtml(reviewUrl), "Laat een review achter")}</p>
+        <p style="margin:16px 0 0 0;color:#6b7280;font-size:13px">
+          Je krijgt dit verzoek omdat je bij het boeken hebt aangegeven een
+          reviewverzoek te willen ontvangen. Wij sturen het namens ${safeOrg}.
         </p>
-      `),
-      text: `Hoi ${b.customer.name}, bedankt voor je boeking van ${b.item.name} bij ${b.organization.name}. Laat een review achter: ${b.organization.reviewRequestUrl}`,
+      `,
+        {
+          footerNote: `<a href="${unsub}" style="color:#6b7280">Geen reviewverzoeken meer ontvangen</a>`,
+        },
+      ),
+      text: `Hoi ${b.customer.name}, bedankt voor je boeking van ${b.item.name} bij ${b.organization.name}. Laat een review achter: ${reviewUrl}\n\nGeen reviewverzoeken meer ontvangen: ${unsub}`,
     });
 
     if (result.ok) {

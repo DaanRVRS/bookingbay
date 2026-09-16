@@ -40,6 +40,8 @@ export default async function ContactPage({ params }: PageProps) {
     <PageRenderer
       blocks={custom.blocks}
       organizationId={org.id}
+      orgName={org.name}
+      privacyUrl={org.privacyUrl}
       accent={accent}
       contactBasePath={base}
       tenantSlug={slug}

@@ -141,7 +141,22 @@ export type TKey =
   | "when.pickDate"
   | "when.pickTime"
   | "err.connection"
-  | "err.generic";
+  | "err.generic"
+  // Juridisch: consentregel, voorwaarden-checkbox, leeftijd, review-opt-in.
+  | "consent.both"
+  | "consent.termsOnly"
+  | "consent.privacyOnly"
+  | "consent.none"
+  | "consent.processor"
+  | "consent.termsLabel"
+  | "consent.privacyLabel"
+  | "consent.checkbox"
+  | "consent.required"
+  | "age.checkbox"
+  | "age.required"
+  | "review.optIn"
+  | "field.phoneOptional"
+  | "field.phoneHint";
 
 type Dict = Record<TKey, string>;
 
@@ -181,11 +196,12 @@ const NL: Dict = {
   "review.estPrice": "Totaal",
   "review.payMethod": "Betaalwijze",
   "review.busy": "Bezig...",
-  "review.continuePay": "Doorgaan naar betalen",
-  "review.confirm": "Boeking bevestigen",
+  "review.continuePay": "Betalen en boeken",
+  "review.confirm": "Boeken met betaalverplichting",
   "review.redirectNote":
     "Je wordt doorgestuurd naar de beveiligde betaalpagina.",
-  "review.locationNote": "Geen geld nu afgeschreven. {org} bevestigt per e-mail.",
+  "review.locationNote":
+    "Je betaalt bij het ophalen. Er wordt nu niets afgeschreven; {org} bevestigt per e-mail.",
   "review.selectedItem": "Geselecteerd item",
   "when.until": "t/m",
   "form.noItems": "Geen items beschikbaar om te boeken.",
@@ -225,6 +241,21 @@ const NL: Dict = {
   "when.pickTime": "Kies een start- en eindtijd.",
   "err.connection": "Verbinding mislukt. Probeer 't opnieuw.",
   "err.generic": "Er ging iets mis",
+  "consent.both": "Door te boeken ga je akkoord met de {terms} en de {privacy} van {org}.",
+  "consent.termsOnly": "Door te boeken ga je akkoord met de {terms} van {org}.",
+  "consent.privacyOnly":
+    "Door te boeken ga je een overeenkomst aan met {org}. Lees de {privacy} van {org}.",
+  "consent.none": "Door te boeken ga je een overeenkomst aan met {org}.",
+  "consent.processor": "{bb} verwerkt je gegevens in opdracht van {org}.",
+  "consent.termsLabel": "voorwaarden",
+  "consent.privacyLabel": "privacyverklaring",
+  "consent.checkbox": "Ik heb de {terms} van {org} gelezen en ga ermee akkoord.",
+  "consent.required": "Ga akkoord met de voorwaarden om te kunnen boeken.",
+  "age.checkbox": "Ik ben 18 jaar of ouder.",
+  "age.required": "Je moet 18 jaar of ouder zijn om te boeken.",
+  "review.optIn": "Stuur mij na afloop een e-mail met een verzoek om een review te schrijven.",
+  "field.phoneOptional": "Telefoon (optioneel)",
+  "field.phoneHint": "Nodig voor de ophaalafspraak.",
 };
 
 const EN: Dict = {
@@ -263,10 +294,11 @@ const EN: Dict = {
   "review.estPrice": "Total",
   "review.payMethod": "Payment",
   "review.busy": "Working...",
-  "review.continuePay": "Continue to payment",
-  "review.confirm": "Confirm booking",
+  "review.continuePay": "Pay and book",
+  "review.confirm": "Book with obligation to pay",
   "review.redirectNote": "You'll be redirected to the secure payment page.",
-  "review.locationNote": "No money taken now. {org} confirms by email.",
+  "review.locationNote":
+    "You pay on pickup. Nothing is charged now; {org} confirms by email.",
   "review.selectedItem": "Selected item",
   "when.until": "–",
   "form.noItems": "No items available to book.",
@@ -306,6 +338,21 @@ const EN: Dict = {
   "when.pickTime": "Choose a start and end time.",
   "err.connection": "Connection failed. Please try again.",
   "err.generic": "Something went wrong",
+  "consent.both": "By booking you agree to the {terms} and the {privacy} of {org}.",
+  "consent.termsOnly": "By booking you agree to the {terms} of {org}.",
+  "consent.privacyOnly":
+    "By booking you enter into an agreement with {org}. Read the {privacy} of {org}.",
+  "consent.none": "By booking you enter into an agreement with {org}.",
+  "consent.processor": "{bb} processes your data on behalf of {org}.",
+  "consent.termsLabel": "terms and conditions",
+  "consent.privacyLabel": "privacy statement",
+  "consent.checkbox": "I have read the {terms} of {org} and agree to them.",
+  "consent.required": "Please accept the terms to book.",
+  "age.checkbox": "I am 18 years or older.",
+  "age.required": "You must be 18 or older to book.",
+  "review.optIn": "Email me afterwards with a request to write a review.",
+  "field.phoneOptional": "Phone (optional)",
+  "field.phoneHint": "Needed to arrange pickup.",
 };
 
 const FR: Dict = {
@@ -344,10 +391,11 @@ const FR: Dict = {
   "review.estPrice": "Total",
   "review.payMethod": "Paiement",
   "review.busy": "En cours...",
-  "review.continuePay": "Continuer vers le paiement",
-  "review.confirm": "Confirmer la réservation",
+  "review.continuePay": "Payer et réserver",
+  "review.confirm": "Réserver avec obligation de paiement",
   "review.redirectNote": "Vous serez redirigé vers la page de paiement sécurisée.",
-  "review.locationNote": "Aucun montant prélevé. {org} confirme par e-mail.",
+  "review.locationNote":
+    "Vous payez au retrait. Rien n'est prélevé maintenant ; {org} confirme par e-mail.",
   "review.selectedItem": "Article sélectionné",
   "when.until": "au",
   "form.noItems": "Aucun article disponible à la réservation.",
@@ -387,6 +435,21 @@ const FR: Dict = {
   "when.pickTime": "Choisissez une heure de début et de fin.",
   "err.connection": "Échec de la connexion. Réessayez.",
   "err.generic": "Une erreur s'est produite",
+  "consent.both": "En réservant, vous acceptez les {terms} et la {privacy} de {org}.",
+  "consent.termsOnly": "En réservant, vous acceptez les {terms} de {org}.",
+  "consent.privacyOnly":
+    "En réservant, vous concluez un contrat avec {org}. Consultez la {privacy} de {org}.",
+  "consent.none": "En réservant, vous concluez un contrat avec {org}.",
+  "consent.processor": "{bb} traite vos données pour le compte de {org}.",
+  "consent.termsLabel": "conditions générales",
+  "consent.privacyLabel": "politique de confidentialité",
+  "consent.checkbox": "J'ai lu les {terms} de {org} et je les accepte.",
+  "consent.required": "Acceptez les conditions pour pouvoir réserver.",
+  "age.checkbox": "J'ai 18 ans ou plus.",
+  "age.required": "Vous devez avoir 18 ans ou plus pour réserver.",
+  "review.optIn": "M'envoyer ensuite un e-mail me demandant de rédiger un avis.",
+  "field.phoneOptional": "Téléphone (facultatif)",
+  "field.phoneHint": "Nécessaire pour organiser le retrait.",
 };
 
 const DE: Dict = {
@@ -425,11 +488,12 @@ const DE: Dict = {
   "review.estPrice": "Gesamt",
   "review.payMethod": "Zahlung",
   "review.busy": "Wird bearbeitet...",
-  "review.continuePay": "Weiter zur Zahlung",
-  "review.confirm": "Buchung bestätigen",
+  "review.continuePay": "Bezahlen und buchen",
+  "review.confirm": "Zahlungspflichtig buchen",
   "review.redirectNote":
     "Sie werden zur sicheren Zahlungsseite weitergeleitet.",
-  "review.locationNote": "Es wird nichts abgebucht. {org} bestätigt per E-Mail.",
+  "review.locationNote":
+    "Sie zahlen bei Abholung. Jetzt wird nichts abgebucht; {org} bestätigt per E-Mail.",
   "review.selectedItem": "Ausgewählter Artikel",
   "when.until": "bis",
   "form.noItems": "Keine Artikel zum Buchen verfügbar.",
@@ -469,6 +533,21 @@ const DE: Dict = {
   "when.pickTime": "Wählen Sie eine Start- und Endzeit.",
   "err.connection": "Verbindung fehlgeschlagen. Bitte erneut versuchen.",
   "err.generic": "Etwas ist schiefgelaufen",
+  "consent.both": "Mit der Buchung akzeptieren Sie die {terms} und die {privacy} von {org}.",
+  "consent.termsOnly": "Mit der Buchung akzeptieren Sie die {terms} von {org}.",
+  "consent.privacyOnly":
+    "Mit der Buchung schließen Sie einen Vertrag mit {org}. Lesen Sie die {privacy} von {org}.",
+  "consent.none": "Mit der Buchung schließen Sie einen Vertrag mit {org}.",
+  "consent.processor": "{bb} verarbeitet Ihre Daten im Auftrag von {org}.",
+  "consent.termsLabel": "AGB",
+  "consent.privacyLabel": "Datenschutzerklärung",
+  "consent.checkbox": "Ich habe die {terms} von {org} gelesen und akzeptiere sie.",
+  "consent.required": "Bitte akzeptieren Sie die AGB, um zu buchen.",
+  "age.checkbox": "Ich bin 18 Jahre oder älter.",
+  "age.required": "Sie müssen mindestens 18 Jahre alt sein, um zu buchen.",
+  "review.optIn": "Senden Sie mir anschließend eine E-Mail mit der Bitte um eine Bewertung.",
+  "field.phoneOptional": "Telefon (optional)",
+  "field.phoneHint": "Erforderlich für die Abholabsprache.",
 };
 
 const ES: Dict = {
@@ -507,10 +586,11 @@ const ES: Dict = {
   "review.estPrice": "Total",
   "review.payMethod": "Pago",
   "review.busy": "Procesando...",
-  "review.continuePay": "Continuar al pago",
-  "review.confirm": "Confirmar reserva",
+  "review.continuePay": "Pagar y reservar",
+  "review.confirm": "Reservar con obligación de pago",
   "review.redirectNote": "Serás redirigido a la página de pago segura.",
-  "review.locationNote": "No se cobra nada ahora. {org} confirma por correo.",
+  "review.locationNote":
+    "Pagas al recoger. Ahora no se cobra nada; {org} confirma por correo.",
   "review.selectedItem": "Artículo seleccionado",
   "when.until": "al",
   "form.noItems": "No hay artículos disponibles para reservar.",
@@ -550,6 +630,21 @@ const ES: Dict = {
   "when.pickTime": "Elige una hora de inicio y fin.",
   "err.connection": "Error de conexión. Inténtalo de nuevo.",
   "err.generic": "Algo salió mal",
+  "consent.both": "Al reservar aceptas las {terms} y la {privacy} de {org}.",
+  "consent.termsOnly": "Al reservar aceptas las {terms} de {org}.",
+  "consent.privacyOnly":
+    "Al reservar celebras un contrato con {org}. Consulta la {privacy} de {org}.",
+  "consent.none": "Al reservar celebras un contrato con {org}.",
+  "consent.processor": "{bb} trata tus datos por encargo de {org}.",
+  "consent.termsLabel": "condiciones generales",
+  "consent.privacyLabel": "política de privacidad",
+  "consent.checkbox": "He leído las {terms} de {org} y las acepto.",
+  "consent.required": "Acepta las condiciones para poder reservar.",
+  "age.checkbox": "Tengo 18 años o más.",
+  "age.required": "Debes tener 18 años o más para reservar.",
+  "review.optIn": "Envíame después un correo pidiéndome que escriba una reseña.",
+  "field.phoneOptional": "Teléfono (opcional)",
+  "field.phoneHint": "Necesario para concertar la recogida.",
 };
 
 const IT: Dict = {
@@ -588,10 +683,11 @@ const IT: Dict = {
   "review.estPrice": "Totale",
   "review.payMethod": "Pagamento",
   "review.busy": "In corso...",
-  "review.continuePay": "Continua al pagamento",
-  "review.confirm": "Conferma prenotazione",
+  "review.continuePay": "Paga e prenota",
+  "review.confirm": "Prenota con obbligo di pagamento",
   "review.redirectNote": "Verrai reindirizzato alla pagina di pagamento sicura.",
-  "review.locationNote": "Nessun addebito ora. {org} conferma via e-mail.",
+  "review.locationNote":
+    "Paghi al ritiro. Ora non viene addebitato nulla; {org} conferma via e-mail.",
   "review.selectedItem": "Articolo selezionato",
   "when.until": "al",
   "form.noItems": "Nessun articolo disponibile da prenotare.",
@@ -631,6 +727,21 @@ const IT: Dict = {
   "when.pickTime": "Scegli un'ora di inizio e fine.",
   "err.connection": "Connessione non riuscita. Riprova.",
   "err.generic": "Qualcosa è andato storto",
+  "consent.both": "Prenotando accetti le {terms} e l'{privacy} di {org}.",
+  "consent.termsOnly": "Prenotando accetti le {terms} di {org}.",
+  "consent.privacyOnly":
+    "Prenotando concludi un contratto con {org}. Leggi l'{privacy} di {org}.",
+  "consent.none": "Prenotando concludi un contratto con {org}.",
+  "consent.processor": "{bb} tratta i tuoi dati per conto di {org}.",
+  "consent.termsLabel": "condizioni generali",
+  "consent.privacyLabel": "informativa sulla privacy",
+  "consent.checkbox": "Ho letto le {terms} di {org} e le accetto.",
+  "consent.required": "Accetta le condizioni per poter prenotare.",
+  "age.checkbox": "Ho 18 anni o più.",
+  "age.required": "Devi avere almeno 18 anni per prenotare.",
+  "review.optIn": "Inviami dopo un'e-mail con la richiesta di scrivere una recensione.",
+  "field.phoneOptional": "Telefono (facoltativo)",
+  "field.phoneHint": "Necessario per concordare il ritiro.",
 };
 
 const RU: Dict = {
@@ -669,10 +780,11 @@ const RU: Dict = {
   "review.estPrice": "Итого",
   "review.payMethod": "Оплата",
   "review.busy": "Обработка...",
-  "review.continuePay": "Перейти к оплате",
-  "review.confirm": "Подтвердить бронь",
+  "review.continuePay": "Оплатить и забронировать",
+  "review.confirm": "Забронировать с обязательством оплаты",
   "review.redirectNote": "Вы будете перенаправлены на защищённую страницу оплаты.",
-  "review.locationNote": "Сейчас ничего не списывается. {org} подтвердит по e-mail.",
+  "review.locationNote":
+    "Оплата при получении. Сейчас ничего не списывается; {org} подтвердит по e-mail.",
   "review.selectedItem": "Выбранный товар",
   "when.until": "—",
   "form.noItems": "Нет товаров для бронирования.",
@@ -712,6 +824,21 @@ const RU: Dict = {
   "when.pickTime": "Выберите время начала и окончания.",
   "err.connection": "Сбой соединения. Попробуйте снова.",
   "err.generic": "Что-то пошло не так",
+  "consent.both": "Оформляя бронирование, вы принимаете {terms} и {privacy} {org}.",
+  "consent.termsOnly": "Оформляя бронирование, вы принимаете {terms} {org}.",
+  "consent.privacyOnly":
+    "Оформляя бронирование, вы заключаете договор с {org}. Прочитайте {privacy} {org}.",
+  "consent.none": "Оформляя бронирование, вы заключаете договор с {org}.",
+  "consent.processor": "{bb} обрабатывает ваши данные по поручению {org}.",
+  "consent.termsLabel": "условия",
+  "consent.privacyLabel": "политику конфиденциальности",
+  "consent.checkbox": "Я прочитал(а) {terms} {org} и принимаю их.",
+  "consent.required": "Чтобы забронировать, примите условия.",
+  "age.checkbox": "Мне 18 лет или больше.",
+  "age.required": "Для бронирования вам должно быть не менее 18 лет.",
+  "review.optIn": "Отправить мне после поездки письмо с просьбой оставить отзыв.",
+  "field.phoneOptional": "Телефон (необязательно)",
+  "field.phoneHint": "Нужен для согласования выдачи.",
 };
 
 const UK: Dict = {
@@ -750,10 +877,11 @@ const UK: Dict = {
   "review.estPrice": "Разом",
   "review.payMethod": "Оплата",
   "review.busy": "Обробка...",
-  "review.continuePay": "Перейти до оплати",
-  "review.confirm": "Підтвердити бронь",
+  "review.continuePay": "Оплатити та забронювати",
+  "review.confirm": "Забронювати із зобов'язанням оплати",
   "review.redirectNote": "Вас буде перенаправлено на захищену сторінку оплати.",
-  "review.locationNote": "Зараз нічого не списується. {org} підтвердить поштою.",
+  "review.locationNote":
+    "Оплата при отриманні. Зараз нічого не списується; {org} підтвердить поштою.",
   "review.selectedItem": "Обраний товар",
   "when.until": "—",
   "form.noItems": "Немає товарів для бронювання.",
@@ -793,6 +921,21 @@ const UK: Dict = {
   "when.pickTime": "Оберіть час початку та завершення.",
   "err.connection": "Помилка з'єднання. Спробуйте ще раз.",
   "err.generic": "Щось пішло не так",
+  "consent.both": "Бронюючи, ви приймаєте {terms} та {privacy} {org}.",
+  "consent.termsOnly": "Бронюючи, ви приймаєте {terms} {org}.",
+  "consent.privacyOnly":
+    "Бронюючи, ви укладаєте договір з {org}. Прочитайте {privacy} {org}.",
+  "consent.none": "Бронюючи, ви укладаєте договір з {org}.",
+  "consent.processor": "{bb} обробляє ваші дані за дорученням {org}.",
+  "consent.termsLabel": "умови",
+  "consent.privacyLabel": "політику конфіденційності",
+  "consent.checkbox": "Я прочитав(ла) {terms} {org} і приймаю їх.",
+  "consent.required": "Щоб забронювати, прийміть умови.",
+  "age.checkbox": "Мені 18 років або більше.",
+  "age.required": "Для бронювання вам має бути щонайменше 18 років.",
+  "review.optIn": "Надіслати мені після поїздки лист із проханням залишити відгук.",
+  "field.phoneOptional": "Телефон (необов'язково)",
+  "field.phoneHint": "Потрібен для узгодження видачі.",
 };
 
 const PL: Dict = {
@@ -831,10 +974,11 @@ const PL: Dict = {
   "review.estPrice": "Razem",
   "review.payMethod": "Płatność",
   "review.busy": "Przetwarzanie...",
-  "review.continuePay": "Przejdź do płatności",
-  "review.confirm": "Potwierdź rezerwację",
+  "review.continuePay": "Zapłać i zarezerwuj",
+  "review.confirm": "Rezerwuję z obowiązkiem zapłaty",
   "review.redirectNote": "Zostaniesz przekierowany na bezpieczną stronę płatności.",
-  "review.locationNote": "Nic teraz nie pobieramy. {org} potwierdzi e-mailem.",
+  "review.locationNote":
+    "Płacisz przy odbiorze. Teraz nic nie pobieramy; {org} potwierdzi e-mailem.",
   "review.selectedItem": "Wybrana pozycja",
   "when.until": "—",
   "form.noItems": "Brak pozycji do zarezerwowania.",
@@ -874,6 +1018,21 @@ const PL: Dict = {
   "when.pickTime": "Wybierz godzinę rozpoczęcia i zakończenia.",
   "err.connection": "Błąd połączenia. Spróbuj ponownie.",
   "err.generic": "Coś poszło nie tak",
+  "consent.both": "Rezerwując, akceptujesz {terms} i {privacy} {org}.",
+  "consent.termsOnly": "Rezerwując, akceptujesz {terms} {org}.",
+  "consent.privacyOnly":
+    "Rezerwując, zawierasz umowę z {org}. Przeczytaj {privacy} {org}.",
+  "consent.none": "Rezerwując, zawierasz umowę z {org}.",
+  "consent.processor": "{bb} przetwarza Twoje dane na zlecenie {org}.",
+  "consent.termsLabel": "regulamin",
+  "consent.privacyLabel": "politykę prywatności",
+  "consent.checkbox": "Przeczytałem/am {terms} {org} i akceptuję go.",
+  "consent.required": "Zaakceptuj regulamin, aby móc zarezerwować.",
+  "age.checkbox": "Mam 18 lat lub więcej.",
+  "age.required": "Aby zarezerwować, musisz mieć co najmniej 18 lat.",
+  "review.optIn": "Wyślij mi później e-mail z prośbą o napisanie opinii.",
+  "field.phoneOptional": "Telefon (opcjonalnie)",
+  "field.phoneHint": "Potrzebny do umówienia odbioru.",
 };
 
 const TR: Dict = {
@@ -912,10 +1071,11 @@ const TR: Dict = {
   "review.estPrice": "Toplam",
   "review.payMethod": "Ödeme",
   "review.busy": "İşleniyor...",
-  "review.continuePay": "Ödemeye devam et",
-  "review.confirm": "Rezervasyonu onayla",
+  "review.continuePay": "Öde ve rezervasyon yap",
+  "review.confirm": "Ödeme yükümlülüğüyle rezervasyon yap",
   "review.redirectNote": "Güvenli ödeme sayfasına yönlendirileceksiniz.",
-  "review.locationNote": "Şimdi tahsilat yok. {org} e-posta ile onaylar.",
+  "review.locationNote":
+    "Teslim alırken ödersiniz. Şimdi tahsilat yapılmaz; {org} e-posta ile onaylar.",
   "review.selectedItem": "Seçilen ürün",
   "when.until": "—",
   "form.noItems": "Rezerve edilecek ürün yok.",
@@ -955,6 +1115,23 @@ const TR: Dict = {
   "when.pickTime": "Başlangıç ve bitiş saatini seçin.",
   "err.connection": "Bağlantı başarısız. Tekrar deneyin.",
   "err.generic": "Bir şeyler ters gitti",
+  "consent.both":
+    "Rezervasyon yaparak {org} tarafından belirlenen {terms} ve {privacy} kabul etmiş olursunuz.",
+  "consent.termsOnly":
+    "Rezervasyon yaparak {org} tarafından belirlenen {terms} kabul etmiş olursunuz.",
+  "consent.privacyOnly":
+    "Rezervasyon yaparak {org} ile bir sözleşme yaparsınız. {org} tarafından yayımlanan {privacy} okuyun.",
+  "consent.none": "Rezervasyon yaparak {org} ile bir sözleşme yaparsınız.",
+  "consent.processor": "{bb}, verilerinizi {org} adına işler.",
+  "consent.termsLabel": "koşulları",
+  "consent.privacyLabel": "gizlilik bildirimini",
+  "consent.checkbox": "{org} tarafından belirlenen {terms} okudum ve kabul ediyorum.",
+  "consent.required": "Rezervasyon yapabilmek için koşulları kabul edin.",
+  "age.checkbox": "18 yaşında veya daha büyüğüm.",
+  "age.required": "Rezervasyon için 18 yaşında veya daha büyük olmalısınız.",
+  "review.optIn": "Sonrasında bana değerlendirme yazmam için bir e-posta gönderin.",
+  "field.phoneOptional": "Telefon (isteğe bağlı)",
+  "field.phoneHint": "Teslim alma randevusu için gerekli.",
 };
 
 const DICTS: Record<WidgetLocale, Dict> = {

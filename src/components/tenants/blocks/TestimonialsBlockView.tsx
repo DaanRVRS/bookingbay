@@ -11,10 +11,13 @@ export interface TestimonialItem {
 export function TestimonialsBlockView({
   block,
   accent,
+  orgName,
   resolvedItems,
 }: {
   block: TestimonialsBlock;
   accent: string;
+  /** Naam van de verhuurder — voor de verplichte onderregel. */
+  orgName: string;
   /**
    * Pre-resolved items. Server components fetch reviews from the DB based
    * on the block's source/limit/reviewIds and pass them in here. When
@@ -100,6 +103,12 @@ export function TestimonialsBlockView({
             </figure>
           ))}
         </div>
+        {/* Herkomst van de reviews: geplaatst door de verhuurder zelf, niet
+            door het platform geverifieerd (art. 6:193j BW / bijlage 23b-c). */}
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Reviews zijn door {orgName} geplaatst en niet door BookingBay
+          geverifieerd.
+        </p>
       </div>
     </section>
   );

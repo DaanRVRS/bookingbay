@@ -19,13 +19,22 @@ import {
   planLimits,
   describeLimit,
   formatEuroNL,
+  exclVat,
   isPlanUpgrade,
 } from "@/lib/plans";
-import type { Plan, OrgIntegration, PaymentEvent } from "@prisma/client";
+import type { Plan, OrgIntegration, PaymentEvent, Invoice } from "@prisma/client";
 import { isMollieConfigured } from "@/lib/billing/mollie";
+import {
+  billingDetailsMissing,
+  getBillingDetails,
+  getBillingDetailsPrefill,
+} from "@/lib/billing/billing-details";
+import { COMPANY } from "@/lib/company";
+import { can } from "@/lib/auth/permissions";
 import { getIntegration } from "@/lib/integrations/catalog";
 import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
 import { IntegrationStatusBadge } from "@/components/integrations/IntegrationStatusBadge";
+import { BillingDetailsForm } from "./billing-details-form";
 import {
   CancelScheduledPlanButton,
   CancelSubscriptionButton,
@@ -44,7 +53,9 @@ export default async function BillingPage({ searchParams }: PageProps) {
   const ctx = await requireOrg();
   const sp = await searchParams;
 
-  try {
+  // Render-fouten komen in de error-boundary (settings/error.tsx) terecht;
+  // Next logt ze server-side. Geen try/catch rond JSX (react-hooks/error-
+  // boundaries).
   const org = await db.organization.findUnique({
     where: { id: ctx.organization.id },
     select: {
@@ -73,8 +84,9 @@ export default async function BillingPage({ searchParams }: PageProps) {
   let pageCount = 0;
   let activeIntegrations: OrgIntegration[] = [];
   let recentPayments: PaymentEvent[] = [];
+  let invoices: Invoice[] = [];
   try {
-    [itemCount, memberCount, pageCount, activeIntegrations, recentPayments] =
+    [itemCount, memberCount, pageCount, activeIntegrations, recentPayments, invoices] =
       await Promise.all([
         db.item.count({ where: { organizationId: org.id, isActive: true } }),
         db.membership.count({ where: { organizationId: org.id } }),
@@ -89,6 +101,11 @@ export default async function BillingPage({ searchParams }: PageProps) {
           orderBy: { createdAt: "desc" },
           take: 5,
         }),
+        db.invoice.findMany({
+          where: { organizationId: org.id },
+          orderBy: { issuedAt: "desc" },
+          take: 24,
+        }),
       ]);
   } catch (err) {
     console.warn(
@@ -96,6 +113,14 @@ export default async function BillingPage({ searchParams }: PageProps) {
       err instanceof Error ? err.message : err,
     );
   }
+
+  // Facturatiegegevens: opgeslagen waarden + prefill-voorstel voor het
+  // formulier. Zonder bedrijfsnaam/adres kan de checkout niet starten.
+  const storedBilling = await getBillingDetails(org.id);
+  const billingMissing = billingDetailsMissing(storedBilling);
+  const billingPrefill =
+    billingMissing.length > 0 ? await getBillingDetailsPrefill(org.id) : storedBilling;
+  const canBill = can(ctx.membership.role, "org:billing");
 
   const current = planLimits(org.plan);
   const integrationsTotal = activeIntegrations.reduce(
@@ -169,7 +194,31 @@ export default async function BillingPage({ searchParams }: PageProps) {
         paidUntil={org.paidUntil}
         lastPaymentFailedAt={org.lastPaymentFailedAt}
         mollieConfigured={isMollieConfigured()}
+        billingMissing={billingMissing}
       />
+
+      {/* Facturatiegegevens — verplicht vóór de eerste betaling */}
+      <section id="facturatiegegevens" className="scroll-mt-20 rounded-xl border border-border bg-card p-6">
+        <h2 className="text-base font-semibold">Facturatiegegevens</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Deze gegevens komen op je factuur. Bedrijfsnaam, adres, postcode en
+          plaats zijn verplicht voordat je een abonnement kunt starten;
+          btw-nummer is optioneel. Prijzen zijn inclusief 21% btw — het
+          bedrag exclusief btw staat op de factuur.
+        </p>
+        <div className="mt-5">
+          <BillingDetailsForm
+            initial={billingPrefill}
+            isPrefill={billingMissing.length > 0}
+            disabled={!canBill}
+          />
+          {!canBill && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Alleen Eigenaren kunnen facturatiegegevens wijzigen.
+            </p>
+          )}
+        </div>
+      </section>
 
       {/* Resource-stats */}
       <section className="rounded-xl border border-border bg-card p-6">
@@ -255,7 +304,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
           <span className="text-sm font-semibold">
             Totaal per maand
             <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
-              incl. btw
+              incl. btw · {formatEuroNL(exclVat(monthlyTotal))} excl. btw
             </span>
           </span>
           <span className="text-lg font-semibold tabular-nums">
@@ -264,8 +313,39 @@ export default async function BillingPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      {/* Recente betalingen */}
-      {recentPayments.length > 0 && (
+      {/* Facturen */}
+      {invoices.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold">Facturen</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Per geslaagde betaling maken we een factuur aan. Open &rsquo;m en
+            sla &rsquo;m op als PDF.
+          </p>
+          <ul className="mt-3 divide-y divide-border text-sm">
+            {invoices.map((inv) => (
+              <li key={inv.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <Link
+                    href={`/factuur/${inv.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {inv.number}
+                  </Link>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {format(inv.issuedAt, "d MMM yyyy", { locale: nl })} · {inv.description}
+                  </p>
+                </div>
+                <span className="shrink-0 font-medium tabular-nums">
+                  {formatEuroNL(inv.grossCents / 100)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Recente betalingen (zonder factuur — van vóór de factuurmodule) */}
+      {invoices.length === 0 && recentPayments.length > 0 && (
         <section className="rounded-xl border border-border bg-card p-6">
           <h2 className="text-sm font-semibold">Recente betalingen</h2>
           <ul className="mt-3 divide-y divide-border text-sm">
@@ -307,12 +387,6 @@ export default async function BillingPage({ searchParams }: PageProps) {
       </section>
     </div>
   );
-  } catch (err) {
-    // Server-side loggen (pm2-logs), gebruiker krijgt de nette
-    // error-boundary (settings/error.tsx) — nooit stacktraces op scherm.
-    console.error("[billing] pagina-render mislukt:", err);
-    throw err;
-  }
 }
 
 // ── Status card ─────────────────────────────────────────────────────────
@@ -338,6 +412,7 @@ function SubscriptionStatusCard({
   paidUntil,
   lastPaymentFailedAt,
   mollieConfigured,
+  billingMissing,
 }: {
   state: State;
   monthlyTotal: number;
@@ -349,6 +424,7 @@ function SubscriptionStatusCard({
   paidUntil: Date | null;
   lastPaymentFailedAt: Date | null;
   mollieConfigured: boolean;
+  billingMissing: string[];
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-6">
@@ -374,7 +450,7 @@ function SubscriptionStatusCard({
             {formatEuroNL(monthlyTotal)}
           </span>
           <span className="block text-[11px] text-muted-foreground">
-            per maand incl. btw
+            per maand incl. btw ({formatEuroNL(exclVat(monthlyTotal))} excl.)
             {integrationsEuro > 0 && (
               <>
                 {" · "}
@@ -387,17 +463,53 @@ function SubscriptionStatusCard({
       </div>
 
       <div className="mt-5">
-        <StateActions state={state} mollieConfigured={mollieConfigured} />
+        <StateActions
+          state={state}
+          mollieConfigured={mollieConfigured}
+          monthlyTotal={monthlyTotal}
+          billingMissing={billingMissing}
+        />
       </div>
 
       {!mollieConfigured && (state === "trial" || state === "trial-expiring" || state === "trial-expired") && (
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Online betalen wordt deze week aangezet. Mail{" "}
-          <a className="underline" href="mailto:hallo@bookingbay.nl">hallo@bookingbay.nl</a>
-          {" "}om je abonnement nu al te activeren.
+          Online betalen staat op deze omgeving nog niet aan. Mail{" "}
+          <a className="underline" href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
+          {" "}om je abonnement te activeren.
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Wettelijk verplichte informatie vóór het afgeven van een doorlopende
+ * machtiging (bedrag, incassodatum, looptijd, opzeggen). Staat direct boven
+ * de knop die de eerste betaling start.
+ */
+function MandateNotice({ monthlyTotal }: { monthlyTotal: number }) {
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted-foreground">
+      <p>
+        <strong className="text-foreground">Wat je start:</strong> een eerste
+        betaling van {formatEuroNL(monthlyTotal)} (incl. 21% btw;{" "}
+        {formatEuroNL(exclVat(monthlyTotal))} excl.) via Mollie, waarmee je{" "}
+        {COMPANY.legalName} een doorlopende machtiging geeft. Daarna wordt het
+        maandbedrag automatisch afgeschreven — voor het eerst 30 dagen na
+        vandaag, daarna telkens een maand later — totdat je opzegt. De
+        eerstvolgende incassodatum staat hier op de pagina en je krijgt drie
+        dagen vooraf een e-mail.
+      </p>
+      <p className="mt-1.5">
+        <strong className="text-foreground">Opzeggen:</strong> altijd zelf, hier
+        via &ldquo;Abonnement opzeggen&rdquo;; dat gaat in aan het einde van de
+        betaalde maand en er wordt daarna niets meer afgeschreven. Zie ook de{" "}
+        <a className="underline" href="/voorwaarden" target="_blank" rel="noopener noreferrer">
+          voorwaarden
+        </a>{" "}
+        (artikel 4 en 5).
+      </p>
+    </div>
   );
 }
 
@@ -544,9 +656,13 @@ function StatusLine({
 function StateActions({
   state,
   mollieConfigured,
+  monthlyTotal,
+  billingMissing,
 }: {
   state: State;
   mollieConfigured: boolean;
+  monthlyTotal: number;
+  billingMissing: string[];
 }) {
   if (
     state === "trial" ||
@@ -556,17 +672,29 @@ function StateActions({
     state === "legacy"
   ) {
     return (
-      <StartCheckoutButton
-        label={
-          state === "trial-expired"
-            ? "Activeer abonnement"
-            : state === "suspended"
-              ? "Abonnement hervatten"
-              : state === "legacy"
-                ? "Stap over op automatisch incasso"
-                : "Start abonnement"
-        }
-      />
+      <div>
+        <MandateNotice monthlyTotal={monthlyTotal} />
+        {billingMissing.length > 0 && (
+          <p className="mb-3 text-xs text-destructive">
+            Vul eerst je{" "}
+            <a className="underline" href="#facturatiegegevens">
+              facturatiegegevens
+            </a>{" "}
+            in ({billingMissing.join(", ")}) — die komen op je factuur.
+          </p>
+        )}
+        <StartCheckoutButton
+          label={
+            state === "trial-expired"
+              ? "Activeer abonnement"
+              : state === "suspended"
+                ? "Abonnement hervatten"
+                : state === "legacy"
+                  ? "Stap over op automatisch incasso"
+                  : "Start abonnement"
+          }
+        />
+      </div>
     );
   }
   if (state === "active") {
@@ -691,6 +819,11 @@ function PlanCard({
           </span>
         )}
       </p>
+      {!limits.customPricing && (
+        <p className="text-[11px] text-muted-foreground">
+          {formatEuroNL(exclVat(limits.monthlyPriceEuro))} excl. 21% btw
+        </p>
+      )}
       <ul className="mt-4 space-y-1.5 text-xs">
         <li className="flex items-center gap-2">
           <Check className="size-3 text-[oklch(0.5_0.14_150)]" />
@@ -777,7 +910,7 @@ function PlanCard({
       </ul>
       {limits.customPricing && !isCurrent && (
         <a
-          href="mailto:hallo@bookingbay.nl?subject=Enterprise%20BookingBay"
+          href={`mailto:${COMPANY.email}?subject=Enterprise%20BookingBay`}
           className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-primary/40 bg-primary/5 px-3 text-xs font-medium text-primary hover:bg-primary/10"
         >
           Neem contact op

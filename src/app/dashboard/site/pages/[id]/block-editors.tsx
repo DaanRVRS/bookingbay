@@ -662,6 +662,13 @@ function BlockTypeFields({
               placeholder="https://www.youtube.com/watch?v=..."
               onChange={(e) => onChange({ url: e.target.value } as Partial<Block>)}
             />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Privacy: de video wordt pas geladen als de bezoeker op
+              &ldquo;Video laden&rdquo; klikt (YouTube via youtube-nocookie.com,
+              Vimeo met Do Not Track). Tot die klik gaat er niets naar YouTube of
+              Vimeo, dus je hebt hiervoor geen cookiebanner nodig. Dat staat ook
+              in de uitleg bij de knop op je site.
+            </p>
           </Field>
           <Field label="Onderschrift (optioneel)" className="sm:col-span-2">
             <Input
@@ -1145,7 +1152,10 @@ function BlockTypeFields({
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
               De kaart verschijnt automatisch op dit adres — een Google
-              Maps-link is niet nodig.
+              Maps-link is niet nodig. Privacy: bezoekers zien eerst het adres
+              met een knop &ldquo;Kaart laden&rdquo;; pas na die klik wordt
+              Google Maps geladen en ontvangt Google hun IP-adres (dat staat bij
+              de knop vermeld). Zo heb je geen cookiebanner nodig.
             </p>
           </Field>
           <Field label="Hoogte" className="sm:col-span-2">

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma, Plan } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getPayment } from "@/lib/billing/mollie";
+import { getPayment, paymentEventSnapshot, type MolliePayment } from "@/lib/billing/mollie";
 import {
   onFirstPaymentPaid,
   onProrataUpgradeFailed,
@@ -9,6 +9,9 @@ import {
   onRecurringPaid,
   onSubscriptionCanceled,
 } from "@/lib/billing/subscription";
+import { createInvoiceForPayment } from "@/lib/billing/invoices";
+import { planLimits } from "@/lib/plans";
+import { COMPANY } from "@/lib/company";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,17 +59,19 @@ export async function POST(req: Request) {
   }
 
   // Idempotency: maak een PaymentEvent rij. Bij conflict (al verwerkt)
-  // skippen we de handlers.
+  // skippen we de handlers. Payload is bewust een beperkte snapshot
+  // (status/bedrag/id/methode) — geen consumentgegevens uit Mollie.
   const eventType = `payment.${payment.status}`;
+  const amountCents = Math.round(parseFloat(payment.amount.value) * 100);
   try {
     await db.paymentEvent.create({
       data: {
         organizationId,
         externalId: paymentId,
         eventType,
-        amountCents: Math.round(parseFloat(payment.amount.value) * 100),
+        amountCents,
         subscriptionId: payment.subscriptionId ?? null,
-        payload: payment as unknown as Prisma.InputJsonValue,
+        payload: paymentEventSnapshot(payment) as Prisma.InputJsonValue,
       },
     });
   } catch {
@@ -86,6 +91,8 @@ export async function POST(req: Request) {
           subscriptionId: payment.subscriptionId,
         });
       }
+      // Factuur per geslaagde betaling (eerste, verlenging, pro-rata).
+      await issueInvoice(organizationId, payment, amountCents);
     } else if (payment.status === "failed" || payment.status === "expired") {
       if (payment.metadata?.kind === "plan-upgrade-prorata" && payment.metadata?.prevPlan) {
         // Losse pro-rata plan-upgrade-charge gefaald → rol de direct-toegepaste
@@ -122,4 +129,62 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Bepaalt omschrijving en periode voor de factuur op basis van het soort
+ * betaling en de (zojuist door de handler bijgewerkte) periode van de org.
+ */
+async function issueInvoice(
+  organizationId: string,
+  payment: MolliePayment,
+  amountCents: number,
+) {
+  if (amountCents <= 0) return;
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { plan: true, currentPeriodEnd: true },
+  });
+  if (!org) return;
+
+  const paidAt = payment.paidAt ? new Date(payment.paidAt) : new Date();
+  const kind = payment.metadata?.kind;
+  const planLabel = planLimits(org.plan).label;
+
+  let periodStart: Date;
+  let periodEnd: Date;
+  let description: string;
+
+  if (kind === "plan-upgrade-prorata") {
+    periodStart = paidAt;
+    periodEnd = org.currentPeriodEnd ?? paidAt;
+    description = `${COMPANY.brand}-abonnement — upgrade naar ${planLabel} (pro-rata rest van de lopende periode)`;
+  } else if (kind === "checkout-first" || payment.sequenceType === "first") {
+    periodStart = paidAt;
+    // onFirstPaymentPaid zet currentPeriodEnd op +30 dagen; als de mandate
+    // nog pending is, is dat nog niet gebeurd — dan dezelfde 30 dagen.
+    periodEnd =
+      org.currentPeriodEnd && org.currentPeriodEnd > paidAt
+        ? org.currentPeriodEnd
+        : new Date(paidAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    description = `${COMPANY.brand}-abonnement ${planLabel} — eerste maand`;
+  } else {
+    // Verlenging: onRecurringPaid heeft currentPeriodEnd met een maand
+    // verschoven; de gefactureerde periode is de maand daarvóór.
+    periodEnd = org.currentPeriodEnd ?? paidAt;
+    periodStart = new Date(periodEnd);
+    periodStart.setUTCMonth(periodStart.getUTCMonth() - 1);
+    description = `${COMPANY.brand}-abonnement ${planLabel} — maandelijkse verlenging`;
+  }
+
+  await createInvoiceForPayment({
+    organizationId,
+    paymentId: payment.id,
+    grossCents: amountCents,
+    description,
+    periodStart,
+    periodEnd,
+    paymentMethod: payment.method ?? null,
+    issuedAt: paidAt,
+  });
 }

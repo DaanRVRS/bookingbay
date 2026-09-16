@@ -61,6 +61,8 @@ type Item = {
   rating: number;
   isPublished: boolean;
   sortOrder: number;
+  /** yyyy-mm-dd of null. */
+  consentReceivedAt: string | null;
 };
 
 export function ReviewsList({ reviews }: { reviews: Item[] }) {
@@ -174,11 +176,20 @@ function ReviewRow({ item }: { item: Item }) {
                 <EyeOff className="size-3" /> Verborgen
               </span>
             )}
+            {!item.consentReceivedAt && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive"
+                title="Leg bij Bewerken vast wanneer je toestemming van deze persoon hebt ontvangen."
+              >
+                Toestemming niet vastgelegd
+              </span>
+            )}
           </div>
           <p className="mt-1.5 line-clamp-2 text-sm">&ldquo;{item.quote}&rdquo;</p>
           <p className="mt-1 text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">{item.author}</span>
             {item.role && <> · {item.role}</>}
+            {item.consentReceivedAt && <> · toestemming {item.consentReceivedAt}</>}
           </p>
         </div>
 

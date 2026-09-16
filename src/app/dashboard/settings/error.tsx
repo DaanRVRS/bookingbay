@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertTriangle, RotateCw } from "lucide-react";
+import { COMPANY } from "@/lib/company";
 
 /**
  * Error-boundary voor de hele /dashboard/settings-tree (incl. billing).
@@ -30,8 +31,8 @@ export default function SettingsError({
         <p className="mt-1 text-sm text-muted-foreground">
           Deze pagina kon even niet geladen worden. Probeer het opnieuw — blijft
           het hangen, mail dan{" "}
-          <a className="underline" href="mailto:hallo@bookingbay.nl">
-            hallo@bookingbay.nl
+          <a className="underline" href={`mailto:${COMPANY.email}`}>
+            {COMPANY.email}
           </a>
           .
         </p>

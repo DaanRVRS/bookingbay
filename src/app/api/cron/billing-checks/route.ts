@@ -4,6 +4,7 @@ import { timingSafeEqualStr } from "@/lib/security/timing-safe";
 import {
   runBillingChecks,
   runSaasLifecycleChecks,
+  runSepaPrenotifications,
   runTrialChecks,
 } from "@/lib/billing/lifecycle";
 
@@ -36,12 +37,13 @@ export async function GET(req: Request) {
   }
 
   try {
-    const [billing, trial, saas] = await Promise.all([
+    const [billing, trial, saas, prenotify] = await Promise.all([
       runBillingChecks(),
       runTrialChecks(),
       runSaasLifecycleChecks(),
+      runSepaPrenotifications(),
     ]);
-    return NextResponse.json({ ok: true, billing, trial, saas });
+    return NextResponse.json({ ok: true, billing, trial, saas, prenotify });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/billing-checks] failed:", err);

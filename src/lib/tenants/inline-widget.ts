@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getTenantCatalog, getTenantAddons } from "./queries";
 import { resolveWidgetDesign } from "@/lib/widget/design";
 import type { WidgetTheme, WidgetUsp } from "@/lib/widget/theme";
+import { widgetLegalFromOrg, type WidgetLegal } from "@/lib/widget/legal";
 
 /**
  * Data voor een op-de-pagina ingesloten boek-widget (het "Boek-widget"-blok
@@ -38,6 +39,7 @@ export interface InlineWidgetData {
   tagline: string | null;
   defaultLocale: string;
   theme: WidgetTheme;
+  legal: WidgetLegal;
 }
 
 function buildBuckets(
@@ -105,6 +107,11 @@ export async function getInlineWidgetData(
       widgetTagline: true,
       widgetDefaultLocale: true,
       widgetTheme: true,
+      privacyUrl: true,
+      termsUrl: true,
+      widgetPhoneRequired: true,
+      widgetAgeCheckEnabled: true,
+      reviewRequestEnabled: true,
     },
   });
   if (!org) return null;
@@ -129,5 +136,6 @@ export async function getInlineWidgetData(
     tagline: design.tagline,
     defaultLocale: design.defaultLocale,
     theme: design.theme,
+    legal: widgetLegalFromOrg(org),
   };
 }

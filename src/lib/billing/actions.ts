@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/auth/schemas";
 import { blockDemoWrite } from "@/lib/demo/guard";
 import { planLimits, PLAN_LIMITS, isPlanUpgrade } from "@/lib/plans";
 import { audit } from "@/lib/audit/log";
+import { COMPANY } from "@/lib/company";
 import { isMollieConfigured } from "./mollie";
 import {
   chargePlanUpgradeProrata,
@@ -17,6 +18,7 @@ import {
   startFirstPayment,
   syncSubscriptionAmount,
 } from "./subscription";
+import { missingBillingDetails } from "./billing-details";
 
 /**
  * Server-actions die door de billing-page worden aangeroepen. Permissie-
@@ -35,8 +37,17 @@ export async function startCheckoutAction(): Promise<
   if (!isMollieConfigured()) {
     return {
       ok: false,
-      error:
-        "Online betalen staat nog niet aan op deze server — mail hallo@bookingbay.nl en we activeren je handmatig.",
+      error: `Online betalen staat nog niet aan op deze server — mail ${COMPANY.email} en we activeren je handmatig.`,
+    };
+  }
+
+  // Facturatiegegevens zijn verplicht vóór de eerste betaling: zonder
+  // bedrijfsnaam en adres kunnen we geen geldige factuur maken.
+  const missing = await missingBillingDetails(ctx.organization.id);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `Vul eerst je facturatiegegevens in (${missing.join(", ")}) — die komen op je factuur.`,
     };
   }
 
@@ -86,8 +97,7 @@ export async function changePlanAction(newPlan: Plan): Promise<ActionResult> {
   if (PLAN_LIMITS[newPlan].customPricing) {
     return {
       ok: false,
-      error:
-        "Enterprise heeft maatwerk-pricing — mail hallo@bookingbay.nl en we regelen 't dezelfde dag.",
+      error: `Enterprise heeft maatwerk-pricing — mail ${COMPANY.email} en we regelen 't dezelfde dag.`,
     };
   }
 

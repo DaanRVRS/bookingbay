@@ -13,6 +13,7 @@ import {
 } from "@/lib/discord/notifications";
 import type { ActionResult } from "@/lib/auth/schemas";
 import { blockDemoWrite } from "@/lib/demo/guard";
+import { COMPANY } from "@/lib/company";
 import {
   adminUpdateTicketSchema,
   CATEGORY_PRIORITY,
@@ -32,7 +33,7 @@ function fieldErrors(error: z.ZodError): Record<string, string> {
   return fields;
 }
 
-const SUPPORT_NOTIFY_EMAIL = "hallo@bookingbay.nl";
+const SUPPORT_NOTIFY_EMAIL = COMPANY.email;
 
 export async function createTicketAction(
   input: CreateTicketInput,
@@ -91,15 +92,12 @@ export async function createTicketAction(
   });
 
   // Notify BookingBay via Discord + e-mail (best-effort, never blocks).
+  // Discord krijgt alleen org-naam, categorie, prioriteit en ticket-id.
   await notifyNewSupportTicket({
     ticketId: ticket.id,
-    subject: parsed.data.subject,
-    body: parsed.data.body,
     category: parsed.data.category,
     priority: autoPriority,
     orgName: ctx.organization.name,
-    authorName: ctx.user.name,
-    authorEmail: ctx.user.email,
   });
 
   // Admins krijgen geen bell-notification in /dashboard — dat zou de klant-
@@ -240,11 +238,7 @@ async function postReplyInternal(
 
   await notifyTicketReply({
     ticketId: ticket.id,
-    subject: ticket.subject,
-    body: parsed.data.body,
     orgName: ticket.organization.name,
-    authorName: user.name,
-    authorEmail: user.email,
     isStaff,
   });
 

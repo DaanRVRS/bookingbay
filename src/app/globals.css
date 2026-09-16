@@ -66,7 +66,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.02 250);
 
-  --primary: oklch(0.66 0.19 30);
+  /* Primair oranje: L 0.57 i.p.v. 0.66 zodat witte knoptekst (≈4,9:1) en
+     oranje labels op de achtergrond (≈4,7:1) WCAG AA (4,5:1) halen. */
+  --primary: oklch(0.57 0.19 30);
   --primary-foreground: oklch(0.99 0.01 80);
 
   --secondary: oklch(0.95 0.01 250);
@@ -82,12 +84,12 @@
 
   --border: oklch(0.9 0.01 250);
   --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.66 0.19 30);
+  --ring: oklch(0.57 0.19 30);
 
   --brand: oklch(0.22 0.03 250);
   --brand-foreground: oklch(0.985 0.005 90);
 
-  --chart-1: oklch(0.66 0.19 30);
+  --chart-1: oklch(0.57 0.19 30);
   --chart-2: oklch(0.55 0.13 200);
   --chart-3: oklch(0.7 0.15 160);
   --chart-4: oklch(0.65 0.16 280);
@@ -95,12 +97,12 @@
 
   --sidebar: oklch(0.985 0.005 90);
   --sidebar-foreground: oklch(0.22 0.03 250);
-  --sidebar-primary: oklch(0.66 0.19 30);
+  --sidebar-primary: oklch(0.57 0.19 30);
   --sidebar-primary-foreground: oklch(0.99 0.01 80);
   --sidebar-accent: oklch(0.95 0.01 250);
   --sidebar-accent-foreground: oklch(0.22 0.03 250);
   --sidebar-border: oklch(0.9 0.01 250);
-  --sidebar-ring: oklch(0.66 0.19 30);
+  --sidebar-ring: oklch(0.57 0.19 30);
 }
 
 .dark {
@@ -173,6 +175,22 @@
   ::selection {
     @apply bg-primary/25 text-foreground;
   }
+}
+
+/* Printversie van juridische pagina's en facturen: alleen de inhoud. */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+.print-only {
+  display: none;
 }
 
 @layer utilities {

@@ -178,8 +178,8 @@ function TableLayout({
                         ? `${contactBasePath}/embed/book?item=${it.id}`
                         : `/embed/book?item=${it.id}`
                     }
-                    className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium text-white shadow-sm hover:opacity-90"
-                    style={{ background: accent }}
+                    className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium shadow-sm hover:opacity-90"
+                    style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
                   >
                     {block.ctaLabel || "Reserveer"}
                   </Link>
@@ -266,8 +266,8 @@ function CardsLayout({
               {block.showCta && (
                 <Link
                   href={reserveHref}
-                  className="mt-auto inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium text-white shadow-sm hover:opacity-90"
-                  style={{ background: accent }}
+                  className="mt-auto inline-flex h-10 items-center justify-center rounded-lg px-5 text-sm font-medium shadow-sm hover:opacity-90"
+                  style={{ background: accent, color: "var(--tenant-on-accent, #fff)" }}
                 >
                   {block.ctaLabel || "Reserveer"}
                 </Link>

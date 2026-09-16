@@ -9,14 +9,19 @@ export const metadata = { title: "Reviews" };
 
 export default async function ReviewsPage() {
   const ctx = await requireOrg();
-  const reviews = await listReviewsForOrg(ctx.organization.id);
+  const reviews = (await listReviewsForOrg(ctx.organization.id)).map((r) => ({
+    ...r,
+    consentReceivedAt: r.consentReceivedAt
+      ? r.consentReceivedAt.toISOString().slice(0, 10)
+      : null,
+  }));
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-4xl">
         <PageHeader
           title="Reviews"
-          description="Beheer hier je klant-reviews. Het Reviews-blok in de page-builder pakt ze automatisch."
+          description="Beheer hier je klant-reviews. Het Reviews-blok in de page-builder pakt ze automatisch. Plaats alleen echte reviews van echte klanten en leg vast wanneer je hun toestemming ontving; op je site staat dat de reviews door jou zijn geplaatst en niet door BookingBay zijn geverifieerd."
           back={{ href: "/dashboard/site", label: "Terug naar klantsite" }}
           action={
             <ReviewDialog

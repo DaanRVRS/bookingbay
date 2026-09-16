@@ -3,7 +3,8 @@ import { getOrgBySlug, getTenantCatalog, getTenantAddons } from "@/lib/tenants/q
 import type { CSSProperties } from "react";
 import { SmartBookingWidget } from "@/components/booking-widget/SmartBookingWidget";
 import { resolveWidgetDesign } from "@/lib/widget/design";
-import { themeStyle } from "@/lib/widget/theme";
+import { widgetStyle } from "@/lib/widget/theme";
+import { widgetLegalFromOrg } from "@/lib/widget/legal";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -98,7 +99,7 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
   return (
     <div
       className="px-4 py-8 sm:px-6 sm:py-12"
-      style={themeStyle(design.theme) as CSSProperties}
+      style={widgetStyle(design.theme, design.accent) as CSSProperties}
     >
       {/* Ingekaderd zoals de standalone-widget — niet full-width "mega". */}
       <div className="mx-auto max-w-2xl">
@@ -122,6 +123,7 @@ export default async function EmbedBookPage({ params, searchParams }: PageProps)
             tagline={design.tagline}
             defaultLocale={design.defaultLocale}
             initialItemId={sp.item ?? null}
+            legal={widgetLegalFromOrg(org)}
           />
         </div>
       </div>

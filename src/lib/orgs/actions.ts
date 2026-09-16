@@ -78,13 +78,12 @@ export async function createOrganizationAction(
   // Auto-link any matching prospect (best-effort, never blocks).
   if (user.email) await autoLinkProspectByEmail(user.email, org.id);
 
+  // Discord krijgt bewust géén naam/e-mail van de eigenaar (geen subverwerker).
   await notifyNewSignup({
     orgId: org.id,
     orgName: name,
     orgSlug: org.slug,
     industry,
-    userEmail: user.email,
-    userName: user.name,
   });
 
   // Activate this org for the user

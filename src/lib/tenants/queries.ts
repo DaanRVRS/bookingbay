@@ -33,6 +33,13 @@ export const getOrgBySlug = cache(async (slug: string) => {
       widgetTagline: true,
       widgetDefaultLocale: true,
       widgetTheme: true,
+      // Juridisch: eigen voorwaarden/privacy van de verhuurder + widget-
+      // instellingen (telefoon verplicht, leeftijdsvinkje, review-opt-in).
+      privacyUrl: true,
+      termsUrl: true,
+      widgetPhoneRequired: true,
+      widgetAgeCheckEnabled: true,
+      reviewRequestEnabled: true,
     },
   });
   return org;

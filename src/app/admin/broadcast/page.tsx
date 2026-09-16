@@ -9,8 +9,9 @@ import { DeleteBroadcastButton } from "./delete-broadcast-button";
 export const metadata = { title: "Broadcast" };
 
 export default async function AdminBroadcastPage() {
-  const [recipientCount, recentBroadcasts] = await Promise.all([
+  const [recipientCount, marketingCount, recentBroadcasts] = await Promise.all([
     db.user.count({ where: { memberships: { some: {} } } }),
+    db.user.count({ where: { memberships: { some: {} }, marketingOptIn: true } }),
     db.auditLog.findMany({
       where: { action: "admin.broadcast" },
       orderBy: { createdAt: "desc" },
@@ -45,15 +46,20 @@ export default async function AdminBroadcastPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Broadcast</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Stuur een bericht naar alle <strong>{recipientCount}</strong>{" "}
-              BookingBay-gebruikers tegelijk. Komt aan in hun notificaties en
-              optioneel ook per e-mail.
+              Stuur een servicemededeling naar alle <strong>{recipientCount}</strong>{" "}
+              BookingBay-gebruikers, of een marketingbericht naar de{" "}
+              <strong>{marketingCount}</strong> gebruikers met opt-in. Komt
+              aan in hun notificaties en optioneel ook per e-mail (met
+              afmeldlink).
             </p>
           </div>
         </div>
 
         <div className="mt-8">
-          <BroadcastForm recipientCount={recipientCount} />
+          <BroadcastForm
+            recipientCount={recipientCount}
+            marketingCount={marketingCount}
+          />
         </div>
 
         <div className="mt-10">

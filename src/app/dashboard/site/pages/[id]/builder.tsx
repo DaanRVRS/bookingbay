@@ -921,6 +921,9 @@ function BlockPreview({
         <TestimonialsBlockView
           block={block}
           accent={accent}
+          // Preview in de builder: op de live site staat hier de echte
+          // bedrijfsnaam (PageRenderer geeft 'm door).
+          orgName="jouw bedrijf"
           resolvedItems={previewItems}
         />
       );

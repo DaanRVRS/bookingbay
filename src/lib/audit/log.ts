@@ -127,6 +127,17 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.2fa.disabled": "2FA uitgeschakeld",
   "user.2fa.backup-code-used": "2FA backup-code gebruikt",
   "user.2fa.backup-codes-regenerated": "2FA backup-codes vernieuwd",
+  "user.account.deleted": "Account verwijderd door gebruiker",
+  "user.email-preferences.update": "E-mailvoorkeuren gewijzigd",
+  "user.marketing.unsubscribed": "Afgemeld voor productnieuws",
+  "user.broadcast.unsubscribed": "Afgemeld voor broadcast-e-mails",
+  "customer.review-request.unsubscribed": "Klant afgemeld voor reviewverzoeken",
+  "customer.anonymized": "Klant geanonimiseerd (bewaartermijn)",
+  "billing.sepa.prenotified": "Vooraankondiging incasso verstuurd",
+  "billing.invoice.created": "Factuur aangemaakt",
+  "billing.details.update": "Facturatiegegevens bijgewerkt",
+  "org.booking-legal.update": "Boekwidget-instellingen (juridisch) bijgewerkt",
+  "content-report.received": "Melding over inhoud ontvangen",
 };
 
 export function describeAction(action: string): string {

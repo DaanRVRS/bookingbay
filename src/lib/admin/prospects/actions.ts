@@ -64,14 +64,11 @@ export async function createProspectAction(
     metadata: { name: parsed.data.name, email: parsed.data.email || null },
   });
 
+  // Discord krijgt alleen bedrijfsnaam, bron en id — geen persoonsgegevens.
   await notifyNewProspect({
     prospectId: created.id,
-    name: parsed.data.name,
     companyName: parsed.data.companyName || null,
-    email: parsed.data.email ? parsed.data.email.toLowerCase() : null,
     source: parsed.data.source || null,
-    ownerName: me.name,
-    ownerEmail: me.email,
   });
 
   revalidatePath("/admin/crm");
@@ -156,12 +153,9 @@ export async function setProspectStatusAction(
 
   await notifyProspectStatusChange({
     prospectId: id,
-    name: existing.name,
     companyName: existing.companyName,
     fromStatus: existing.status,
     toStatus: status,
-    actorName: me.name,
-    actorEmail: me.email,
   });
 
   revalidatePath("/admin/crm");
@@ -254,24 +248,18 @@ export async function createProspectInteractionAction(
 
   const prospect = await db.adminProspect.findUnique({
     where: { id: parsed.data.prospectId },
-    select: { name: true, companyName: true },
+    select: { companyName: true },
   });
-  const prospectLabel = prospect
-    ? prospect.companyName
-      ? `${prospect.name} (${prospect.companyName})`
-      : prospect.name
-    : parsed.data.prospectId;
+  // Alleen bedrijfsnaam (of id) naar Discord — geen persoonsnaam of inhoud.
+  const prospectLabel =
+    prospect?.companyName?.trim() || `prospect ${parsed.data.prospectId.slice(-6)}`;
   await notifyInteractionLogged({
     kind: "prospect",
     interactionId: created.id,
     type: parsed.data.type,
-    subject: parsed.data.subject,
-    body: parsed.data.body || null,
     occurredAt,
     contextLabel: `Prospect · ${prospectLabel}`,
     contextUrl: `${env.APP_URL}/admin/crm/${parsed.data.prospectId}`,
-    actorName: me.name,
-    actorEmail: me.email,
   });
 
   revalidatePath(`/admin/crm/${parsed.data.prospectId}`);
@@ -340,34 +328,19 @@ export async function createProspectReminderAction(
     metadata: { title: parsed.data.title, dueAt: dueAt.toISOString() },
   });
 
-  const [prospect, assignee] = await Promise.all([
-    db.adminProspect.findUnique({
-      where: { id: parsed.data.prospectId },
-      select: { name: true, companyName: true },
-    }),
-    parsed.data.assignedToUserId
-      ? db.user.findUnique({
-          where: { id: parsed.data.assignedToUserId },
-          select: { name: true, email: true },
-        })
-      : Promise.resolve(null),
-  ]);
-  const prospectLabel = prospect
-    ? prospect.companyName
-      ? `${prospect.name} (${prospect.companyName})`
-      : prospect.name
-    : parsed.data.prospectId;
+  const prospect = await db.adminProspect.findUnique({
+    where: { id: parsed.data.prospectId },
+    select: { companyName: true },
+  });
+  // Alleen bedrijfsnaam (of id) naar Discord — geen persoonsnaam of notities.
+  const prospectLabel =
+    prospect?.companyName?.trim() || `prospect ${parsed.data.prospectId.slice(-6)}`;
   await notifyReminderCreated({
     kind: "prospect",
     reminderId: created.id,
-    title: parsed.data.title,
-    notes: parsed.data.notes || null,
     dueAt,
     contextLabel: `Prospect · ${prospectLabel}`,
     contextUrl: `${env.APP_URL}/admin/crm/${parsed.data.prospectId}`,
-    actorName: me.name,
-    actorEmail: me.email,
-    assigneeLabel: assignee ? (assignee.name ?? assignee.email) : null,
   });
 
   revalidatePath(`/admin/crm/${parsed.data.prospectId}`);

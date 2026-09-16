@@ -155,6 +155,36 @@ export function formatEuroNL(n: number): string {
   return EURO_NL.format(n);
 }
 
+/** Nederlands btw-tarief op het abonnement (hoog tarief). */
+export const VAT_RATE = 0.21;
+
+/**
+ * Prijzen op de site en in het dashboard zijn inclusief btw. Deze helper
+ * geeft het bedrag exclusief btw (afgerond op centen) zodat we het overal
+ * consistent naast de incl.-prijs kunnen tonen.
+ */
+export function exclVat(inclEuro: number): number {
+  return Math.round((inclEuro / (1 + VAT_RATE)) * 100) / 100;
+}
+
+/** "€ 24,99 incl. btw (€ 20,65 excl.)" — voor prijskaarten en facturen. */
+export function priceInclExclLabel(inclEuro: number): string {
+  return `${formatEuroNL(inclEuro)} incl. btw (${formatEuroNL(exclVat(inclEuro))} excl.)`;
+}
+
+/**
+ * Splitst een bruto centbedrag (incl. 21% btw) in netto en btw. Netto wordt
+ * afgerond, de btw is het restant — zo telt netto + btw altijd exact op tot
+ * het bruto bedrag dat de klant betaald heeft.
+ */
+export function splitVatCents(grossCents: number): {
+  netCents: number;
+  vatCents: number;
+} {
+  const netCents = Math.round(grossCents / (1 + VAT_RATE));
+  return { netCents, vatCents: grossCents - netCents };
+}
+
 /** Does the org's plan include this boolean feature? */
 export function planAllows(plan: Plan, feature: PlanFeature): boolean {
   return PLAN_LIMITS[plan][feature];

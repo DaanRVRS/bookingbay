@@ -108,6 +108,8 @@ function renderNonContainer(
   block: NonContainerBlock,
   ctx: {
     organizationId: string;
+    orgName: string;
+    privacyUrl: string | null;
     accent: string;
     testimonialItemsByBlockId: Map<string, TestimonialItem[]>;
     priceTableItemsByBlockId: Map<string, PriceTableItem[]>;
@@ -118,6 +120,8 @@ function renderNonContainer(
 ) {
   const {
     organizationId,
+    orgName,
+    privacyUrl,
     accent,
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,
@@ -168,6 +172,7 @@ function renderNonContainer(
         <TestimonialsBlockView
           block={block}
           accent={accent}
+          orgName={orgName}
           resolvedItems={testimonialItemsByBlockId.get(block.id) ?? []}
         />
       );
@@ -188,6 +193,8 @@ function renderNonContainer(
         <ContactBlockView
           block={block}
           organizationId={organizationId}
+          orgName={orgName}
+          privacyUrl={privacyUrl}
           accent={accent}
         />
       );
@@ -197,12 +204,18 @@ function renderNonContainer(
 export async function PageRenderer({
   blocks,
   organizationId,
+  orgName,
+  privacyUrl = null,
   accent,
   contactBasePath = "",
   tenantSlug = "",
 }: {
   blocks: Block[];
   organizationId: string;
+  /** Naam van de verhuurder — voor de privacyregel (contact) en de reviews-onderregel. */
+  orgName: string;
+  /** Eigen privacyverklaring van de verhuurder (footer/contactformulier). */
+  privacyUrl?: string | null;
   accent: string;
   /**
    * Tenant base path so that internal CTAs in resolved blocks (e.g. the
@@ -243,6 +256,8 @@ export async function PageRenderer({
 
   const ctx = {
     organizationId,
+    orgName,
+    privacyUrl,
     accent,
     testimonialItemsByBlockId,
     priceTableItemsByBlockId,

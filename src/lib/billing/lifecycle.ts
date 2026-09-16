@@ -1,10 +1,12 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
-import { sendEmail, emailLayout, btn } from "@/lib/email";
+import { sendEmail, emailLayout, btn, EMAIL_ACCENT, escapeHtml } from "@/lib/email";
 import { env } from "@/lib/env";
-import { planLimits, formatEuroNL } from "@/lib/plans";
+import { COMPANY } from "@/lib/company";
+import { planLimits, formatEuroNL, exclVat } from "@/lib/plans";
 import { notifyPaymentIssue } from "@/lib/discord/notifications";
+import { computeMonthlyTotalCents } from "./subscription";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { Plan } from "@prisma/client";
@@ -84,7 +86,8 @@ function renderRenewalEmail(
         je betaalmethode op orde is voor die datum.
       </p>
       <p>
-        Bedrag: <strong>${formatEuroNL(limits.monthlyPriceEuro)}</strong> per maand incl. btw.
+        Bedrag: <strong>${formatEuroNL(limits.monthlyPriceEuro)}</strong> per maand incl. btw
+        (${formatEuroNL(exclVat(limits.monthlyPriceEuro))} excl. btw).
       </p>
     `,
     tomorrow: `
@@ -134,7 +137,7 @@ function renderRenewalEmail(
     </div>
     <p style="font-size:13px;color:#6b7280;margin-top:24px">
       Vragen?
-      <a href="mailto:hallo@bookingbay.nl" style="color:#ef5934">Stuur ons een mail</a>
+      <a href="mailto:${COMPANY.email}" style="color:${EMAIL_ACCENT}">Stuur ons een mail</a>
       — dan denken we mee.
     </p>
   `);
@@ -231,13 +234,16 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
 
   // Find every org with a tracked paid period that is not already
   // suspended, including ones whose paidUntil is in the past (within
-  // the grace window).
+  // the grace window). Orgs met een Mollie-abonnement worden door de
+  // SEPA-vooraankondiging (runSepaPrenotifications) en de webhook
+  // afgehandeld — een verouderde paidUntil mag daar niet doorheen lopen.
   const cutoffPast = new Date(now.getTime() - (GRACE_DAYS + 30) * MS_PER_DAY);
   const cutoffFuture = new Date(now.getTime() + 5 * MS_PER_DAY);
 
   const orgs = await db.organization.findMany({
     where: {
       paidUntil: { not: null, gte: cutoffPast, lte: cutoffFuture },
+      subscriptionId: null,
       suspendedAt: null,
     },
     select: {
@@ -292,6 +298,7 @@ export async function runBillingChecks(now: Date = new Date()): Promise<BillingC
   const toSuspend = await db.organization.findMany({
     where: {
       paidUntil: { lt: suspendCutoff },
+      subscriptionId: null,
       suspendedAt: null,
     },
     select: { id: true, name: true, slug: true, plan: true, paidUntil: true },
@@ -456,6 +463,157 @@ export async function runSaasLifecycleChecks(
   return summary;
 }
 
+/* ============================================================ */
+/* SEPA-vooraankondiging voor Mollie-abonnees                    */
+/* ============================================================ */
+
+export const PRENOTIFY_DAYS = 3;
+
+export interface PrenotificationSummary {
+  notified: number;
+  total: number;
+}
+
+function renderPrenotificationEmail(args: {
+  orgName: string;
+  planLabel: string;
+  totalCents: number;
+  planCents: number;
+  integrationsCents: number;
+  chargeDate: Date;
+  mandateId: string | null;
+}) {
+  const dateLabel = format(args.chargeDate, "EEEE d MMMM yyyy", { locale: nl });
+  const total = formatEuroNL(args.totalCents / 100);
+  const totalExcl = formatEuroNL(exclVat(args.totalCents / 100));
+  const breakdown =
+    args.integrationsCents > 0
+      ? `${escapeHtml(args.planLabel)}-abonnement ${formatEuroNL(args.planCents / 100)} + koppelingen ${formatEuroNL(args.integrationsCents / 100)}`
+      : `${escapeHtml(args.planLabel)}-abonnement`;
+  return emailLayout(`
+    <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:600">Vooraankondiging automatische incasso</h1>
+    <p>Hoi,</p>
+    <p>
+      Op <strong>${dateLabel}</strong> wordt <strong>${total}</strong>
+      (incl. 21% btw; ${totalExcl} excl. btw) automatisch afgeschreven voor het
+      ${COMPANY.brand}-abonnement van <strong>${escapeHtml(args.orgName)}</strong>
+      (${breakdown}). De afschrijving loopt via Mollie op basis van de
+      doorlopende machtiging die je bij het starten van je abonnement hebt
+      gegeven${args.mandateId ? ` (kenmerk ${escapeHtml(args.mandateId)})` : ""}.
+      Omschrijving op je afschrift: &ldquo;${COMPANY.brand}-abonnement&rdquo;.
+    </p>
+    <p>
+      Wil je dit niet? Zeg dan vóór ${dateLabel} op via Instellingen → Plan &amp;
+      facturatie; dan wordt er niets meer afgeschreven en blijft alles werken
+      tot het einde van de lopende maand. Na de betaling vind je je factuur
+      op dezelfde pagina.
+    </p>
+    <div style="margin:28px 0">
+      ${btn(dashboardUrl(), "Naar Plan & facturatie")}
+    </div>
+    <p style="font-size:13px;color:#6b7280;margin-top:24px">
+      Begunstigde: ${COMPANY.legalName}, KvK ${COMPANY.kvk}. Vragen?
+      <a href="mailto:${COMPANY.email}" style="color:${EMAIL_ACCENT}">Stuur ons een mail</a>.
+    </p>
+  `);
+}
+
+/**
+ * Stuurt Mollie-abonnees PRENOTIFY_DAYS dagen vóór de volgende afschrijving
+ * een vooraankondiging (SEPA-regels: bedrag, datum, omschrijving, kenmerk).
+ * Idempotent via paymentReminderStage: 0 = nog niet aangekondigd voor deze
+ * periode; de webhook (onRecurringPaid/onFirstPaymentPaid) zet 'm terug op
+ * 0 na elke geslaagde betaling, zodat de volgende maand opnieuw wordt
+ * aangekondigd. Bij een geplande opzegging (cancelAtPeriodEnd) volgt geen
+ * afschrijving en dus geen aankondiging.
+ */
+export async function runSepaPrenotifications(
+  now: Date = new Date(),
+): Promise<PrenotificationSummary> {
+  const summary: PrenotificationSummary = { notified: 0, total: 0 };
+  const windowEnd = new Date(now.getTime() + (PRENOTIFY_DAYS + 1) * MS_PER_DAY);
+
+  const orgs = await db.organization.findMany({
+    where: {
+      subscriptionId: { not: null },
+      subscriptionStatus: "active",
+      cancelAtPeriodEnd: false,
+      suspendedAt: null,
+      paymentReminderStage: 0,
+      currentPeriodEnd: { not: null, gte: startOfUtcDay(now), lte: windowEnd },
+    },
+    select: {
+      id: true,
+      name: true,
+      plan: true,
+      currentPeriodEnd: true,
+      mollieMandateId: true,
+    },
+  });
+  summary.total = orgs.length;
+
+  for (const org of orgs) {
+    if (!org.currentPeriodEnd) continue;
+    if (daysUntil(org.currentPeriodEnd, now) > PRENOTIFY_DAYS) continue;
+
+    const owners = await db.membership.findMany({
+      where: { organizationId: org.id, role: { in: ["OWNER", "ADMIN"] } },
+      select: { user: { select: { id: true, email: true } } },
+      take: 10,
+    });
+    const recipients = owners
+      .map((m) => m.user)
+      .filter((u): u is { id: string; email: string } => Boolean(u?.email));
+    if (recipients.length === 0) continue;
+
+    const amounts = await computeMonthlyTotalCents(org.id);
+    const html = renderPrenotificationEmail({
+      orgName: org.name,
+      planLabel: planLimits(org.plan).label,
+      totalCents: amounts.totalCents,
+      planCents: amounts.planCents,
+      integrationsCents: amounts.integrationsCents,
+      chargeDate: org.currentPeriodEnd,
+      mandateId: org.mollieMandateId,
+    });
+    const dateShort = format(org.currentPeriodEnd, "d MMMM", { locale: nl });
+    const subject = `Vooraankondiging: ${formatEuroNL(amounts.totalCents / 100)} wordt op ${dateShort} afgeschreven`;
+
+    await Promise.all([
+      ...recipients.map((u) => sendEmail({ to: u.email, subject, html })),
+      db.notification.createMany({
+        data: recipients.map((u) => ({
+          userId: u.id,
+          organizationId: org.id,
+          type: "billing",
+          title: `Incasso op ${dateShort}: ${formatEuroNL(amounts.totalCents / 100)}`,
+          body: `Het maandbedrag voor je ${COMPANY.brand}-abonnement wordt automatisch afgeschreven. Opzeggen kan tot die datum.`,
+          ctaUrl: "/dashboard/settings/billing",
+          ctaLabel: "Naar facturatie",
+        })),
+      }),
+    ]);
+
+    await db.organization.update({
+      where: { id: org.id },
+      data: { paymentReminderStage: 1 },
+    });
+    await audit({
+      organizationId: org.id,
+      action: "billing.sepa.prenotified",
+      resource: "organization",
+      resourceId: org.id,
+      metadata: {
+        chargeDate: org.currentPeriodEnd.toISOString(),
+        amountCents: amounts.totalCents,
+      },
+    });
+    summary.notified++;
+  }
+
+  return summary;
+}
+
 /**
  * Called from admin actions when paidUntil is set/extended manually.
  * Resets the reminder stage and clears any existing suspension so the
@@ -537,7 +695,7 @@ function renderTrialEmail(
     </div>
     <p style="font-size:13px;color:#6b7280;margin-top:24px">
       Vragen?
-      <a href="mailto:hallo@bookingbay.nl" style="color:#ef5934">Stuur ons een mail</a>
+      <a href="mailto:${COMPANY.email}" style="color:${EMAIL_ACCENT}">Stuur ons een mail</a>
       — dan denken we mee.
     </p>
   `);

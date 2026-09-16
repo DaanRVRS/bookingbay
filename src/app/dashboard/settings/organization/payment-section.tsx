@@ -8,7 +8,7 @@ import {
   MapPin,
   ShieldCheck,
 } from "lucide-react";
-import { Icon } from "@iconify/react";
+import { BrandIcon } from "@/components/integrations/BrandIcon";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export function PaymentSection({ initial, disabled }: Props) {
             <span className="flex items-center gap-1.5">
               <MollieMark className="text-sm" />
               <span className="text-muted-foreground/40">·</span>
-              <Icon icon="logos:stripe" className="h-3.5 w-auto" />
+              <BrandIcon iconifyId="logos:stripe" className="h-3.5 w-auto" />
             </span>
           }
         />
@@ -367,7 +367,7 @@ function ProviderTab({
       {icon === "mollie" ? (
         <MollieMark className="text-sm" />
       ) : (
-        <Icon icon={icon} className="h-4 w-auto" />
+        <BrandIcon iconifyId={icon} className="h-4 w-auto" />
       )}
       {label}
     </button>

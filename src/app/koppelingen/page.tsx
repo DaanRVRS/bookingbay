@@ -72,6 +72,14 @@ export default async function KoppelingenPage({ searchParams }: PageProps) {
               initialCategory={initialCategory}
               detailHrefTemplate="/koppelingen/{category}/{slug}"
             />
+            <p className="mt-8 text-xs text-muted-foreground">
+              Genoemde merken en logo&apos;s zijn eigendom van hun respectieve
+              eigenaren en worden alleen gebruikt om de koppeling aan te
+              duiden. Er is geen partnerschap met of goedkeuring door deze
+              partijen, tenzij dat bij de koppeling uitdrukkelijk is vermeld.
+              Koppelingen met de status &ldquo;binnenkort&rdquo; zijn in
+              ontwikkeling en nog niet beschikbaar.
+            </p>
           </div>
         </section>
 

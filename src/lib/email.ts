@@ -1,6 +1,7 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 import { env } from "@/lib/env";
+import { COMPANY, companyAddressLine } from "@/lib/company";
 
 export interface SendEmailOptions {
   to: string;
@@ -8,6 +9,8 @@ export interface SendEmailOptions {
   html: string;
   text?: string;
   from?: string;
+  /** Extra headers, bv. List-Unsubscribe voor afmeldbare mail. */
+  headers?: Record<string, string>;
 }
 
 type Provider = "smtp" | "resend" | "console";
@@ -49,6 +52,9 @@ function logToConsole(options: SendEmailOptions, from: string) {
       `From:    ${from}`,
       `To:      ${options.to}`,
       `Subject: ${options.subject}`,
+      ...(options.headers
+        ? Object.entries(options.headers).map(([k, v]) => `${k}: ${v}`)
+        : []),
       "─────────────────────────────────────────────────────────",
       options.text ?? options.html.replace(/<[^>]+>/g, ""),
       "─────────────────────────────────────────────────────────",
@@ -86,6 +92,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
         subject: options.subject,
         html: options.html,
         text: options.text,
+        headers: options.headers,
       });
       return { ok: true, provider };
     }
@@ -97,6 +104,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
       subject: options.subject,
       html: options.html,
       text: options.text,
+      headers: options.headers,
     });
     if (result.error) {
       console.error(`[email] Resend rejected: ${result.error.message}`);
@@ -110,7 +118,21 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   }
 }
 
-export function emailLayout(content: string): string {
+/**
+ * Merk-oranje voor knoppen en links in e-mail. Donkerder dan het oude
+ * #ef5934 zodat witte knoptekst WCAG AA (≥ 4,5:1) haalt.
+ */
+export const EMAIL_ACCENT = "#c8431f";
+
+export interface EmailLayoutOptions {
+  /**
+   * Extra regel onder de standaardfooter, bv. de afmeldlink bij
+   * niet-transactionele mail. Wordt als HTML ingevoegd — zelf escapen.
+   */
+  footerNote?: string;
+}
+
+export function emailLayout(content: string, opts: EmailLayoutOptions = {}): string {
   // Logo is gehost als publiek bestand zodat e-mailclients het kunnen
   // ophalen. Geen inline base64 — e-mails blijven klein.
   const logoUrl = `${env.APP_URL}/logo.png`;
@@ -128,7 +150,7 @@ export function emailLayout(content: string): string {
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-radius:16px;border:1px solid #e3e6ed;overflow:hidden">
           <tr>
             <td style="padding:32px 40px 24px 40px">
-              <img src="${logoUrl}" alt="BookingBay" height="36" style="display:block;height:36px;width:auto" />
+              <img src="${logoUrl}" alt="${COMPANY.brand}" height="36" style="display:block;height:36px;width:auto" />
             </td>
           </tr>
           <tr>
@@ -137,9 +159,14 @@ export function emailLayout(content: string): string {
             </td>
           </tr>
         </table>
-        <p style="margin:24px 0 0 0;font-size:12px;color:#6b7280">
-          Je krijgt deze e-mail omdat iemand dit adres bij BookingBay heeft gebruikt. Niet jij?
+        <p style="margin:24px 0 0 0;font-size:12px;line-height:1.6;color:#6b7280">
+          Je krijgt deze e-mail omdat iemand dit adres bij ${COMPANY.brand} heeft gebruikt. Niet jij?
           Negeer deze mail dan gerust.
+        </p>
+        ${opts.footerNote ? `<p style="margin:8px 0 0 0;font-size:12px;line-height:1.6;color:#6b7280">${opts.footerNote}</p>` : ""}
+        <p style="margin:8px 0 0 0;font-size:12px;line-height:1.6;color:#6b7280">
+          ${COMPANY.brand} is een dienst van ${COMPANY.legalName}, ${companyAddressLine()}, KvK ${COMPANY.kvk}.
+          Vragen? <a href="mailto:${COMPANY.email}" style="color:#6b7280">${COMPANY.email}</a>
         </p>
       </td>
     </tr>
@@ -149,7 +176,7 @@ export function emailLayout(content: string): string {
 }
 
 export function btn(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;background:#ef5934;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">${label}</a>`;
+  return `<a href="${href}" style="display:inline-block;background:${EMAIL_ACCENT};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">${label}</a>`;
 }
 
 /**

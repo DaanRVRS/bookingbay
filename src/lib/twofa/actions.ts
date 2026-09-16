@@ -27,6 +27,11 @@ import {
   TWOFA_LIMIT,
   tooManyAttemptsMessage,
 } from "@/lib/security/rate-limit";
+import {
+  isEncryptedTwoFactorSecret,
+  sealTwoFactorSecret,
+  unsealTwoFactorSecret,
+} from "./secret";
 
 // Cookie-namen zijn intern — niet exporteren (Next.js "use server" files
 // mogen alleen async functies exporteren, geen constants).
@@ -115,9 +120,20 @@ export async function verifyTwoFactorAction(code: string): Promise<ActionResult>
   const isTotpFormat = /^[0-9]{6}$/.test(trimmed);
 
   if (isTotpFormat) {
-    if (!verifyTotpCode(user.twoFactorSecret, trimmed)) {
+    const secret = unsealTwoFactorSecret(user.twoFactorSecret);
+    if (!verifyTotpCode(secret, trimmed)) {
       await recordFailure(rlKey, TWOFA_LIMIT);
       return { ok: false, error: "Code klopt niet" };
+    }
+    // Lazy migratie: oud plaintext-geheim alsnog versleuteld opslaan.
+    if (!isEncryptedTwoFactorSecret(user.twoFactorSecret)) {
+      const sealed = sealTwoFactorSecret(secret);
+      if (sealed !== user.twoFactorSecret) {
+        await db.user.update({
+          where: { id: user.id },
+          data: { twoFactorSecret: sealed },
+        });
+      }
     }
   } else {
     const stored = (user.twoFactorBackupCodes ?? []) as unknown as BackupCode[];
@@ -201,7 +217,7 @@ export async function beginSetupAction(): Promise<
   const secret = generateSecret();
   await db.user.update({
     where: { id: ctx.userId },
-    data: { twoFactorSecret: secret, twoFactorEnabledAt: null },
+    data: { twoFactorSecret: sealTwoFactorSecret(secret), twoFactorEnabledAt: null },
   });
   const otpauthUrl = buildOtpauthUrl(secret, ctx.email);
   const qrDataUrl = await buildQrDataUrl(otpauthUrl);
@@ -222,7 +238,7 @@ export async function confirmSetupAction(
   if (!user || !user.twoFactorSecret) {
     return { ok: false, error: "Geen pending secret — begin opnieuw" };
   }
-  if (!verifyTotpCode(user.twoFactorSecret, code)) {
+  if (!verifyTotpCode(unsealTwoFactorSecret(user.twoFactorSecret), code)) {
     return { ok: false, error: "Code klopt niet" };
   }
 
