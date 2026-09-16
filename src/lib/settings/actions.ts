@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { rm } from "node:fs/promises";
-import path from "node:path";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -26,6 +24,7 @@ import {
 import type { ActionResult } from "@/lib/auth/schemas";
 import { audit } from "@/lib/audit/log";
 import { blockDemoWrite } from "@/lib/demo/guard";
+import { deleteOrganizationPermanently } from "@/lib/orgs/delete";
 
 function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -169,35 +168,17 @@ export async function deleteOrgAction(input: DeleteOrgInput): Promise<ActionResu
     };
   }
 
-  await audit({
+  // Gedeelde verwijderlogica (ook gebruikt door de beheerder en de
+  // retentie-cron): cascade, uploads van de schijf, audit-regel. Facturen
+  // blijven bestaan (organizationId → null) voor de fiscale bewaarplicht.
+  await deleteOrganizationPermanently({
+    organizationId: ctx.organization.id,
+    reason: "owner",
     actorUserId: ctx.user.id,
-    action: "org.delete",
-    resource: "organization",
-    resourceId: ctx.organization.id,
     metadata: { name: ctx.organization.name, slug: ctx.organization.slug },
   });
 
-  // onDelete: Cascade handles cleanup of memberships, items, bookings, etc.
-  // Facturen blijven bestaan (organizationId → null) voor de fiscale
-  // bewaarplicht.
-  await db.organization.delete({ where: { id: ctx.organization.id } });
-
-  // Geüploade afbeeldingen van de schijf halen — de dialoog belooft dat.
-  await removeOrgUploads(ctx.organization.id);
-
   redirect("/dashboard");
-}
-
-/** Wist public/uploads/<orgId>; ontbrekende map = niets te doen. */
-async function removeOrgUploads(organizationId: string): Promise<void> {
-  // Alleen een cuid-achtige id toestaan zodat we nooit buiten de map werken.
-  if (!/^[a-z0-9]+$/i.test(organizationId)) return;
-  const dir = path.join(process.cwd(), "public", "uploads", organizationId);
-  try {
-    await rm(dir, { recursive: true, force: true });
-  } catch (err) {
-    console.error("[settings] uploads verwijderen mislukt:", err);
-  }
 }
 
 /* -------------------- Account (gebruiker) -------------------- */

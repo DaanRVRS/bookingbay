@@ -10,6 +10,7 @@ import { BookingLegalSection } from "./booking-legal-section";
 import { can } from "@/lib/auth/permissions";
 import { safeParseBusinessHours } from "@/lib/business-hours/schemas";
 import { readPaymentConfig, maskKey } from "@/lib/payments/config";
+import { RETENTION } from "@/lib/company";
 
 export const metadata = { title: "Organisatie" };
 
@@ -200,7 +201,10 @@ export default async function OrgSettingsPage() {
           <h2 className="text-base font-semibold text-destructive">Gevarenzone</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Definitief verwijderen van deze organisatie. Alle data — boekingen, klanten, items,
-            leads — wordt onomkeerbaar gewist.
+            leads — wordt onomkeerbaar gewist. Zonder lopend abonnement of proefperiode gebeurt
+            dit na {RETENTION.orgDeleteMonths} maanden automatisch ({RETENTION.orgDeleteWarnDays}{" "}
+            dagen vooraf per e-mail aangekondigd); facturen blijven {RETENTION.financeYears} jaar
+            bewaard.
           </p>
           <div className="mt-4">
             <DangerZone orgName={org.name} />

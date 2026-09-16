@@ -6,6 +6,11 @@ import { db } from "@/lib/db";
 import { ROLE_LABELS } from "@/lib/auth/permissions";
 import { PLAN_LIMITS, formatEuroNL } from "@/lib/plans";
 import { describeAction } from "@/lib/audit/log";
+import {
+  orgDeletionSchedule,
+  plannedDeletionDate,
+  validWarning,
+} from "@/lib/retention/org-lifecycle";
 import { OrgPlanForm } from "./plan-form";
 import { ExtendTrialForm } from "./extend-trial-form";
 import { PaidUntilForm } from "./paid-until-form";
@@ -48,6 +53,15 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
     orderBy: { createdAt: "desc" },
     take: 15,
   });
+
+  // Automatische verwijdering (retentie-cron): zelfde beslislogica als de
+  // cron, zodat de beheerder ziet wat er gaat gebeuren en wanneer.
+  const now = new Date();
+  const deletion = org.isDemo ? null : orgDeletionSchedule(org, now);
+  const deletionWarnedAt = deletion ? validWarning(org, deletion.stoppedAt) : null;
+  const deletionDate = deletion
+    ? plannedDeletionDate(deletion, deletionWarnedAt ?? now)
+    : null;
 
   return (
     <>
@@ -111,6 +125,16 @@ export default async function AdminOrgDetailPage({ params }: PageProps) {
               {org.subscriptionStatus && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Mollie-status: {org.subscriptionStatus}
+                </p>
+              )}
+              {deletion && deletionDate && (
+                <p className="mt-1 text-xs text-destructive">
+                  Gestopt op {format(deletion.stoppedAt, "d MMM yyyy", { locale: nl })} ·
+                  wordt {deletionWarnedAt ? "" : "op z'n vroegst "}automatisch verwijderd op{" "}
+                  {format(deletionDate, "d MMM yyyy", { locale: nl })}
+                  {deletionWarnedAt
+                    ? ` · eigenaren gewaarschuwd op ${format(deletionWarnedAt, "d MMM yyyy", { locale: nl })}`
+                    : " · waarschuwing nog niet verstuurd"}
                 </p>
               )}
             </div>

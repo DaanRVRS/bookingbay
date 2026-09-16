@@ -74,6 +74,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "org.payment.reminder.today": "Reminder verstuurd (verlengdatum)",
   "org.subscription.suspended": "Abonnement automatisch gestopt",
   "org.subscription.unsuspend": "Suspensie opgeheven",
+  "org.deletion.warned": "Waarschuwing automatische verwijdering verstuurd",
   "site.update": "Klantsite bijgewerkt",
   "page.create": "Pagina aangemaakt",
   "page.update": "Pagina bewerkt",

@@ -29,7 +29,7 @@ import {
   getBillingDetails,
   getBillingDetailsPrefill,
 } from "@/lib/billing/billing-details";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, RETENTION } from "@/lib/company";
 import { can } from "@/lib/auth/permissions";
 import { getIntegration } from "@/lib/integrations/catalog";
 import { IntegrationLogo } from "@/components/integrations/IntegrationLogo";
@@ -634,8 +634,11 @@ function StatusLine({
   if (state === "suspended") {
     return (
       <p className="mt-1 text-xs text-destructive">
-        Geen geldige betaling ontvangen. Je data blijft 30 dagen bewaard;
-        herstart je abonnement om weer toegang te krijgen.
+        Geen geldige betaling ontvangen. Je gegevens blijven{" "}
+        {RETENTION.orgDeleteMonths} maanden beschikbaar; herstart je
+        abonnement om weer toegang te krijgen. Daarna wordt de organisatie
+        automatisch verwijderd ({RETENTION.orgDeleteWarnDays} dagen vooraf
+        per e-mail aangekondigd); facturen blijven bewaard.
       </p>
     );
   }

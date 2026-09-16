@@ -12,6 +12,7 @@ import {
   buildImpersonationCookieValue,
 } from "@/lib/admin/impersonate";
 import { onPaidUntilChanged } from "@/lib/billing/lifecycle";
+import { deleteOrganizationPermanently } from "@/lib/orgs/delete";
 
 const PLAN = z.enum(["STARTER", "PROFESSIONAL", "BUSINESS", "ENTERPRISE"]);
 
@@ -49,6 +50,7 @@ export async function setOrgPlanAction(
     trialEndsAt?: Date | null;
     paidUntil?: Date | null;
     suspendedAt?: Date | null;
+    deletionWarnedAt?: Date | null;
     paymentReminderStage?: number;
     trialReminderStage?: number;
   } = { plan: parsed.data };
@@ -58,6 +60,7 @@ export async function setOrgPlanAction(
     data.trialEndsAt = next;
     data.paidUntil = null;
     data.suspendedAt = null;
+    data.deletionWarnedAt = null;
     data.paymentReminderStage = 0;
     data.trialReminderStage = 0;
   } else if (parsedMode.data === "paid") {
@@ -65,6 +68,7 @@ export async function setOrgPlanAction(
     data.trialEndsAt = null;
     data.paidUntil = next;
     data.suspendedAt = null;
+    data.deletionWarnedAt = null;
     data.paymentReminderStage = 0;
     data.trialReminderStage = 0;
   }
@@ -114,7 +118,8 @@ export async function extendTrialAction(
 
   await db.organization.update({
     where: { id: organizationId },
-    data: { trialEndsAt: next },
+    // Proef loopt weer: waarschuwing voor automatische verwijdering vervalt.
+    data: { trialEndsAt: next, deletionWarnedAt: null },
   });
 
   await audit({
@@ -179,7 +184,7 @@ export async function clearOrgSuspensionAction(
   const me = await requireAdmin();
   await db.organization.update({
     where: { id: organizationId },
-    data: { suspendedAt: null, paymentReminderStage: 0 },
+    data: { suspendedAt: null, paymentReminderStage: 0, deletionWarnedAt: null },
   });
   await audit({
     organizationId,
@@ -277,13 +282,12 @@ export async function adminDeleteOrgAction(organizationId: string): Promise<Acti
   });
   if (!existing) return { ok: false, error: "Niet gevonden" };
 
-  await db.organization.delete({ where: { id: organizationId } });
-
-  await audit({
+  // Zelfde verwijderlogica als de eigenaar en de retentie-cron (cascade,
+  // uploads van schijf, audit-regel; facturen blijven bestaan).
+  await deleteOrganizationPermanently({
+    organizationId,
+    reason: "admin",
     actorUserId: me.id,
-    action: "org.delete",
-    resource: "organization",
-    resourceId: organizationId,
     metadata: { byAdmin: true, name: existing.name },
   });
 

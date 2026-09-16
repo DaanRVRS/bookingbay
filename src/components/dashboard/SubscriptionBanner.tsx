@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { AlertTriangle, Clock, CreditCard } from "lucide-react";
+import { RETENTION } from "@/lib/company";
 
 /**
  * Top-of-dashboard banner die alleen verschijnt wanneer er iets is om naar
@@ -36,7 +37,8 @@ export function SubscriptionBanner({
     return (
       <Bar tone="danger" icon={AlertTriangle}>
         <strong className="font-semibold">Abonnement gestopt</strong> — er is
-        geen betaling ontvangen. Je data blijft 30 dagen bewaard.
+        geen betaling ontvangen. Je gegevens blijven {RETENTION.orgDeleteMonths}{" "}
+        maanden beschikbaar; daarna wordt de organisatie automatisch verwijderd.
         <CTA href="/dashboard/settings/billing" tone="danger">Hervatten</CTA>
       </Bar>
     );

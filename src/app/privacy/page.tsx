@@ -74,7 +74,7 @@ export default function PrivacyPage() {
               "Uitvoering van de overeenkomst; wettelijke plicht (fiscale bewaarplicht)",
               "Organisatienaam, plan, proefperiode, facturatiegegevens (bedrijfsnaam, adres, factuur-e-mail, optioneel btw-nummer), betaalstatus, betaal-id, bedrag en betaalmethode van Mollie",
               "Mollie (betaling en incassomandaat: naam en e-mailadres van de eigenaar, bedrag), Hetzner",
-              `Facturen en betaalgegevens ${RETENTION.financeYears} jaar (wettelijk). Overige gegevens zolang de organisatie bestaat.`,
+              `Facturen en betaalgegevens ${RETENTION.financeYears} jaar (wettelijk). Overige gegevens zolang de organisatie bestaat: na het einde van abonnement of proefperiode nog ${RETENTION.orgDeleteMonths} maanden, daarna wordt de organisatie automatisch verwijderd (${RETENTION.orgDeleteWarnDays} dagen vooraf per e-mail aangekondigd).`,
             ],
             [
               "Support en contact",

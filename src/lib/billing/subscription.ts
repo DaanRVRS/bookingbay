@@ -184,6 +184,7 @@ export async function onFirstPaymentPaid(args: {
         suspendedAt: null,
         lastPaymentFailedAt: null,
         cancelAtPeriodEnd: false,
+        deletionWarnedAt: null,
       },
     });
     return;
@@ -228,6 +229,9 @@ export async function onFirstPaymentPaid(args: {
       lastPaymentFailedAt: null,
       cancelAtPeriodEnd: false,
       paymentReminderStage: 0,
+      // Weer actief: een eventuele waarschuwing voor automatische
+      // verwijdering (retentie-cron) vervalt.
+      deletionWarnedAt: null,
     },
   });
 
@@ -276,6 +280,7 @@ export async function onRecurringPaid(args: {
       lastPaymentFailedAt: null,
       suspendedAt: null,
       paymentReminderStage: 0,
+      deletionWarnedAt: null,
       // Geplande downgrade gaat in op de verlenging: de charge die deze
       // webhook meldt is al tegen het (eerder gesyncte) nieuwe bedrag.
       ...(org.pendingPlan
@@ -445,6 +450,7 @@ export async function resumeSubscription(organizationId: string): Promise<void> 
       subscriptionId: sub.id,
       subscriptionStatus: "active",
       cancelAtPeriodEnd: false,
+      deletionWarnedAt: null,
     },
   });
 

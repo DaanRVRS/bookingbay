@@ -3,6 +3,7 @@ import { subDays, subMonths, subYears } from "date-fns";
 import { db } from "@/lib/db";
 import { RETENTION } from "@/lib/company";
 import { audit } from "@/lib/audit/log";
+import { runOrgDeletionStep, type OrgDeletionSummary } from "./org-deletion";
 
 /**
  * Dagelijkse opruimtaak (AVG art. 5 lid 1 sub e — opslagbeperking). De
@@ -18,6 +19,10 @@ import { audit } from "@/lib/audit/log";
  *  4. Prospects (eigen sales-CRM) zonder klantwording, contact of open
  *     follow-up in RETENTION.prospectMonths → wissen.
  *  5. Techniek: verlopen tokens en oude rate-limit-tellers opruimen.
+ *  6. Gestopte organisaties (abonnement/proef afgelopen, geen betaalde
+ *     periode meer) RETENTION.orgDeleteMonths na de stopdatum verwijderen,
+ *     met één waarschuwingsmail RETENTION.orgDeleteWarnDays vooraf aan de
+ *     eigenaren. Facturen blijven bestaan. Zie org-deletion.ts.
  *
  * Idempotent en in batches — veilig om vaker te draaien.
  */
@@ -25,7 +30,7 @@ import { audit } from "@/lib/audit/log";
 const ANONYMIZED_NAME = "Geanonimiseerde klant";
 const BATCH = 500;
 
-export interface RetentionSummary {
+export interface RetentionSummary extends OrgDeletionSummary {
   auditLogsDeleted: number;
   leadsDeleted: number;
   customersAnonymized: number;
@@ -44,6 +49,9 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionSum
     throttleRowsDeleted: 0,
     passwordResetsDeleted: 0,
     verificationTokensDeleted: 0,
+    orgDeletionWarned: 0,
+    orgsDeleted: 0,
+    orgDeletionWarningsCleared: 0,
   };
 
   // 1. Audit-log
@@ -129,6 +137,9 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionSum
       where: { expires: { lt: subDays(now, 7) } },
     })
   ).count;
+
+  // 6. Gestopte organisaties waarschuwen en verwijderen
+  Object.assign(summary, await runOrgDeletionStep(now));
 
   return summary;
 }

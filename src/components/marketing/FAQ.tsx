@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus } from "lucide-react";
+import { RETENTION } from "@/lib/company";
 
 const items = [
   {
@@ -27,7 +28,7 @@ const items = [
   },
   {
     q: "Wat als ik wil stoppen?",
-    a: "Geen jaarcontract. Je zegt op in het dashboard; het abonnement stopt aan het einde van de lopende betaalde maand en tot die tijd blijft alles werken. Je data exporteer je als CSV en je organisatie kun je zelf verwijderen.",
+    a: `Geen jaarcontract. Je zegt op in het dashboard; het abonnement stopt aan het einde van de lopende betaalde maand en tot die tijd blijft alles werken. Daarna blijven je gegevens ${RETENTION.orgDeleteMonths} maanden beschikbaar om te hervatten of als CSV te exporteren; dan verwijderen we de organisatie automatisch (${RETENTION.orgDeleteWarnDays} dagen vooraf krijg je een mail). Facturen bewaren we ${RETENTION.financeYears} jaar. Eerder verwijderen kan zelf in het dashboard.`,
   },
   {
     q: "Hoe zit het met de AVG?",

@@ -58,6 +58,12 @@ export const RETENTION = {
   prospectMonths: 12,
   /** Betaal- en factuurgegevens (fiscale bewaarplicht). */
   financeYears: 7,
-  /** Na het einde van een abonnement blijft de omgeving minimaal zoveel dagen beschikbaar om te hervatten of te exporteren. */
-  orgGraceDays: 30,
+  /**
+   * Na het einde van abonnement of proefperiode blijft de organisatie dit
+   * aantal maanden beschikbaar om te hervatten of te exporteren; daarna
+   * verwijdert de retentie-cron de organisatie automatisch (facturen blijven).
+   */
+  orgDeleteMonths: 12,
+  /** Zoveel dagen vóór die verwijdering krijgen de eigenaren een waarschuwingsmail. */
+  orgDeleteWarnDays: 30,
 } as const;

@@ -241,12 +241,15 @@ export default function DpaPage() {
             van de schijf.
           </li>
           <li>
-            Na het einde van je abonnement blijft je organisatie ten minste{" "}
-            {RETENTION.orgGraceDays} dagen beschikbaar om te hervatten of te
-            exporteren. Daarna verwijderen wij de organisatie op jouw verzoek;
-            vraag je niet om verwijdering, dan blijft de omgeving bewaard
-            zodat je kunt hervatten. Facturen en betaalgegevens bewaren wij{" "}
-            {RETENTION.financeYears} jaar (fiscale bewaarplicht).
+            Na het einde van je abonnement of proefperiode blijft je
+            organisatie {RETENTION.orgDeleteMonths} maanden beschikbaar om te
+            hervatten of te exporteren. Daarna verwijderen wij de organisatie
+            automatisch, inclusief alle persoonsgegevens van jouw klanten en
+            de geüploade afbeeldingen; {RETENTION.orgDeleteWarnDays} dagen
+            vóór die verwijdering mailen wij alle eigenaren de datum. Wil je
+            eerder verwijderen, dan doe je dat zelf in het dashboard. Facturen
+            en betaalgegevens bewaren wij {RETENTION.financeYears} jaar
+            (fiscale bewaarplicht).
           </li>
           <li>
             Verwijderde gegevens kunnen nog in back-ups aanwezig zijn totdat

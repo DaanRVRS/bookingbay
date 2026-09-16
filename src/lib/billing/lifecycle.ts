@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit/log";
 import { sendEmail, emailLayout, btn, EMAIL_ACCENT, escapeHtml } from "@/lib/email";
 import { env } from "@/lib/env";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, RETENTION } from "@/lib/company";
 import { planLimits, formatEuroNL, exclVat } from "@/lib/plans";
 import { notifyPaymentIssue } from "@/lib/discord/notifications";
 import { computeMonthlyTotalCents } from "./subscription";
@@ -122,9 +122,12 @@ function renderRenewalEmail(
         automatisch gestopt.
       </p>
       <p>
-        <strong>Je data blijft 30 dagen bewaard.</strong> Wil je weer
-        verder? Vul je betaalmethode aan en alles staat er weer — zonder
-        verlies.
+        <strong>Je gegevens blijven ${RETENTION.orgDeleteMonths} maanden beschikbaar.</strong>
+        Wil je weer verder? Vul je betaalmethode aan en alles staat er weer —
+        zonder verlies. Hervat je niet, dan verwijderen we de organisatie na
+        die ${RETENTION.orgDeleteMonths} maanden automatisch; je krijgt
+        ${RETENTION.orgDeleteWarnDays} dagen van tevoren een mail. Facturen
+        bewaren we ${RETENTION.financeYears} jaar.
       </p>
     `,
   }[variant];
@@ -622,7 +625,7 @@ export async function runSepaPrenotifications(
 export async function onPaidUntilChanged(organizationId: string) {
   await db.organization.update({
     where: { id: organizationId },
-    data: { paymentReminderStage: 0, suspendedAt: null },
+    data: { paymentReminderStage: 0, suspendedAt: null, deletionWarnedAt: null },
   });
 }
 

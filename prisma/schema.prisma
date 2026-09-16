@@ -233,6 +233,12 @@ model Organization {
   // Wanneer service uit staat (grace-period overschreden). Reads blijven
   // open, writes worden geblokt door assertOrgActive.
   suspendedAt          DateTime?
+  // Automatisch verwijderen van gestopte organisaties (retentie-cron,
+  // src/lib/retention/org-deletion.ts): RETENTION.orgDeleteWarnDays vóór de
+  // verwijdering krijgen de eigenaren één waarschuwingsmail; dit is het
+  // moment waarop die is verstuurd. Wordt weer null zodra de organisatie
+  // opnieuw actief is (betaling, verlenging, admin).
+  deletionWarnedAt     DateTime?
 
   // Platform-CRM (only used by BookingBay admins): customer pipeline status
   // + free-form tags. UI lives in /admin/organizations/[id].

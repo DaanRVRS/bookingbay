@@ -190,12 +190,15 @@ export default function VoorwaardenPage() {
         <p>
           <strong>Export en verwijdering.</strong> Je kunt op elk moment
           boekingen en klanten exporteren (CSV) en je organisatie zelf
-          verwijderen. Na het einde van je abonnement blijft je organisatie
-          ten minste {RETENTION.orgGraceDays} dagen beschikbaar om te
-          exporteren of te hervatten; daarna verwijderen wij de organisatie
-          op jouw verzoek. Facturen bewaren wij {RETENTION.financeYears} jaar
-          (wettelijke bewaarplicht). Verdere afspraken over persoonsgegevens
-          staan in de <a href="/verwerkersovereenkomst">verwerkersovereenkomst</a>.
+          verwijderen. Na het einde van je abonnement of proefperiode blijft
+          je organisatie {RETENTION.orgDeleteMonths} maanden beschikbaar om
+          te hervatten of te exporteren; daarna verwijderen wij de
+          organisatie automatisch. {RETENTION.orgDeleteWarnDays} dagen vóór
+          die verwijdering sturen we alle eigenaren een e-mail met de datum
+          en hoe je het voorkomt (abonnement hervatten). Facturen bewaren wij{" "}
+          {RETENTION.financeYears} jaar (wettelijke bewaarplicht). Verdere
+          afspraken over persoonsgegevens staan in de{" "}
+          <a href="/verwerkersovereenkomst">verwerkersovereenkomst</a>.
         </p>
       </Section>
 
