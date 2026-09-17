@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Logo } from "./Logo";
 import { StatusIndicator } from "./StatusIndicator";
 import { COMPANY, companyAddressLine, companyPhoneHref } from "@/lib/company";
@@ -45,6 +46,24 @@ export function SiteFooter() {
               Verhuur-administratie zonder gedoe. Eén plek voor je planning, klanten en eigen
               boekingssite.
             </p>
+            {/* Groene hosting, te controleren bij de Green Web Foundation. Het
+                badge staat hier zelf gehost, zodat bezoekers geen verzoek naar
+                een derde partij doen; het beeld zelf is onveranderd. */}
+            <a
+              href="https://www.thegreenwebfoundation.org/green-web-check/?url=www.bookingbay.nl"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Groene hosting, geverifieerd door de Green Web Foundation"
+              className="mt-5 block w-fit rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Image
+                src="/badges/green-web-foundation.png"
+                alt="bookingbay.nl draait op groene hosting, geverifieerd door de Green Web Foundation"
+                width={300}
+                height={135}
+                className="h-12 w-auto"
+              />
+            </a>
             <address className="mt-6 text-xs not-italic leading-relaxed text-muted-foreground">
               {COMPANY.brand} is een dienst van {COMPANY.legalName}
               <br />
