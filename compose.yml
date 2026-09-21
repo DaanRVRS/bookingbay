@@ -1,0 +1,43 @@
+# BookingBay in Docker, op de server in /var/www/bookingbay.
+# Bouwen en starten: bash scripts/docker-deploy.sh (niet los "docker compose up").
+# De database draait in de container "postgres" (/opt/postgres), bereikbaar via
+# het Docker-netwerk "databank"; DATABASE_URL wijst dus naar postgres:5432.
+name: bookingbay
+services:
+  web:
+    build:
+      context: .
+      secrets: [appenv]
+    image: bookingbay-web:latest
+    restart: unless-stopped
+    env_file: /etc/bookingbay/.env.production
+    environment:
+      PORT: "3001"
+      TZ: Europe/Amsterdam
+      NODE_OPTIONS: --max-old-space-size=750
+    ports:
+      - "${BOOKINGBAY_POORT:-127.0.0.1:3001}:3001"
+    volumes:
+      # Geüploade afbeeldingen van salons.
+      - ./public/uploads:/app/public/uploads
+    networks: [default, databank]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  appenv:
+    file: /etc/bookingbay/.env.production
+
+networks:
+  databank:
+    external: true

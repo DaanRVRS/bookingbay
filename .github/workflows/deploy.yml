@@ -43,59 +43,7 @@ jobs:
             git fetch --quiet origin main
             git reset --hard origin/main
 
-            echo "==> Symlinking production env"
-            ln -sf "$ENV_FILE" "$APP_DIR/.env.production"
-
-            echo "==> Loading env for build commands"
-            set -a
-            # shellcheck disable=SC1090
-            . "$ENV_FILE"
-            set +a
-
-            echo "==> Installing dependencies"
-            pnpm install --frozen-lockfile
-
-            echo "==> Running database migrations"
-            pnpm prisma migrate deploy
-
-            echo "==> Generating Prisma client"
-            pnpm prisma generate
-
-            echo "==> Building Next.js app"
-            pnpm build
-
-            echo "==> Reloading pm2"
-            # Force a clean (re)start to pick up ecosystem.config.cjs changes
-            pm2 delete bookingbay > /dev/null 2>&1 || true
-            pm2 start ecosystem.config.cjs --update-env
-            pm2 save
-
-            echo "==> Reloading reverse proxy (Caddy if present, else nginx)"
-            if systemctl is-active --quiet caddy; then
-              # Caddyfile lives in /etc/caddy/Caddyfile — reload is a no-op
-              # when unchanged, but ensures any /etc/letsencrypt cert
-              # rotation gets re-read.
-              systemctl reload caddy || true
-            elif systemctl is-active --quiet nginx; then
-              nginx -t && systemctl reload nginx
-            fi
-
-            echo "==> Health check (retry up to 30s)"
-            # Hit the app directly on its pm2 port — independent of which
-            # reverse-proxy is in front (nginx of Caddy).
-            for i in $(seq 1 15); do
-              sleep 2
-              if curl --fail --silent --show-error \
-                  http://localhost:3001/api/health > /tmp/health.json; then
-                echo "OK on attempt $i:"
-                cat /tmp/health.json
-                echo ""
-                echo "==> Deploy complete"
-                exit 0
-              fi
-              echo "  attempt $i failed, retrying..."
-            done
-
-            echo "ERROR: health check did not succeed within 30s"
-            pm2 logs bookingbay --lines 30 --nostream
-            exit 1
+            # Sinds 21-09-2026 draait BookingBay in Docker: bouwen, migreren
+            # en starten doet scripts/docker-deploy.sh (zie compose.yml).
+            echo "==> Bouwen en starten in Docker"
+            bash scripts/docker-deploy.sh
