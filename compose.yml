@@ -1,5 +1,8 @@
-# BookingBay in Docker, op de server in /var/www/bookingbay.
-# Bouwen en starten: bash scripts/docker-deploy.sh (niet los "docker compose up").
+# BookingBay in Docker, op de hoofdserver in /var/www/bookingbay (branch main) en op
+# de testserver in /srv/test/bookingbay (branch test, https://www.bookingbay.test via
+# de VPN). De deploy-wachter bouwt en start met scripts/docker-deploy.sh zodra er
+# een nieuwe commit is; niet los "docker compose up". Instellingen staan op beide
+# servers in /etc/bookingbay/.env.production.
 # De database draait in de container "postgres" (/opt/postgres), bereikbaar via
 # het Docker-netwerk "databank"; DATABASE_URL wijst dus naar postgres:5432.
 name: bookingbay

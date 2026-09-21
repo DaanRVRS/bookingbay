@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Bouwt en start BookingBay in Docker. Draait op de server in /var/www/bookingbay,
-# vanuit de GitHub-deploy (na git reset) of met de hand:
+# Bouwt en start BookingBay in Docker. De deploy-wachter draait dit vanzelf bij een
+# nieuwe commit (main op de hoofdserver, test op de testserver). Met de hand:
 #   bash /var/www/bookingbay/scripts/docker-deploy.sh
 #
 # Terug naar de vorige versie:
